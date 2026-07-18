@@ -842,3 +842,32 @@ telemetry writer (`fill_tlm`); guidance reads nothing new; no feedback path exis
   trace features: ignition/arrest/climb/fuel-margin; auto-flags the min-throttle climb trap).
   Sources in `_tools_wt\` pending a tools/ fold-in; contracts posted to all lanes.
 
+**D-013 addendum — two more levers CLOSED by measurement (fleet build lanes, same night):**
+- **RELIGHT (relights 2→3 + high-arrest engine cut): NULL — REJECTED** (runs/relight_report.md,
+  560 runs across 5 batches, every one summary-identical to baseline; per-run diff shows EXACTLY
+  the two fuel-out rows changed). The cut works mechanically (run 14: cut at h=44.8/vz=+11 →
+  refall → relight → still burns dry → 55.3 m/s vs 96.0; run 88: 130→97.8) and is
+  directive-3-clean (engine-off only, no padward term — and the tell is it does NOT rescue the
+  runs), but **the min-throttle climb trap is a symptom: the fuel-marginal seeds lack total
+  propellant for ANY strategy, relight included.** The D-012 "+2 s42/+5 s7 potential" is measured
+  NOT REALIZED. DO-NOT-RETRY cut/relight strategies at the current fuel budget; the upstream
+  levers (entry-burn economics, scenario fuel load) are plant-ADR territory bounded by D-009's
+  "bigger entry burn is cheaper" finding. The `_rl3_wt` implementation is preserved in the report
+  should the fuel budget ever change. (Side finding kept: relights 2→3 alone is a defensible
+  physical correction — real F9 flies 3-burn descents — but it is pointless without a consumer.)
+- **WINDBUILD (the windthink estimator, Stage 0): FALSIFIED — SHELVED** (runs/windbuild_report.md).
+  Byte-transparency PROVEN (estimator scaffolding reproduces every baseline bit-exact: 88/220/194/
+  MPPI-invariant), but the estimator-error ship bar (<2 m/s) FAILED BY ~10×: mean |error| at
+  ignition 21.7 m/s ENTRY / 18.5 m/s AERO — anti-informative (error ≥ the 16-22 m/s true wind).
+  Root cause, measured from truth: the composed vehicle holds 9-11° mean AoA (transients to 53°)
+  through the whole fins-deployed descent — it is continuously DIVERTING, so the weathervane
+  premise (AoA≈0) never holds; at 4.5 m/s per degree that is ~40 m/s of error, and the commanded-
+  AoA correction cannot remove the UNCOMMANDED fin-rate oscillation. The windthink probe's
+  <0.2 m/s was an artifact (it modeled attitude ≡ −vrel_dir by construction) — the isolated-model
+  -vs-composed-tree lesson (§4) claims another scalp. Stage 1 (aim pre-bias) was correctly NOT
+  built (injecting an 18-22 m/s wrong-direction estimate is the design's own named poison).
+- **Convergence: every reactive/estimation lever for the M6 gap is now measured-closed** (D-012:
+  brake/deck-null/trim saturated; this addendum: relight null, wind-inference falsified). The
+  remaining path is MPPI capacity + variants (lanes kprobe/cuda-mppi/mppi-var, in flight), exactly
+  as the research trilogy independently concluded.
+
