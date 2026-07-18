@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Booster Lander shell: spawn + supervise the core sidecar. Nothing else.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-execute",
+      "//": "canon §10.6/§11.1: the shell may execute ONLY the booster-core sidecar.",
+      "//2": "sidecar:true restricts this to the externalBin entry; no arbitrary shell.",
+      "allow": [
+        {
+          "name": "binaries/booster-core",
+          "sidecar": true,
+          "args": ["--serve", { "validator": "\\d{2,5}" }]
+        }
+      ]
+    }
+  ]
+}

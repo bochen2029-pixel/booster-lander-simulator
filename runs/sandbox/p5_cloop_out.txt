@@ -1,0 +1,43 @@
+=== AoA-HOLD, alpha_cmd=6deg, no model error, no disturbance ===
+M      qbar      baseline     P5_exact    
+0.70   30000     2.309        5.938       
+0.90   45000     2.221        6.140       
+1.05   50000     2.075        6.256       
+1.20   50000     2.075        6.149       
+1.50   45000     2.005        5.850       
+2.00   35000     2.051        5.852       
+
+=== MODEL-MISMATCH: controller CNa 15% high + CoP est 0.3m aft (typ ctrl-vs-plant error) ===
+alpha_cmd=6deg. Shows feedforward residual, and integral nulling it.
+M      qbar      P5_est(no I)     P5_est+I        
+0.70   30000     2.329            6.237           
+0.90   45000     1.985            6.196           
+1.05   50000     1.696            6.146           
+1.20   50000     1.819            6.129           
+1.50   45000     2.099            6.082           
+2.00   35000     2.159            6.073           
+
+=== DISTURBANCE REJECTION: gust moment (=~3deg body moment) applied from t=3s ===
+alpha_cmd=6deg, exact feedforward. Final alpha shows offset w/o I; +I rejects it.
+M      qbar      P5_exact+gust    P5+I+gust       
+0.70   30000     5.955            6.229           
+0.90   45000     6.156            6.168           
+1.05   50000     6.272            6.115           
+1.20   50000     6.164            6.104           
+1.50   45000     5.864            6.074           
+2.00   35000     5.867            6.070           
+
+=== TRACE: P5_est+I at M=1.05 (transonic dip, 15% CNa error), alpha_cmd=6 ===
+  t=0.00  alpha= 0.000  q= 0.0003  fin_amp= 1.777  eint=0.0000
+  t=0.50  alpha= 0.467  q= 1.8228  fin_amp= 1.844  eint=2.7093
+  t=1.00  alpha= 1.594  q= 2.5070  fin_amp= 2.233  eint=5.2091
+  t=1.50  alpha= 2.848  q= 2.4233  fin_amp= 2.733  eint=7.0979
+  t=2.00  alpha= 3.962  q= 2.0006  fin_amp= 3.194  eint=8.3876
+  t=2.50  alpha= 4.832  q= 1.4814  fin_amp= 3.561  eint=9.1792
+  t=3.00  alpha= 5.448  q= 0.9952  fin_amp= 3.823  eint=9.5996
+  t=3.50  alpha= 5.842  q= 0.6000  fin_amp= 3.992  eint=9.7693
+  t=4.00  alpha= 6.065  q= 0.3106  fin_amp= 4.088  eint=9.7868
+  t=4.50  alpha= 6.168  q= 0.1180  fin_amp= 4.133  eint=9.7246
+  t=5.00  alpha= 6.196  q= 0.0031  fin_amp= 4.145  eint=9.6312
+  t=5.50  alpha= 6.181  q=-0.0554  fin_amp= 4.139  eint=9.5359
+  t=6.00  alpha= 6.146  q=-0.0768  fin_amp= 4.125  eint=9.4538

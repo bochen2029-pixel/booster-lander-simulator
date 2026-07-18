@@ -1,0 +1,69 @@
+=== Agent P4: aero-divert physical ceiling (Booster Lander Sim) ===
+mass=35600 kg  Aref=10.52 m^2  US76 atmo  CN/CA from frozen tables
+
+--- PART 1: baseline AERO_OFFSET  h0=12000 vz0=-330  m=35600 ---
+AoA-cap schedule = control.c flown (8deg@<=10kPa -> 3deg@>=42kPa)
+
+[max rest-to-rest divert: fly out at max side-load AoA, reverse to null vx by 4.6 km]
+ cap-schedule          maxDivert(m)  qbar_pk(kPa)  AoAmax(deg)  M@burn  vx@burn  SLfail(s)
+ control.c(8->3deg)         237         35.9         6.3     0.95     8.00     0.00
+ AgentA   (12->4deg)        314         35.9         9.2     0.95     8.00     0.00
+ hard STRUCT(<=15deg)       847         35.8        20.0     0.95     7.99     0.00
+
+ MAX aero divert (bang-bang optimal, control.c cap): 237 m
+ MAX aero divert (sim-style PD tracker, control.c cap): 222 m  (x<=50, vx<=8)
+
+--- PART 2a: max aero divert vs AoA-cap schedule (12km, -330) ---
+ schedule                          max_divert_bb(m)  max_divert_pd(m)
+  control.c flown (8->3 deg)              237               222
+  AgentA        (12->4 deg)               314               281
+  hard STRUCT   (<=15 deg)                847               464
+
+ fixed constant AoA cap (ideal ceiling, bang-bang):
+  cap(deg)  max_divert(m)  qbar_pk(kPa)@that_x
+     2.0          125          35.9
+     4.0          223          35.9
+     6.0          313          35.9
+     8.0          400          35.9
+    10.0          486          35.9
+    12.0          573          35.9
+
+--- PART 2b: max aero divert vs start altitude (vz0=-330, control.c cap) ---
+  h0(km)   max_divert_bb(m)   max_divert_pd(m)
+      8           59                 76
+     10          138                142
+     12          237                222
+     14          335                306
+     16          427                386
+
+--- PART 2c: entry-burn present -> enters aero phase SLOWER ---
+(entry burn bleeds speed; vehicle starts aero phase near Mach 0.7-1.0)
+  entry vz0(m/s)  Mach0   max_divert_bb(m)  qbar_pk(kPa)  max_divert_pd(m)
+     -330         1.12         237           35.9            222
+     -250         0.85         277           34.0            244
+     -230         0.78         282           33.6            246
+     -200         0.68         285           32.9            248
+     -170         0.58         284           32.2            247
+
+--- PART 3: AERO_OFFSET well-posedness (total = aero + landing-burn) ---
+landing-burn gimbal divert budget: 550 m (added below burn)
+AERO_OFFSET demand: mean 800 m, 1-sigma 250 m -> 3-sigma tail ~1550 m
+
+ cap schedule                aero(m)  +burn(m)  =total(m)   covers 800?  covers 1050(mu+1s)? 1550(3s)?
+  control.c cap (flown)         237     550        787     NO          NO              NO      
+  AgentA cap (12->4)            314     550        864     YES         NO              NO      
+  hard 15deg STRUCT limit       847     550       1397     YES         YES             NO      
+
+--- For P5 sequencing: bang-bang switch altitude (accel->null) at max divert ---
+ cap-schedule        maxDivert(m)  switch_alt(m)  frac_of_band  divert_at_switch(m)
+ control.c(8->3)           237         6172       0.79              174
+ AgentA(12->4)             313         6604       0.73              217
+
+--- VERIFY: integrator dt-convergence (AgentA cap, 12km/-330) ---
+  dt(s)    maxDivert_bb(m)
+  0.004      313.6
+  0.002      313.6
+  0.001      313.6
+  closed-form check (6deg,qbar~30kPa,t=22.6s): a_lat=2.04 m/s^2 -> ~261 m (vs sim ~313)
+
+(done)

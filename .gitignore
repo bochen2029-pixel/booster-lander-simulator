@@ -1,0 +1,58 @@
+# ── Build output ─────────────────────────────────────────────────────────────
+build/
+_wstest/
+
+# temporary duplicate source tree — never publish
+_serve_wt/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+
+# ── Compiled / linker artifacts (anywhere in the tree) ───────────────────────
+**/*.exe
+**/*.obj
+**/*.o
+**/*.pdb
+**/*.ilk
+**/*.lib
+**/*.a
+**/*.exp
+**/*.dll
+**/*.so
+**/*.dylib
+
+# ── Build logs under runs/ ───────────────────────────────────────────────────
+runs/**/*.log
+
+# ── Node / UI ────────────────────────────────────────────────────────────────
+node_modules/
+ui/node_modules/
+ui/dist/
+ui/.vite/
+.pnpm-store/
+npm-debug.log
+pnpm-debug.log
+
+# ── Rust / Tauri shell ───────────────────────────────────────────────────────
+shell/target/
+shell/binaries/
+target/
+
+# ── Visual Studio / editor / OS cruft ────────────────────────────────────────
+.vs/
+*.user
+*.suo
+.idea/
+.vscode/
+*.tmp
+*.temp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Kept on purpose: core/**, ui/src/**, shell/src/**, all *.md docs,
+# runs/**/*.c, runs/**/*.md, runs/*.csv, runs/*.json, _events.xlsx, goldens/**.

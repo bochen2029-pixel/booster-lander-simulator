@@ -1,0 +1,26 @@
+{
+  "name": "booster-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Booster Lander renderer — three.js r185 WebGPU, telemetry-honest observer (canon §11).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "gen:protocol": "python ../tools/gen_protocol_ts.py ../core/protocol.h src/net/protocol.generated.ts"
+  },
+  "dependencies": {
+    "three": "0.185.1",
+    "uplot": "^1.6.32"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.0",
+    "@types/three": "0.185.0"
+  }
+}

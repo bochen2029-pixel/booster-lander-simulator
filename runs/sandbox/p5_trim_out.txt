@@ -1,0 +1,43 @@
+=== MASS STATE (aero-descent) ===
+m_lox=11755 m_rp1=5045  m=42.4 t  com=12.284 m  I_tr=5.6625e+06 kg m^2
+
+=== STATIC MARGIN & BODY PITCH STIFFNESS (about CoM) ===
+M      qbar      x_cp[m]   SM=xcp-com CNa          dTb/dalpha[Nm/rad]
+0.70   30000     12.265    -0.019     2.200        -1.3492e+04   
+0.90   45000     12.911    0.626      2.400        7.1156e+05    
+1.05   50000     13.184    0.900      2.475        1.1713e+06    
+1.20   50000     12.911    0.626      2.475        8.1533e+05    
+1.50   45000     12.078    -0.206     2.400        -2.3409e+05   
+2.00   35000     11.948    -0.336     2.300        -2.8476e+05   
+3.00   20000     11.948    -0.336     2.200        -1.5567e+05   
+(SM<0 => CoP ahead of CoM in base-first => bare body UNSTABLE, per D-005.)
+
+=== TRIM DEFLECTION delta_trim(alpha_cmd) [deg] that zeros total pitch moment ===
+(NaN/--- = cannot trim: fin saturates at 20deg or stalls; that AoA is UNHOLDABLE)
+M\aoa  a=2      a=4      a=6      a=8      a=10     a=12    
+0.70    -1.41   -2.80   -4.18   -5.55   -6.91   -8.27 
+0.90    -1.49   -2.96   -4.41   -5.84   -7.25   -8.66 
+1.05    -1.53   -3.04   -4.53   -6.00   -7.45   -8.89 
+1.20    -1.49   -2.96   -4.41   -5.84   -7.26   -8.66 
+1.50    -1.38   -2.74   -4.09   -5.42   -6.74   -8.05 
+2.00    -1.38   -2.74   -4.09   -5.43   -6.77   -8.10 
+3.00    -1.38   -2.74   -4.10   -5.44   -6.78   -8.11 
+
+=== LINEAR FEEDFORWARD GAIN  K_ff = d(delta_trim)/d(alpha_cmd)  [deg fin per deg AoA] ===
+M      K_ff[deg/deg]  Kfin_d[Nm/rad] kbody[Nm/rad] 
+0.70   -0.705         -1.5490e+07    -1.3492e+04   
+0.90   -0.749         -1.6490e+07    7.1156e+05    
+1.05   -0.770         -1.8322e+07    1.1713e+06    
+1.20   -0.750         -1.8322e+07    8.1533e+05    
+1.50   -0.694         -1.9300e+07    -2.3409e+05   
+2.00   -0.691         -1.8655e+07    -2.8476e+05   
+3.00   -0.692         -1.0660e+07    -1.5567e+05   
+
+=== FIN SLEW TIME to reach delta_trim(6deg) at 20 deg/s ===
+M=0.70: delta_trim=-4.18 deg -> slew time = 0.209 s
+M=0.90: delta_trim=-4.41 deg -> slew time = 0.220 s
+M=1.05: delta_trim=-4.53 deg -> slew time = 0.226 s
+M=1.20: delta_trim=-4.41 deg -> slew time = 0.221 s
+M=1.50: delta_trim=-4.09 deg -> slew time = 0.205 s
+M=2.00: delta_trim=-4.09 deg -> slew time = 0.205 s
+M=3.00: delta_trim=-4.10 deg -> slew time = 0.205 s

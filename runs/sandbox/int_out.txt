@@ -1,0 +1,14 @@
+INTEGRATED entry+aero-descent, predictive cut@76kPa, with AoA steering:
+  lat0=0 fpa=-70: {'qmax': 75.8, 'qd': 18.5, 'prop': 20746.0, 'hcut': 40.6, 'lat_resid': 0.0, 'vhand': 412.0, 'reserve': 9254.0, 'qbar_over': 0, 'qd_over': 0}
+  lat0=800 fpa=-70: {'qmax': 75.8, 'qd': 18.5, 'prop': 20746.0, 'hcut': 40.6, 'lat_resid': -275.0, 'vhand': 412.0, 'reserve': 9254.0, 'qbar_over': 0, 'qd_over': 0}
+  lat0=1479 fpa=-70: {'qmax': 75.8, 'qd': 18.5, 'prop': 20746.0, 'hcut': 40.6, 'lat_resid': -71.0, 'vhand': 412.0, 'reserve': 9254.0, 'qbar_over': 0, 'qd_over': 0}
+  worst-corner v0=1700 fpa=-80 lat0=1479: {'qmax': 75.8, 'qd': 18.7, 'prop': 21223.0, 'hcut': 36.0, 'lat_resid': -66.0, 'vhand': 410.0, 'reserve': 8777.0, 'qbar_over': 0, 'qd_over': 0}
+
+GATE CHECK: qbar_over<2.0 AND qd_over<5.0 (else STRUCT/THERMAL_FAIL); reserve>=8000kg; lat_resid<~400m for landing-burn
+
+=== FUEL RESERVE SPREAD over dispersions (for @C fuel knife-edge) ===
+  nominal reserve: 9254.0 kg (prop 20746.0)
+  -1% Isp: est prop~20953 kg -> reserve~9047 kg (landing-need ~7-8t)
+  -2% thrust: est prop~21161 kg -> reserve~8839 kg (landing-need ~7-8t)
+  combo worst: -Isp -thrust +dry: est prop~21629 kg -> reserve~8371 kg (landing-need ~7-8t)
+  => min-reserve corner ~7.9-8.2t; C's >=1.5t-slack gate means ENTRY nominal should target ~9.5t reserve (cut@78kPa) for margin.

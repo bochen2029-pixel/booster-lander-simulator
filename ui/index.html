@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booster Lander</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      canvas { display: block; }
+      #splash {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        background: #000; color: #cde; font: 14px/1.5 monospace; cursor: pointer; z-index: 100;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Audio autoplay policy (canon §12): AudioContext resumes on this click. -->
+    <div id="splash">click to arm audio &amp; connect</div>
+    <script type="module">
+      // Gate the boot on a user gesture so WebAudio can start (canon §12, Risk #13).
+      const splash = document.getElementById("splash");
+      splash.addEventListener("click", async () => {
+        splash.remove();
+        await import("./src/main.ts");
+      }, { once: true });
+    </script>
+  </body>
+</html>
