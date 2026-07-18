@@ -216,24 +216,31 @@ pre-chunked in `*.chunks\`; distillate already in D-009's archaeology addendum.
 - `runs/d009_entry_divert_design.md`, `runs/sandbox/ceiling.c`, `runs/IGNITION_TRANSIENT_ANALYSIS.md`.
 - `runs/agentB_mppi_design.md` §5 — the M5 CUDA port plan (sm_89).
 
-## 8. THE ROADMAP (ranked; my recommendation — start at A)
+## 8. THE ROADMAP (ranked; my recommendation — start at A = MPPI capacity)
 
-**A. CLOSE M6: ENTRY ≥90% (2 points away).** The 12 s42 failures by mechanism:
-1. **Graze band (op 5, three within ~2-6 m of the 26 m line):** the C14 wind-trim (KI 0.012,
-   fade, engage) was tuned BEFORE the burn-brake existed — a C15-style mini-grid
-   {KI_WIND 0.012/0.016/0.020} × {fade window} × the shipped brake is the systematic move.
-   2 conversions = M6 at s42.
-2. **Fuel pair (min-throttle climb trap):** a terminal engine-cut rule (guidance MAY command
-   engine_cmd=0 — canon-compatible, relights budgeted) — needs a dedicated study + ADR: when
-   arrested above X m with fuel below Y, cut and re-light vs ride. Do NOT touch ENTRY_FUEL_FLOOR.
-3. **th 5 (extreme-vxy tail):** structure-saturated — subsumed by B (MPPI capacity), skip tuning.
-4. Validate ×100 s42/7/99 + 300-run confirm, freeze golden, ADR, push. **M6 unlocks M7.**
+**READ FIRST — the D-012 addendum closed BOTH remaining reactive M6 levers by measurement:**
+the trim grid (runs/d012_sweep3.csv) is null-to-negative (grazes convert only by paying in
+too-hard + fuel — the C14 package is Pareto-saturated under the brake; DO NOT RETRY), and the
+engine-cut rule is relight-blocked (`relights_left=2`, both spent by ENTRY's two burns; the rule
+needs a relights-3 plant ADR + oscillation-guard study — parked). **ENTRY 88 is the measured
+plateau of the reactive structure. The path to M6 ≥90 AND M4 is the same: MPPI capacity.**
 
-**B. M4: AERO ≥90% = MPPI capacity.** K 256→1024 CPU probe (perf ~4×/run — overnight-style
-background batch), then the **M5 CUDA port** (design ready; sm_89, `-fmad=false`, fixed pairwise
-reductions, K=16384, p99 ≤6 ms gate). MPPI's cost machinery is healthy and it now leads tier-0
-by 0 pts at 5× fewer runs' noise (44/60 vs 220/300) — capacity is the credible bottleneck.
-Also cheap: cross-validate the (NEAR 1.7, SPLIT 350) AERO lead while a batch runs.
+**A. MPPI capacity (serves BOTH gates).** K 256→1024 CPU probe first (perf ~4×/run ≈ 36 s/run —
+overnight-style background batch; measure rate vs K on AERO s42/60 and ENTRY-under-MPPI if
+wired), then the **M5 CUDA port** (design ready: runs/agentB_mppi_design.md §5; sm_89,
+`-fmad=false`, fixed pairwise reductions, no atomics, K=16384, p99 ≤6 ms gate, host/device parity
+toleranced §9.5). MPPI's cost machinery is healthy (44/60 = 73.3% best-ever at K=256) and its
+misses are off-pad reach — capacity is the credible bottleneck. Cheap add-on while a batch runs:
+cross-validate the (NEAR 1.7, SPLIT 350) AERO lead (s42 +1.7, th 24 — noise-scale, unvalidated).
+Note: MPPI currently runs AERO only via `--mppi`; ENTRY-under-MPPI wiring status — check sim.c
+GM_MPPI + entry_supervisor interplay before assuming.
+
+**B. The relights-3 study (unblocks the ENTRY fuel pair, +2 s42 / +5 s7 potential):** a plant/
+scenario ADR (2→3 igniter cartridges; defensible vs real F9 3-burn profiles) + the high-arrest
+cut rule (fins-deployed, h_feet>40, vz>-0.5, relights_left>0 → engine_cmd=0 with a shutdown
+latch in sim.c mirroring the ignition latch, + the MPPI lean-model mirror) + guards against
+cut/relight cycling. Directive-3 adjacent: do it as a deliberate, measured, ADR'd unit or not
+at all.
 
 **C. Renderer first-light (after M6, or earlier ONLY as a gate-free subagent spike).** Opening
 act = the pre-authorized protocol extension (`pred_impact[2]`+`ignite_h`, BL_PROTO_VERSION bump,

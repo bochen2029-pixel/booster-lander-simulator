@@ -14,9 +14,12 @@ across ~20 builds · selftest PASS · deterministic · nav-noisy: ENTRY 74, AERO
 mirrored into the MPPI rollout — directive 7). The v1-v4 structural factorial that found it (and
 killed two plausible-but-wrong placements, incl. re-reading D-010's "1.2 over-drove tilt" as
 UNPOWERED-phase damage) + the 11-config BRAKE×VBLEND grid + the saturated deck-null grid:
-DECISIONS **D-012**, runs/d012_sweep{,2}.csv. **M6 (ENTRY ≥90) is 2 points away at s42**;
-remaining anatomy op-5 graze band / th-5 extreme-vxy (structure-saturated) / fuel-2 min-throttle
-climb trap (mechanism traced, latent). M4 path = MPPI capacity (K 256→1024 CPU probe → M5 CUDA).
+DECISIONS **D-012**, runs/d012_sweep{,2,3}.csv. **M6 (ENTRY ≥90) is 2 points away at s42 — and
+88 is the MEASURED PLATEAU of the reactive structure** (D-012 addendum: the trim grid is
+null-to-negative — grazes convert only by paying in th+fuel; the engine-cut rule is
+relight-blocked at relights_left=2). **Next session: MPPI capacity (K 256→1024 CPU probe → M5
+CUDA) — it is the path to BOTH M6 and M4.** Optional plant study: relights 2→3 ADR unblocks the
+ENTRY fuel pair (+2 s42 / +5 s7 potential).
 
 **Current milestone:** M2 GREEN (TERMINAL ~97-98% across seeds) + **M3 socket path LIVE** + **M6
 entry supervisor BUILT**. This session (D-007, ran 4-A + 4-C concurrently per operator "BOTH"):

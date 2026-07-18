@@ -764,3 +764,31 @@ levers, in order: (a) the graze band via wind-trim/KI interaction with the new b
 mini-grid), (b) an engine-cut terminal rule for the fuel pair, (c) MPPI capacity (K 256→1024 CPU
 probe, then M5 CUDA) which subsumes the th tail. AERO/M4 waits on (c) regardless.
 
+**D-012 addendum — both remaining reactive levers CLOSED by measurement (same session):**
+- **Lever (a) trim grid: NULL-TO-NEGATIVE** (runs/d012_sweep3.csv; KI_WIND 0.012/0.016/0.020 ×
+  fade 160/240 × EINT_CAP 2/3 at the shipped brake; every row selftest+TERMINAL-194 gated; row 1
+  = shipped config reproduced 88 bit-exact). Stronger/longer/deeper trim DOES convert grazes
+  (op 5→4→2 at ki.016/fade240) but pays for every one in the same coin the C14 sweep found: trim
+  tilt near the deck turns soft grazes into on-pad TOO-HARDS (th 5→7-8) and burns fuel margin
+  (fuel 2→3, AERO fuel up to 5). Net ENTRY ≤88 and net AERO ≤ shipped on EVERY variant. The C14
+  package (0.012/160/2.0) is Pareto-saturated under the brake. DO NOT RETRY trim strengthening
+  for the graze band.
+- **Lever (b) engine-cut rule: DEAD ON ARRIVAL with the current relight budget.**
+  `relights_left=2` at scenario init (scenario.c:76); ENTRY spends both (entry burn + landing
+  burn), so a high-arrest cut can never relight exactly where the trap lives — cut-without-
+  relight from ~250 m is a 70 m/s crash, no better than the 96 m/s trap. The rule requires
+  relights 3 (defensible vs real F9 3-burn profiles but it is a PLANT/scenario relaxation —
+  directive-3 adjacent, needs its own ADR + study of cut/relight oscillation guards). Parked.
+- **Graze anatomy (final-config verbose traces):** the op-5 band is TWO mechanisms. Runs like 3:
+  the TRIM-RESIDUAL miss — a flawless landing (settles upright, tilt 0.4°, vz≈0) 33 m downwind;
+  the steady-state residual of the faded/capped trim (this is what lever (a) targeted and cannot
+  convert without the th/fuel payback). Runs like 73: the OVERSHOOT TAIL — crosses pad center at
+  h=54 m still at 38 m/s down, slides outbound, contacts at 26.4 m with vrad +7 (a th-mechanism
+  run that happens to end 0.4 m over the line; brake-saturated). Also noted: v4's run 18 graze
+  (27.8 m) was CONVERTED by the final (1.5,3) brake — it now lands at 23.9 m.
+- **Conclusion: ENTRY 88 is the measured plateau of the reactive structure.** All three residual
+  mechanisms are saturated (trim: this addendum; brake/deck-null: the D-012 grids; fuel: relight-
+  blocked). The path to M6 ≥90 is MPPI capacity (K 256→1024 CPU probe → M5 CUDA), which attacks
+  the th tail and the overshoot-op tail by replanning — and is the M4 path anyway. Next session:
+  start at Roadmap B.
+
