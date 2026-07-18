@@ -1,0 +1,9 @@
+# ENTRY s42 x100 baseline - D-012 config (C14 trim + height-split + powered-burn overspeed brake SEEK .9/BRAKE 1.5/VBLEND 3)
+# (2026-07-18 night; bit-deterministic. Cross-seed: s7=79%, s99=78%. --nav-noisy: 74%.)
+========= HEADLESS MONTE CARLO =========
+scenario=entry seed=42 runs=100 turb=1
+LANDED: 88/100 = 88.0%  (Wilson95: 80.2..93.0%)
+  PERFECT 0  GOOD 17  HARD 71  TIPPED 0  CRASHED 12
+  faults: FUEL 2  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 5  too-hard 5  fuel-out 2  other 0
+  landed means: td_v=3.77 m/s (max 5.94)  lat=12.16 m  tilt=2.65 deg  fuel=2253 kg

@@ -315,9 +315,21 @@ static void cmd_from_u_lean(State* rst, const double u[MPPI_NCH], double h_feet,
     /* D-010 rollout<->execution parity: the execution blend inherits hoverslam's HEIGHT-SPLIT null
      * gain (0.9 -> 1.6 at the deck), so the rollout's damping must mirror it — a fixed 0.6 here
      * made rollouts rank trajectories a way the plant no longer flies (directive 7), and the MPPI
-     * batch dropped 63->40% when the split landed. Same ramp, same constants. */
+     * batch dropped 63->40% when the split landed. Same ramp, same constants.
+     * D-012: the execution base gain is now the STATE-ADAPTIVE schedule (KDIV_* shared from
+     * guidance_hoverslam.h; converging_vdes IS hoverslam's vdes profile — A_DECEL/VLAT_MAX/T_LEAD
+     * parity), so the rollout mirror computes the same overspeed blend from the rollout state. */
+    double kbase = KDIV_SEEK;
+    if(rst->engine_on){   /* D-012 powered-burn gate — parity with hoverslam_step */
+        double vdxm,vdym,rhxm,rhym;
+        converging_vdes(y[S_RX],y[S_RY],y[S_VX],y[S_VY],&vdxm,&vdym,&rhxm,&rhym);
+        double vdmm = sqrt(vdxm*vdxm+vdym*vdym);
+        double vxym = sqrt(y[S_VX]*y[S_VX]+y[S_VY]*y[S_VY]);
+        double osm = (vxym - vdmm)/KDIV_VBLEND; if(osm<0.0)osm=0.0; if(osm>1.0)osm=1.0;
+        kbase = KDIV_SEEK + osm*(KDIV_BRAKE - KDIV_SEEK);
+    }
     double bk=(250.0-h_feet)/250.0; if(bk<0.0)bk=0.0; if(bk>1.0)bk=1.0;
-    double kvd=0.9 + bk*(1.6-0.9);
+    double kvd=kbase + bk*(1.6-kbase);
     g->a_lat[0]=s*u[1] + damp*(-kvd*y[S_VX]);
     g->a_lat[1]=s*u[2] + damp*(-kvd*y[S_VY]);
     g->t_go=(vz<-0.1)?(h_feet/(-vz)):5.0;

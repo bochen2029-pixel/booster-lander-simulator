@@ -1,9 +1,22 @@
 # RUN_STATE
 
 **Canon:** `CLAUDE_v1.md` (read §0–§2 first). `CLAUDE_v0.md` is history — do not edit.
-**COLD-START:** point a fresh session at **`HANDOFF_2026-07-18_EVENING.md`** — the self-contained
+**COLD-START:** point a fresh session at **`HANDOFF_2026-07-18_NIGHT.md`** — the self-contained
 bootstrap (state + knob provenance + do-not-retry list + tool contracts + ranked roadmap). It
-supersedes `HANDOFF_2026-07-18.md` and `NEXT_SESSION.md`.
+supersedes `HANDOFF_2026-07-18_EVENING.md`, `HANDOFF_2026-07-18.md` and `NEXT_SESSION.md`.
+
+**★★★★ D-012 STATE-ADAPTIVE DIVERT GAIN (night session; the current tree + goldens): ENTRY
+88/100 s42 (79 s7 / 78 s99 — every seed +2-3; op 5, th 5, fuel 2) · AERO tier-0 73.3% s42
+(73.3 s7) · MPPI 44/60 = 73.3% new best (was 41; td_v mean 2.95) · TERMINAL 194/200 byte-stable
+across ~20 builds · selftest PASS · deterministic · nav-noisy: ENTRY 74, AERO 72.3, TERMINAL
+96.5.** The mechanism: a PROFILE-OVERSPEED brake on the fins-deployed POWERED-BURN divert gain
+(seek 0.9 → brake 1.5 over 3 m/s of |v_xy| above the vdes profile; guidance_hoverslam.h KDIV_*,
+mirrored into the MPPI rollout — directive 7). The v1-v4 structural factorial that found it (and
+killed two plausible-but-wrong placements, incl. re-reading D-010's "1.2 over-drove tilt" as
+UNPOWERED-phase damage) + the 11-config BRAKE×VBLEND grid + the saturated deck-null grid:
+DECISIONS **D-012**, runs/d012_sweep{,2}.csv. **M6 (ENTRY ≥90) is 2 points away at s42**;
+remaining anatomy op-5 graze band / th-5 extreme-vxy (structure-saturated) / fuel-2 min-throttle
+climb trap (mechanism traced, latent). M4 path = MPPI capacity (K 256→1024 CPU probe → M5 CUDA).
 
 **Current milestone:** M2 GREEN (TERMINAL ~97-98% across seeds) + **M3 socket path LIVE** + **M6
 entry supervisor BUILT**. This session (D-007, ran 4-A + 4-C concurrently per operator "BOTH"):

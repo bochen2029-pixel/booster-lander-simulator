@@ -681,3 +681,86 @@ Revises §6's ordering with a cleaner split, ADOPTED:
 - Unchanged and re-affirmed: none of this blocks the core roadmap — the guidance gates (M4/M6)
   remain the highest-value work in the repo, and all of the above stays behind them.
 
+## D-012 — State-adaptive divert gain: the powered-burn overspeed brake; ENTRY 88 (2026-07-18, night)
+
+**The question (posed by TOOHARD/D-010):** with the height-split protecting the deck null, the
+divert Kvel is a free knob — and the TH grid measured ENTRY/AERO wanting OPPOSITE values (0.9 vs
+0.7). Schedule it from STATE (guidance cannot see the scenario; per-scenario gains are overfitting).
+
+**The schedule that shipped:** `Kvel = KDIV_SEEK + sat((|v_xy| - vdes_mag)/KDIV_VBLEND) *
+(KDIV_BRAKE - KDIV_SEEK)`, **fins-deployed POWERED BURN only** — SEEK 0.9, BRAKE 1.5, VBLEND 3
+(guidance_hoverslam.h, shared with the MPPI rollout mirror). PROFILE OVERSPEED (|v_xy| above the
+sqrt-decel vdes) is the state that separates "carrying speed the profile can't null" from
+"tracking/seeking"; every divert transits it on the decel leg, so the schedule stiffens exactly
+the deceleration/null part of the trapezoid while the cruise/seek keeps the C14-package 0.9.
+
+**The v1→v4 structural factorial (each step gated: selftest PASS + TERMINAL exactly 194/200 +
+determinism pair; s42 ENTRY/AERO below):**
+- v1 SEEK .7/BRAKE .9 both phases: **69 / 66.3** — the TH-tree 0.7-seek optimum does NOT transfer
+  under the C14 trim (AERO th→0 and GOOD 46→83 showed the soft-arrival upside; off-pad +31 killed
+  it). DO NOT RETRY seek<0.9 anywhere while the C14 trim stands.
+- v2 SEEK .9/BRAKE 1.2 both phases: **77 / 78.7** — AERO off-pad 58→37, ENTRY th 7→12 fuel 3→5.
+- v3 brake UNPOWERED-only: **77 / 72.7** — the clean isolation: ALL of AERO's off-pad win lives in
+  the burn-phase brake (v3 lost it), ALL of ENTRY's damage lives in the unpowered brake (v3 kept
+  it), and burn-braking costs ENTRY nothing (v2==v3 on ENTRY). The unpowered AoA episodes disturb
+  trim/ignition with zero off-pad payoff. **This also re-reads D-010's "Kvel 1.2 over-drove tilt":
+  uniform-1.2's damage was the unpowered phase all along — the burn WANTS overspeed braking.**
+- v4 brake POWERED-only: **84 / 76.3** (sum 160.3) — structure correct; constants to the grid.
+
+**The 11-config BRAKE×VBLEND grid** (runs/d012_sweep.csv; `_adapt_wt` self-driving loop; every row
+selftest+TERMINAL-194 gated): ENTRY's too-hard responds to brake ONLY at sharp onset (vblend 3:
+th 9→7→6→5 across brake 1.05→1.5; flat ~8-9 at vblend 6/10) — the hot tail must be braked HARD and
+IMMEDIATELY or not at all. AERO wants moderate braking (op 36 @1.2/3 vs 47 @1.5/3 — over-braking
+mid-burn costs deep-divert reach). Winner for the M6 push: **(1.5, 3) = ENTRY 88 / AERO 73.3**;
+co-leaders (1.2,3)=E86/A77.3 and (1.5,6)=E87/A76.3 stand as fallbacks if priorities flip toward M4.
+
+**Deck-null follow-up grid** (runs/d012_sweep2.csv, KVEL_NEAR 1.5-1.8 × SPLIT 250/350 at (1.5,3)):
+**ENTRY pinned at 88 on every row** — the deck null is SATURATED; the residual th-5 cohort is
+time-below-the-split limited, not damping limited (extreme-vxy seeds, e.g. run 39: td_v 12.7 at
+lat 4.6, dead-center and hot — the TOOHARD "deepest cross-range" tail). AERO lead noted for a
+future session: (NEAR 1.7, SPLIT 350) = 75.0% s42 with th 24 (lowest seen) — noise-scale (+5/300),
+NOT cross-validated, NOT shipped.
+
+**Shipped state (config SEEK .9/BRAKE 1.5/VBLEND 3, NEAR 1.6/SPLIT 250) — all spec winds:**
+- **ENTRY 88/100 s42 (op 5, th 5, fuel 2) · 79 s7 · 78 s99** — every seed +2-3 over D-010's
+  85/77/76; M6 gate now 2 points away at s42.
+- **AERO tier-0 220/300 = 73.3% s42 · 73.3% s7** (baseline 71.7/75.3 — s42 up, s7 down; net flat.
+  M4's path remains MPPI capacity/M5-CUDA, not tier-0 tuning).
+- **MPPI 43/60 at v4 constants → 44/60 = 73.3% at the final config — new MPPI best twice over**
+  (baseline 41/60; final: off-pad 13, th 2, td_v mean 2.95). The execution blend inherits the
+  burn-brake through hoverslam_step and the re-mirrored rollout ranks consistently — the brake
+  helps every guidance mode.
+- **NAV-NOISY honesty: ENTRY 74 (was 73), AERO 72.3 (was 70.3), TERMINAL 96.5 (unchanged).**
+- **TERMINAL 194/200 byte-stable across every build of the arc** (~20 builds incl. both sweep
+  worktree pipelines — the worktree rows bit-match main-tree reruns of the same config).
+
+**Directive-7 note (the leak that was caught):** GM_MPPI does NOT call hoverslam_step for its
+lateral — but `mppi_execute` DOES (vertical channel + the (1-s) blend into hoverslam's own a_lat),
+and the warm-start forward-shoots the plant under hoverslam guidance. The first single-run MPPI
+invariance check (run 1: td_v 2.52→2.70) caught the leak before any batch was trusted; the fix is
+the header-shared KDIV_* constants + the same overspeed schedule computed in `cmd_from_u_lean`
+from the rollout state (converging_vdes is profile-exact: A_DECEL/VLAT_MAX/T_LEAD parity).
+
+**ENTRY fuel-out anatomy (the A2 trace, runs/d012_entry_v4.csv + run-14 verbose):** the fuel tail
+is the MIN-THROTTLE CLIMB TRAP — a deep-offset, longest-flight seed (165 s) reaches the landing
+burn fuel-marginal; as the tank drains, min-throttle (40%) TWR crosses 1, the vehicle arrests
+~250 m up, CLIMBS to 560 m at +40 m/s unable to shut down (GM_HOVERSLAM has no mid-burn cut;
+relights budgeted), burns dry, freefalls in at 96 m/s. NOT fixed this epoch: ENTRY_FUEL_FLOOR
+medicine is counter-indicated by D-009 (an earlier entry-burn cut costs MORE total fuel), and the
+cohort is 1-2 runs. Recorded as a latent with a named mechanism; candidate future fix is a
+terminal-phase engine-cut rule (canon-compatible: guidance may command engine_cmd=0), taken ONLY
+with a dedicated study.
+
+**Do-not-retry additions:** seek<0.9 anywhere under the C14 trim (v1); unpowered-phase overspeed
+braking (v3); VBLEND≥6 for the ENTRY th tail (flat); deck-null NEAR beyond 1.6 for ENTRY (flat
+1.5-1.8); expecting the TH-tree isolated-config optima to transfer into the composed tree.
+
+**Goldens re-frozen:** entry_s42_d012_baseline.txt, aero_t0_s42_d012_baseline.txt,
+aero_mppi_s42_d012_baseline.txt (supersede _d010_; re-baseline pre-authorized by the gate protocol).
+
+**M6 standing:** 88/100 s42 — remaining anatomy: op 5 (three graze 26-32 m within ~2-6 m of the
+line), th 5 (extreme-vxy, structure-saturated), fuel 2 (min-throttle trap). The credible next
+levers, in order: (a) the graze band via wind-trim/KI interaction with the new brake (a C15-style
+mini-grid), (b) an engine-cut terminal rule for the fuel pair, (c) MPPI capacity (K 256→1024 CPU
+probe, then M5 CUDA) which subsumes the th tail. AERO/M4 waits on (c) regardless.
+

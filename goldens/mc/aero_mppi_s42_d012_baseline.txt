@@ -1,0 +1,9 @@
+# AERO_OFFSET --mppi s42 x60 baseline - D-012 config (powered-burn overspeed brake, re-mirrored rollout)
+# (2026-07-18 night; bit-deterministic - batch re-run reproduced identically. Best MPPI batch ever; was 41/60 at D-010.)
+========= HEADLESS MONTE CARLO =========
+scenario=aero_offset seed=42 runs=60 turb=1
+LANDED: 44/60 = 73.3%  (Wilson95: 61.0..82.9%)
+  PERFECT 0  GOOD 12  HARD 32  TIPPED 0  CRASHED 16
+  faults: FUEL 1  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 13  too-hard 2  fuel-out 1  other 0
+  landed means: td_v=2.95 m/s (max 5.17)  lat=14.37 m  tilt=2.64 deg  fuel=4553 kg

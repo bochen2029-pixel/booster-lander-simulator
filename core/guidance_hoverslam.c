@@ -47,6 +47,9 @@ BL_HD double entry_predict_peak_qbar(double h0, double speed0, double mass){
  * (s42): ENTRY 69->78%, AERO 71.7->76.7% with TERMINAL byte-identical. */
 #define KVEL_SPLIT_H  250.0
 #define KVEL_NEAR     1.6
+/* D-012 STATE-ADAPTIVE divert gain: constants + rationale live in guidance_hoverslam.h (shared
+ * with the MPPI rollout mirror — directive 7). Schedule: KDIV_SEEK at-or-below the vdes profile,
+ * blending to KDIV_BRAKE over KDIV_VBLEND m/s of profile overspeed (hot arrival). */
 /* ---- Aero-aware suicide-burn feasibility (fins-deployed handoffs) ----
  * Forward-shoot FULL 1-engine thrust + gravity + aero drag (body + deployed fins, CA_eff≈1.5) from
  * the current vertical state; return the altitude MARGIN [m] by which the vehicle arrests (vz→0)
@@ -130,8 +133,6 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     /* Inward-velocity target. The binding limit for the aero divert is NULLING the cross-range
      * velocity before the burn: residual inward velocity gets reversed AT the aero/thrust crossover
      * (~22 kPa) where lateral authority vanishes, so it overshoots outbound. */
-    double Kvel = st->fins_deployed ? 0.9 : 0.6;   /* D-010: 0.9 divert gain (sweep C02/C14 + KVEL
-                                                    * cross-seed validated; 1.2 over-drove tilt) */
     double vdes_mag;
     if(st->fins_deployed){
         /* Decelerating (bang-bang-ish) profile: vdes = sqrt(2·a_decel·r) commands the inward velocity
@@ -150,6 +151,26 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
         /* TERMINAL final-approach: gentle linear law (D-002/003, load-bearing velocity-null). */
         double Kpos = 0.20, vlat_max = 40.0;
         vdes_mag = Kpos*r_mag; if(vdes_mag>vlat_max) vdes_mag=vlat_max;
+    }
+    /* D-012 state-adaptive divert gain (constants + value provenance in guidance_hoverslam.h).
+     * Fins-deployed POWERED BURN only; TERMINAL keeps 0.6; the unpowered aero-descent keeps flat
+     * 0.9 (the v2/v3 factorial: unpowered braking is where the harm lives — ENTRY th 7->12 and
+     * fuel-out 3->6 with NO off-pad benefit; the AoA episodes it commands during the long descent
+     * disturb the trim/ignition state. Burn-phase braking is where the win lives — AERO off-pad
+     * 58->37: overspeed residuals get nulled mid-burn before they drift through the crossover.
+     * This also re-reads D-010's "1.2 over-drove tilt": that was uniform-1.2, and the damage was
+     * the unpowered phase all along). */
+    double Kvel;
+    if(st->fins_deployed){
+        Kvel = KDIV_SEEK;
+        if(st->engine_on){
+            double vxy_mag = sqrt(v_xy[0]*v_xy[0]+v_xy[1]*v_xy[1]);
+            double os = (vxy_mag - vdes_mag)/KDIV_VBLEND;
+            if(os<0.0) os=0.0; if(os>1.0) os=1.0;
+            Kvel = KDIV_SEEK + os*(KDIV_BRAKE - KDIV_SEEK);
+        }
+    } else {
+        Kvel = 0.6;
     }
     double vdes[2]={0,0};
     if(r_mag>1e-3){ vdes[0]=-vdes_mag*r_xy[0]/r_mag; vdes[1]=-vdes_mag*r_xy[1]/r_mag; }
