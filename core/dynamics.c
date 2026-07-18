@@ -100,13 +100,17 @@ BL_HD void dynamics_deriv(const State* st, const Actuators* act, const EnvCtx* e
 
     AtmoOut atm; atmo_eval(h,&atm);
 
+    /* INJECT_DISTURBANCE scales (0 read as nominal so zero-init callers stay bit-identical). */
+    double tscale = (env->thrust_scale>0.0)? env->thrust_scale : 1.0;
+    double iscale = (env->isp_scale  >0.0)? env->isp_scale   : 1.0;
+
     /* thrust magnitude (all engines) with ignition ramp */
     double ramp = st->engine_on ? ignition_ramp(st->ign_timer) : 0.0;
-    double thr_per = engine_thrust(y[S_THR], atm.p) * ramp;
+    double thr_per = engine_thrust(y[S_THR], atm.p) * ramp * tscale;
     double thrust = st->n_eng * thr_per;
 
     /* mass flow (split by mixture ratio) */
-    double Isp = (thrust>0.0)? (ENG_ISP_VAC - (ENG_ISP_VAC-ENG_ISP_SL)*(atm.p/P0_ATM)) : ENG_ISP_SL;
+    double Isp = (thrust>0.0)? iscale*(ENG_ISP_VAC - (ENG_ISP_VAC-ENG_ISP_SL)*(atm.p/P0_ATM)) : ENG_ISP_SL;
     double mdot_total = (thrust>0.0)? (thrust/(Isp*G0)) : 0.0;   /* positive rate leaving */
     double mdot_rp1 = mdot_total/(1.0+MIX_RATIO);
     double mdot_lox = mdot_total - mdot_rp1;
@@ -126,7 +130,9 @@ BL_HD void dynamics_deriv(const State* st, const Actuators* act, const EnvCtx* e
     tdir[2] = (tz2>0.0)? sqrt(tz2) : 0.0;
     double Fthr[3]; v3_scale(Fthr,tdir,thrust);
     v3_add(Fb,Fb,Fthr);
-    double arm_thr[3]={0,0,-com};        /* r_gimbal - r_com */
+    /* CoM laterally offset by the disturbance → the base-mounted thrust gains a moment arm (thrust
+     * misalignment). com_offset defaults to 0 (nominal, no torque). */
+    double arm_thr[3]={-env->com_offset[0],-env->com_offset[1],-com};   /* r_gimbal - r_com */
     double Tthr[3]; v3_cross(Tthr,arm_thr,Fthr); v3_add(Tb,Tb,Tthr);
 
     /* aero */
@@ -137,20 +143,25 @@ BL_HD void dynamics_deriv(const State* st, const Actuators* act, const EnvCtx* e
     double qbar = 0.5*atm.rho*speed*speed;
     double alpha=0.0;
     double Faero_b[3]={0,0,0};
+    /* SRP aero shielding while burning (§6.3): blend by thrust coefficient. Computed ONCE here and
+     * applied to BOTH the body aero AND the grid fins (D-009 plant correction): the plume envelops
+     * the vehicle from the base and the fins — the farthest-DOWNSTREAM surfaces in a base-first
+     * descent — sit deep in the disturbed wake. Canon §6.3 says "aero forces blend out with C_T",
+     * not "body only". Un-shielded fins passed the full crosswind side-force (~2-3 m/s²) at a 45 m
+     * arm during the landing burn — the systematic downwind push behind the ~140 m wind floor
+     * (traced: guidance commanded -84 m/s of correction, vehicle realized +6.8 outward). */
+    double srp_shield = 1.0;
+    if(thrust>0.0 && qbar>1e-4){
+        double CT = thrust/(qbar*VEH_AREF);
+        if(CT>0.5){ double t=(CT-0.5)/(3.0-0.5); if(t>1)t=1; srp_shield = 1.0 + t*(0.05-1.0); }
+    }
     if(speed>0.2 && qbar>1e-4){
         double vhat[3]; v3_scale(vhat,vrel_b,1.0/speed);
         double cosa = -vhat[2]; if(cosa>1)cosa=1; if(cosa<-1)cosa=-1;
         alpha = acos(cosa);
-        double CA = table_lookup(AERO_M,AERO_CA,9,mach);
+        double CA = table_lookup(AERO_M,AERO_CA,9,mach)*srp_shield;
         double CNa = table_lookup(AERO_M,AERO_CN,9,mach);
-        double CN = CNa*alpha;
-        /* SRP aero shielding while burning (§6.3): blend by thrust coefficient */
-        if(thrust>0.0){
-            double CT = thrust/(qbar*VEH_AREF);
-            double shield = 1.0;
-            if(CT>0.5){ double t=(CT-0.5)/(3.0-0.5); if(t>1)t=1; shield = 1.0 + t*(0.05-1.0); }
-            CA*=shield; CN*=shield;
-        }
+        double CN = CNa*alpha*srp_shield;
         double Fax = -copysign(qbar*VEH_AREF*CA, vhat[2]);   /* along body Z */
         Faero_b[2]+=Fax;
         double lat[3]={vhat[0],vhat[1],0.0}; double latm=sqrt(lat[0]*lat[0]+lat[1]*lat[1]);
@@ -193,8 +204,8 @@ BL_HD void dynamics_deriv(const State* st, const Actuators* act, const EnvCtx* e
             double delta=y[S_F0+i];
             double alpha_i=delta + atan2(w_r,w_ax);
             double aeff=alpha_i; if(aeff>FIN_STALL)aeff=FIN_STALL; if(aeff<-FIN_STALL)aeff=-FIN_STALL;
-            double L=qbi*FIN_AREA*CNa_f*aeff;            /* radial lift */
-            double Ft=qbi*FIN_AREA*(FIN_CT_DELTA_FRAC*CNa_f)*delta;  /* tangential (roll) */
+            double L=qbi*FIN_AREA*CNa_f*aeff*srp_shield;            /* radial lift (SRP-shielded, D-009) */
+            double Ft=qbi*FIN_AREA*(FIN_CT_DELTA_FRAC*CNa_f)*delta*srp_shield;  /* tangential (roll) */
             double Ff[3]={ -L*er[0]-Ft*et[0], -L*er[1]-Ft*et[1], 0.0 };  /* force opposes incidence */
             v3_add(Fb,Fb,Ff);
             double arm[3]={rm[0],rm[1],rm[2]-com};

@@ -5,6 +5,7 @@
 #include "guidance.h"
 #include "dynamics.h"
 #include "scenario.h"
+#include "guidance_mppi.h"
 
 typedef struct {
     State st;
@@ -23,6 +24,8 @@ typedef struct {
     double max_qbar, peak_qdot;
     int done;
     Diag diag;   /* last-step diagnostics */
+    MppiState mppi;   /* HIER MPPI planner state (GM_MPPI only, track 4-B) */
+    double lat_eint[2];   /* D-009 wind-rejection integral trim (fins-deployed LANDING burn only) */
 } Sim;
 
 typedef struct {

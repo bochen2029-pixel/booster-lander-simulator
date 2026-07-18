@@ -1,0 +1,8 @@
+# ENTRY s42 x100 baseline — D-009 fin-shield plant fix + ZEM/ZEV entry divert (2026-07-18)
+========= HEADLESS MONTE CARLO =========
+scenario=entry seed=42 runs=100 turb=1
+LANDED: 50/100 = 50.0%  (Wilson95: 40.4..59.6%)
+  PERFECT 0  GOOD 1  HARD 49  TIPPED 0  CRASHED 50
+  faults: FUEL 2  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 38  too-hard 10  fuel-out 2  other 0
+  landed means: td_v=3.67 m/s (max 5.73)  lat=15.27 m  tilt=2.02 deg  fuel=2385 kg

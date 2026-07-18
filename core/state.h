@@ -62,7 +62,7 @@ typedef struct {
 } Actuators;
 
 /* Module mask bits. */
-enum { MOD_SLOSH=1, MOD_SEA=2, MOD_NAV_NOISY=4, MOD_FINS=8, MOD_TURB=16 };
+enum { MOD_SLOSH=1, MOD_SEA=2, MOD_NAV_NOISY=4, MOD_FINS=8, MOD_TURB=16, MOD_INJECT=32 };
 
 /* Phases (§6.8). */
 enum { PH_INIT,PH_COAST,PH_ENTRY_BURN,PH_AERO,PH_LANDING_BURN,PH_TOUCHDOWN,PH_SETTLING,

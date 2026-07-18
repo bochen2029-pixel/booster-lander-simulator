@@ -4,6 +4,7 @@
 #include "contact.h"
 #include "control.h"
 #include "guidance_hoverslam.h"
+#include "guidance_mppi.h"
 #include "atmosphere.h"
 #include "constants.h"
 #include "rng.h"
@@ -50,9 +51,22 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     scenario_init(&s->st, scenario, seed, run_idx, &s->se);
     s->env.module_mask=modules; s->env.fins_deployed=s->st.fins_deployed;
     s->env.wind_world[0]=s->env.wind_world[1]=s->env.wind_world[2]=0.0;
+    /* INJECT_DISTURBANCE (Tier-B, Agent C F4): up to -8% thrust, -1% Isp, 2 cm CoM offset. Seeded
+     * per (seed,run) so disturbed runs replay bit-exact (directive 4). Nominal (1,1,0) otherwise. */
+    s->env.thrust_scale=1.0; s->env.isp_scale=1.0; s->env.com_offset[0]=s->env.com_offset[1]=0.0;
+    if(modules & MOD_INJECT){
+        double u1=rng_u01((uint32_t)(seed+run_idx*2654435761u+101u));
+        double u2=rng_u01((uint32_t)(seed+run_idx*2654435761u+202u));
+        double u3=rng_u01((uint32_t)(seed+run_idx*2654435761u+303u));
+        s->env.thrust_scale=1.0-0.08*u1;
+        s->env.isp_scale   =1.0-0.01*u2;
+        double ca=6.2831853071795864*u3;
+        s->env.com_offset[0]=0.02*cos(ca); s->env.com_offset[1]=0.02*sin(ca);
+    }
     s->impact_v=s->impact_tilt=s->impact_lat=0.0;
     s->max_qbar=0; s->peak_qdot=0; s->done=0; s->touched=0;
     s->gcmd.mode=guidance_mode; s->gcmd.n_eng=1;
+    if(guidance_mode==GM_MPPI) mppi_init(&s->mppi, seed, scenario);   /* HIER MPPI planner (track 4-B) */
 }
 
 static void set_verdict(Sim* s){
@@ -85,6 +99,56 @@ static void set_verdict(Sim* s){
  * Cross-range divert is deferred to the aero-descent (Agent A §10). Returns 1 if it commanded
  * guidance this tick (skip hoverslam), 0 to let hoverslam run. Inert for low-energy scenarios
  * (TERMINAL/AERO_OFFSET predict < IGNITE, so gcmd/state untouched -> determinism preserved). */
+/* D-009 ENTRY divert support: crude ballistic time-to-ground from (h, vz) with drag CA~1.0 —
+ * deliberately a LOW estimate (the landing burn extends the real time; the study shows a low t_go
+ * TIGHTENS the ZEM/ZEV null, the safe direction — lands for tgo_err down to 0.70). Coarse dt: a
+ * trigger-grade shoot, not the plant. */
+static double entry_tgo_estimate(double h, double vz, double m){
+    double v=vz, t=0.0; const double dt=0.5;
+    for(int i=0;i<600 && h>0.0;i++){
+        AtmoOut atm; atmo_eval(h,&atm);
+        double gh=G0*(R_EARTH/(R_EARTH+h))*(R_EARTH/(R_EARTH+h));
+        double a_drag=0.5*atm.rho*v*v*VEH_AREF*1.0/m;
+        double a=-gh + ((v<0.0)? a_drag : -a_drag);
+        v+=a*dt; h+=v*dt; t+=dt;
+    }
+    if(t<1.0) t=1.0;
+    return t;
+}
+
+/* D-009 ENTRY-burn collision-course divert — ZEM/ZEV optimal-terminal bank (design:
+ * runs/d009_entry_divert_design.md; feasibility study runs/sandbox/entrydiv.c: nominal 3 km closes
+ * to ~5.8 m / -4.8 m/s, 8/9 across the dispersion grid). Per world-lateral axis:
+ *     a_cmd = Kg * ( -6 r / t_go^2  -  4 v / t_go )
+ * The FIRST term builds the collision course (position closure); the SECOND times the REVERSAL so
+ * r and v null together — the piece both hand-tuned banking attempts (17 km naive / 2363 m
+ * velocity-null sqrt-decel, D-007/D-009) were missing. Kg=6 front-loads the reversal above the
+ * landing-burn fade. Saturated at the 15-deg bank of the 3-engine burn. Called ONLY while
+ * PH_ENTRY_BURN -> TERMINAL/AERO_OFFSET never see it (determinism preserved by construction). */
+/* SPLIT, OVERDAMPED gains (D-009; the D-002 zeta=1.1 lesson at the entry scale). Uniform Kg scaling
+ * breaks the terminal boundary condition: Kg=6 front-loads closure and crosses r=0 mid-coast still
+ * carrying -29 m/s (overshoot bias ~150 m, med 148 tight); Kg=1 preserves the timing but barely uses
+ * the burn's authority (med 536, far seeds under-driven). KR>1 spends real authority on closure;
+ * KV>KR overdamps the approach so r->0 is asymptotic (no crossing), arriving slow and aligned for
+ * the aero trim. */
+#define ENTRY_DIVERT_KR 2.0      /* position-closure gain (x the optimal -6r/tgo^2) */
+#define ENTRY_DIVERT_KV 3.5      /* velocity-null gain   (x the optimal -4v/tgo) — overdamped */
+static void entry_divert_step(const State* st, GuidanceCmd* g){
+    const double* y=st->y;
+    MassProps mp; mass_props(y[S_MLOX],y[S_MRP1],0,0,&mp);
+    AtmoOut atm; atmo_eval(y[S_RZ],&atm);
+    double a_burn = 3.0*engine_thrust(1.0, atm.p)/mp.m;      /* ~50 m/s^2 near-vacuum */
+    double amax = a_burn*sin(15.0*DEG2RAD);
+    double t_go = entry_tgo_estimate(y[S_RZ]-mp.com, y[S_VZ], mp.m);
+    double rr[2]={y[S_RX],y[S_RY]}, vv[2]={y[S_VX],y[S_VY]};
+    for(int ax=0; ax<2; ax++){
+        double a_cmd = ENTRY_DIVERT_KR*(-6.0*rr[ax]/(t_go*t_go)) + ENTRY_DIVERT_KV*(-4.0*vv[ax]/t_go);
+        if(a_cmd> amax) a_cmd= amax;
+        if(a_cmd<-amax) a_cmd=-amax;
+        g->a_lat[ax]=a_cmd;
+    }
+}
+
 #define ENTRY_QBAR_IGNITE  72000.0   /* predicted peak qbar to arm the entry burn [Pa] */
 #define ENTRY_QBAR_CUT     68000.0   /* predicted remaining peak qbar to cut the burn [Pa] */
 #define ENTRY_FUEL_FLOOR   7000.0    /* kg: reserve at least this for the landing burn */
@@ -106,10 +170,16 @@ static int entry_supervisor(Sim* s){
             st->phase=PH_AERO;
             return 0;
         }
-        /* continue: 3-engine, full throttle, RETROGRADE (a_lat=0 -> control holds ~vertical, which
-         * is ~anti-velocity for a steep entry); pure deceleration, no cross-range yet. */
+        /* continue: 3-engine, full throttle, ~retrograde with the D-009 ZEM/ZEV collision-course
+         * BANK (entry_divert_step above; design runs/d009_entry_divert_design.md). Two hand-tuned
+         * banks failed before (naive constant -> 17 km off; velocity-null sqrt-decel -> 2363 m,
+         * worse than retrograde's 2050 m): both MISTIMED THE REVERSAL. The ZEM/ZEV pair nulls
+         * position AND velocity together, so the burn + the ~87 s coast drift land ON the pad
+         * instead of flying past it. The E3 cut logic is untouched (qbar/fuel-floor binds; the
+         * divert never modulates the cut). */
         s->gcmd.mode=GM_HOVERSLAM; s->gcmd.engine_cmd=1; s->gcmd.throttle=1.0; s->gcmd.n_eng=3;
-        s->gcmd.a_lat[0]=s->gcmd.a_lat[1]=0.0; s->gcmd.deploy_cmd=0; s->gcmd.solver_flags=0;
+        entry_divert_step(st, &s->gcmd);
+        s->gcmd.deploy_cmd=0; s->gcmd.solver_flags=0;
         s->gcmd.t_go=(vz<-0.1)?(st->y[S_RZ]/(-vz)):5.0;
         return 1;
     }
@@ -147,10 +217,64 @@ int sim_step(Sim* s){
                 MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
                 double Tf = st->n_eng*engine_thrust(1.0,atm.p);
                 double amax = Tf/mp.m - G0; if(amax<1.0)amax=1.0;
-                st->ada = 0.58*amax;
+                st->ada = (st->fins_deployed?0.85:0.58)*amax;   /* fins-deployed = hard suicide burn from the aero handoff (D-007) */
             }
         }
         st->deploy_cmd = s->gcmd.deploy_cmd;
+    }
+
+    /* ---- GM_MPPI guidance block (track 4-B, HIER MPPI CPU) — WELL-DELIMITED, additive (MPPI-2). ----
+     * Mirrors the GM_HOVERSLAM block: E3 entry_supervisor stays ABOVE MPPI, then mppi_step owns the
+     * aero-descent divert + landing burn (full solve every MPPI_REPLAN_DECIM ticks; cheap knot-emit
+     * between), then the SAME ignition latch/ada freeze. Guarded by GM_MPPI so GM_HOVERSLAM is
+     * byte-for-byte untouched (goldens, selftest, determinism). */
+    if(st->step % (long)(GUIDANCE_DT/DT) == 0 && s->guidance_mode==GM_MPPI){
+        int entry_handled = entry_supervisor(s);   /* E3 above MPPI (unchanged) */
+        if(!entry_handled){
+            if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, st, &s->env, &s->gcmd);
+            else mppi_execute(&s->mppi, st, &s->gcmd);   /* emit next warm-start knot + shift (cheap) */
+        }
+        s->mppi.gtick++;
+        if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
+            st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
+            if(st->phase==PH_ENTRY_BURN){ /* entry burn = retrograde; no ada freeze */ }
+            else {
+                if(st->phase==PH_COAST||st->phase==PH_AERO) st->phase=PH_LANDING_BURN;
+                AtmoOut atm; atmo_eval(st->y[S_RZ],&atm);
+                MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
+                double Tf = st->n_eng*engine_thrust(1.0,atm.p);
+                double amax = Tf/mp.m - G0; if(amax<1.0)amax=1.0;
+                st->ada = (st->fins_deployed?0.85:0.58)*amax;
+            }
+        }
+        st->deploy_cmd = s->gcmd.deploy_cmd;
+    }
+
+    /* D-009 WIND-REJECTION INTEGRAL TRIM (fins-deployed LANDING burn only). Zero-wind ENTRY/AERO
+     * land 32%/71% with median miss 5-6 m; with the spec winds every law floors at ~120-150 m — the
+     * mean-wind aero push (~1.6 m/s^2 at 20-40 kPa) leaks through the ignition-hold/fade/dead-zone
+     * windows as a steady-state drift no proportional law can null. Classic disturbance rejection:
+     * slow INTEGRAL action on the position error during the burn builds the counter-tilt that trims
+     * the wind out. Pure state feedback (guidance never reads v_wind — canon §4.3). Conditional
+     * integration: only PH_LANDING_BURN + fins deployed + past the 2 s ignition hold; capped
+     * (anti-windup); reset otherwise. TERMINAL (fins stowed) and the entry burn (ZEM/ZEV owns it)
+     * never integrate. Applied to gcmd on guidance ticks for BOTH GM_HOVERSLAM and GM_MPPI. */
+    if(st->step % (long)(GUIDANCE_DT/DT) == 0){
+        if(st->engine_on && st->fins_deployed && st->phase==PH_LANDING_BURN && st->ign_timer>=2.0){
+            /* D-009 baseline trim (the goldens' configuration). Tail-tuning probes — Ki 0.012 +
+             * 1 s engage (cycle 1) and + a near-ground output fade (cycle 2) — traded off-pad for
+             * too-hard/fuel and netted BELOW this baseline (ENTRY 51/49 vs 50; AERO 52/57.3 vs
+             * 60.3): the grazing-band/td_v tails interact and need a systematic sweep (or MPPI),
+             * not single-knob probes. Reverted to the measured-best values. */
+            const double KI_WIND=0.004, EINT_CAP=2.0;
+            double rr[2]={st->y[S_RX],st->y[S_RY]};
+            for(int ax=0;ax<2;ax++){
+                s->lat_eint[ax] += KI_WIND*rr[ax]*GUIDANCE_DT;
+                if(s->lat_eint[ax]> EINT_CAP) s->lat_eint[ax]= EINT_CAP;
+                if(s->lat_eint[ax]<-EINT_CAP) s->lat_eint[ax]=-EINT_CAP;
+                s->gcmd.a_lat[ax] -= s->lat_eint[ax];
+            }
+        } else { s->lat_eint[0]=0.0; s->lat_eint[1]=0.0; }
     }
 
     /* control at 500 Hz */

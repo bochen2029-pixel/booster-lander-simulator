@@ -21,6 +21,11 @@ typedef struct {
     double wind_world[3];    /* mean+turbulence wind, world m/s */
     int    module_mask;
     int    fins_deployed;
+    /* INJECT_DISTURBANCE (Tier-B robustness, seeded → replayable). 0 is read as nominal so any
+     * EnvCtx zero-initialized by a caller (oracles) stays bit-identical. */
+    double thrust_scale;     /* multiplicative thrust deficit (1.0 nominal; 0 → treated as 1.0) */
+    double isp_scale;        /* multiplicative Isp deficit    (1.0 nominal; 0 → treated as 1.0) */
+    double com_offset[2];    /* lateral CoM offset [m] → thrust-misalignment disturbance torque   */
 } EnvCtx;
 
 /* Diagnostics filled during a derivative eval (for telemetry / termination). */

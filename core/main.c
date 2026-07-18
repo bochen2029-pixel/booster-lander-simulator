@@ -15,6 +15,11 @@
 #include "integrator.h"
 #include "scenario.h"
 #include "sim.h"
+#include "protocol.h"
+#include "ws.h"
+#ifdef _WIN32
+#  include <windows.h>   /* QueryPerformanceCounter / Sleep — PACING ONLY (never sim) */
+#endif
 
 static int g_fail = 0;
 #define CHECK(cond, msg) do{ if(!(cond)){ printf("  FAIL: %s\n", msg); g_fail++; } }while(0)
@@ -181,14 +186,15 @@ static int cmd_selftest(void){
 static const char* verdict_str(int v){ const char* s[]={"NONE","PERFECT","GOOD","HARD","TIPPED","CRASHED"}; return (v>=0&&v<=5)?s[v]:"?"; }
 static const char* fault_str(int f){ const char* s[]={"none","FUEL","STRUCT","THERMAL","LOC","OFFPAD"}; return (f>=0&&f<=5)?s[f]:"?"; }
 static int cmd_run(int argc, char** argv){
-    int scen=SCEN_TERMINAL; uint32_t seed=42, run=0; int verbose=0;
+    int scen=SCEN_TERMINAL; uint32_t seed=42, run=0; int verbose=0; int gmode=GM_HOVERSLAM;
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--run")&&i+1<argc) run=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--verbose")) verbose=1;
+        else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
     }
-    Sim s; sim_init(&s,scen,seed,run,MOD_TURB,GM_HOVERSLAM);
+    Sim s; sim_init(&s,scen,seed,run,MOD_TURB,gmode);
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
     long n=0;
@@ -198,9 +204,10 @@ static int cmd_run(int argc, char** argv){
             MassProps mp; mass_props(s.st.y[S_MLOX],s.st.y[S_MRP1],0,0,&mp);
             double lat=sqrt(s.st.y[S_RX]*s.st.y[S_RX]+s.st.y[S_RY]*s.st.y[S_RY]);
             double wperp=sqrt(s.st.y[S_WX]*s.st.y[S_WX]+s.st.y[S_WY]*s.st.y[S_WY]);
-            printf("  t=%6.2f h=%8.1f vz=%7.1f thr=%.2f tilt=%5.2f lat=%7.1f wperp=%5.2f wroll=%6.2f m=%8.0f ph=%d\n",
+            double vrad=(lat>1e-3)?(s.st.y[S_VX]*s.st.y[S_RX]+s.st.y[S_VY]*s.st.y[S_RY])/lat:0.0; /* + = outward */
+            printf("  t=%6.2f h=%8.1f vz=%7.1f thr=%.2f tilt=%5.2f lat=%7.1f vrad=%6.1f qbar=%6.0f wperp=%5.2f m=%8.0f ph=%d\n",
                 s.st.t, s.st.y[S_RZ]-mp.com, s.st.y[S_VZ], s.st.y[S_THR],
-                sim_body_tilt(&s.st)*RAD2DEG, lat, wperp, s.st.y[S_WZ], mp.m, s.st.phase);
+                sim_body_tilt(&s.st)*RAD2DEG, lat, vrad, s.diag.qbar, wperp, mp.m, s.st.phase);
         }
         if(s.st.t>300.0) break;
     }
@@ -213,13 +220,15 @@ static int cmd_run(int argc, char** argv){
 
 /* ---------------- headless Monte Carlo ---------------- */
 static int cmd_headless(int argc, char** argv){
-    int scen=SCEN_TERMINAL; uint32_t seed=42; long runs=1000; const char* out=0; int modules=MOD_TURB;
+    int scen=SCEN_TERMINAL; uint32_t seed=42; long runs=1000; const char* out=0; int modules=MOD_TURB; int gmode=GM_HOVERSLAM;
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--runs")&&i+1<argc) runs=strtol(argv[++i],0,10);
         else if(!strcmp(argv[i],"--out")&&i+1<argc) out=argv[++i];
         else if(!strcmp(argv[i],"--no-turb")) modules&=~MOD_TURB;
+        else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;   /* Tier-B plant disturbances (F4) */
+        else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
     }
     /* --out: open the report up front and FAIL LOUDLY if it can't be created -- otherwise we
      * run every sim for nothing and still print a false "wrote" (directive 5: headless is THE
@@ -243,7 +252,7 @@ static int cmd_headless(int argc, char** argv){
     double sv=0,slat=0,stilt=0,sfuel=0; long good=0;
     double vmax=0;
     for(long r=0;r<runs;r++){
-        Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,GM_HOVERSLAM);
+        Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,gmode);
         sim_run(&s,&res,300.0);
         cnt[res.verdict<6?res.verdict:5]++; fault[res.fault<6?res.fault:0]++;
         if(res.verdict==V_CRASHED||res.verdict==V_TIPPED){
@@ -283,11 +292,274 @@ static int cmd_headless(int argc, char** argv){
     return (rate>0.0)?0:1;
 }
 
+/* ---------------- live telemetry server (--serve) ----------------
+ * ADDITIVE mode (directive 3): reads sim state, serializes, streams to the
+ * three.js/WebGPU renderer over a single WebSocket. The sim/integration path is
+ * NOT touched — no RNG, no state writes, dt stays 2 ms. Wall-clock is used ONLY
+ * to pace emission to ~1x real time; it never enters sim_step/dynamics.
+ */
+#ifdef _WIN32
+
+/* Fill a BlTlmFixed from current sim state. Pure read of *s (directive 2). */
+static void fill_tlm(const Sim* s, BlTlmFixed* p, uint32_t seq){
+    const State* st = &s->st;
+    memset(p, 0, sizeof(*p));
+    p->magic = BL_MAGIC_TLM;
+    p->ver   = BL_PROTO_VERSION;
+    p->flags = 0;
+    if(s->modules & MOD_SEA)       p->flags |= BL_TLM_FLAG_SEA_ACTIVE;
+    if(s->modules & MOD_NAV_NOISY) p->flags |= BL_TLM_FLAG_NAV_NOISY;
+
+    p->step = st->step;
+    p->t    = st->t;            /* the only f64 on the wire */
+    p->seq  = seq;
+
+    /* state -> fp32 (world frame, Z-up, quat xyzw) */
+    for(int i=0;i<3;i++){ p->r[i]=(float)st->y[S_RX+i]; p->v[i]=(float)st->y[S_VX+i]; }
+    for(int i=0;i<4;i++)  p->quat[i]=(float)st->y[S_QX+i];
+    for(int i=0;i<3;i++)  p->w[i]=(float)st->y[S_WX+i];
+
+    /* mass block */
+    MassProps mp; mass_props(st->y[S_MLOX], st->y[S_MRP1], 0, 0, &mp);
+    p->mass  = (float)mp.m;
+    p->com_z = (float)mp.com;
+    p->I_diag[0]=(float)mp.I_tr; p->I_diag[1]=(float)mp.I_tr; p->I_diag[2]=(float)mp.I_ax;
+    p->prop_lox=(float)st->y[S_MLOX];
+    p->prop_rp1=(float)st->y[S_MRP1];
+
+    /* actuators: cmd from guidance/allocator, act from integrated state */
+    p->throttle_cmd = (float)s->gcmd.throttle;   /* commanded [0.40..1] or 0 */
+    p->throttle_act = (float)st->y[S_THR];        /* post-lag actual */
+    p->gimbal_cmd[0]=(float)s->act.gimbal[0]; p->gimbal_cmd[1]=(float)s->act.gimbal[1];
+    p->gimbal_act[0]=(float)st->y[S_G0];      p->gimbal_act[1]=(float)st->y[S_G1];
+    for(int i=0;i<4;i++) p->fins_act[i]=(float)st->y[S_F0+i];
+
+    /* status island. rcs_mask: no per-nozzle history in the plant — expose a single
+     * "RCS firing this step" bit (bit0) derived from cold-gas flow; 0 otherwise. */
+    p->rcs_mask = (s->act.rcs_dm > 0.0) ? 0x01u : 0x00u;
+    p->n_eng = (uint8_t)((st->engine_on && st->ign_timer>=0.0) ? st->n_eng : 0);
+    p->phase = (uint8_t)st->phase;               /* PH_* order == BlPhase order */
+    p->guidance_mode = (uint8_t)s->guidance_mode;
+    p->verdict = (uint8_t)st->verdict;           /* V_* order == BlVerdict order */
+    p->solver_flags = (uint16_t)s->gcmd.solver_flags;
+
+    /* environment & derived (from the spare-deriv Diag populated each step) */
+    p->mach       = (float)s->diag.mach;
+    p->qbar       = (float)s->diag.qbar;
+    p->alpha_total= (float)s->diag.alpha;
+    p->p_amb      = (float)s->diag.p_amb;
+    p->p_chamber  = (float)(st->y[S_THR] * PC_REF);   /* directive D: plume p_0 */
+    for(int i=0;i<3;i++) p->wind_local[i]=(float)s->env.wind_world[i];
+    for(int i=0;i<3;i++) p->a_body[i]=(float)s->diag.a_body[i];
+    p->qdot_heat  = (float)s->diag.qdot_heat;
+    p->Q_heat     = (float)st->y[S_QHEAT];            /* integrated heat load */
+
+    /* guidance-derived */
+    p->t_go = (float)s->gcmd.t_go;
+    {   /* slant distance to pad (pad at world origin, ground at deck_z) */
+        double dx=st->y[S_RX], dy=st->y[S_RY], dz=st->y[S_RZ]-s->se.deck_z;
+        p->dist_pad = (float)sqrt(dx*dx+dy*dy+dz*dz);
+    }
+
+    /* legs */
+    p->deploy_frac = (float)st->deploy_frac;
+    for(int i=0;i<4;i++) p->stroke[i]=(float)st->crush[i];
+
+    /* aero force for HUD/VFX (world) */
+    for(int i=0;i<3;i++) p->f_aero[i]=(float)s->diag.f_aero_world[i];
+
+    /* ASDS deck pose only if SEA active; identity otherwise */
+    p->deck_z = (s->modules & MOD_SEA) ? (float)s->se.deck_z : 0.0f;
+    p->deck_quat[0]=0.0f; p->deck_quat[1]=0.0f; p->deck_quat[2]=0.0f; p->deck_quat[3]=1.0f;
+
+    /* MPPI tails not wired yet (directive B) */
+    p->plan_n = 0; p->cloud_n = 0;
+}
+
+static void fill_hello(const Sim* s, uint32_t seed, uint32_t run_idx, BlHello* h){
+    memset(h,0,sizeof(*h));
+    h->magic = BL_MAGIC_HELLO;
+    h->ver   = BL_PROTO_VERSION;
+    h->flags = 0;
+    h->t0    = s->st.t;                 /* 0.0 at session start */
+    h->seed  = (uint64_t)seed;
+    h->dt    = (float)DT;
+    h->tlm_hz= (float)(1.0/(DT*TLM_DECIM));   /* 125 Hz */
+    h->tlm_decim = (uint32_t)TLM_DECIM;
+    h->run_idx = run_idx;
+    h->veh_len = (float)VEH_LEN;
+    h->veh_dia = (float)VEH_DIA;
+    h->leg_span= (float)LEG_SPAN;
+    h->pad_radius=(float)PAD_RADIUS;
+    h->deck_z  = (float)s->se.deck_z;
+    h->pc_ref  = (float)PC_REF;
+    h->plan_max = (uint16_t)BL_PLAN_MAX;
+    h->cloud_max= (uint16_t)BL_CLOUD_MAX;
+    h->scenario = (uint8_t)s->scenario;
+    h->guidance_mode = (uint8_t)s->guidance_mode;
+    h->modules = (uint8_t)s->modules;
+}
+
+static void emit_evt(const Sim* s, uint16_t code, float a0, float a1){
+    BlEvt e; memset(&e,0,sizeof(e));
+    e.magic=BL_MAGIC_EVT; e.code=code; e.step=s->st.step; e.t=s->st.t;
+    e.args[0]=a0; e.args[1]=a1;
+    ws_send_binary(&e, sizeof(e));
+}
+
+static int cmd_serve(int argc, char** argv){
+    int scen=SCEN_TERMINAL; uint32_t seed=42, run=1; unsigned short port=8080;
+    for(int i=2;i<argc;i++){
+        if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
+        else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--run")&&i+1<argc)  run=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--port")&&i+1<argc) port=(unsigned short)strtoul(argv[++i],0,10);
+    }
+
+    /* Same sim config as --run: turbulence module + hoverslam guidance. This does
+     * NOT change determinism — identical seed/run reproduces the headless path. */
+    Sim s; sim_init(&s, scen, seed, run, MOD_TURB, GM_HOVERSLAM);
+
+    if(ws_serve_init(port)!=0){ fprintf(stderr,"serve: could not start WS server on port %u\n", port); return 4; }
+
+    /* One HELLO up front so the renderer can build the scene. */
+    BlHello hello; fill_hello(&s, seed, run, &hello);
+    if(ws_send_binary(&hello, sizeof(hello))!=0){ fprintf(stderr,"serve: client gone before HELLO\n"); ws_close(); return 0; }
+    fprintf(stderr,"serve: scenario=%s seed=%u run=%u — streaming @125 Hz\n", scenario_name(scen), seed, run);
+
+    /* --- pacing setup (wall-clock lives HERE only) --- */
+    LARGE_INTEGER freq, t_start; QueryPerformanceFrequency(&freq); QueryPerformanceCounter(&t_start);
+    const double frame_dt = DT*TLM_DECIM;             /* 0.008 s per emitted frame */
+    LARGE_INTEGER t_stats_last=t_start; double stats_accum_frames=0;
+
+    /* phase/verdict edge tracking for events */
+    int last_phase=s.st.phase, last_verdict=s.st.verdict;
+    int engine_was_on=0, green_flashed=0, legs_deployed_evt=0, touched_evt=0, mach1_evt=0;
+
+    uint32_t seq=0; uint32_t emitted=0;
+    int running=1;
+    while(running){
+        /* one physics step (identical to headless) */
+        int alive = sim_step(&s);
+
+        /* --- edge-triggered events (read-only) --- */
+        if(s.st.phase != last_phase){
+            emit_evt(&s, BL_EVT_PHASE_CHANGE, (float)s.st.phase, (float)last_phase);
+            last_phase = s.st.phase;
+        }
+        int eng_now = (s.st.engine_on && s.st.ign_timer>=0.0);
+        if(eng_now && !engine_was_on){ emit_evt(&s, BL_EVT_IGNITION_CMD, (float)s.st.n_eng, 0.0f); }
+        if(eng_now && !green_flashed && s.st.ign_timer>=ENG_IGN_GREEN){
+            emit_evt(&s, BL_EVT_GREEN_FLASH, 0.0f, 0.0f); green_flashed=1;
+        }
+        if(eng_now && !engine_was_on && s.st.ign_timer>=0.0){ emit_evt(&s, BL_EVT_ENGINE_START, (float)s.st.n_eng, 0.0f); }
+        if(!eng_now && engine_was_on){ emit_evt(&s, BL_EVT_ENGINE_SHUTDOWN, 0.0f, 0.0f); }
+        engine_was_on = eng_now;
+        if(!mach1_evt && s.diag.mach>=1.0 && s.diag.mach<50.0){
+            emit_evt(&s, BL_EVT_MACH1_CROSS, (float)s.st.y[S_RX], (float)s.st.y[S_RY]);
+            mach1_evt=1;
+        }
+        if(!legs_deployed_evt && s.st.deploy_cmd){ emit_evt(&s, BL_EVT_LEG_DEPLOY, 0.0f, 0.0f); legs_deployed_evt=1; }
+        if(!touched_evt && s.touched){
+            emit_evt(&s, BL_EVT_TOUCHDOWN, (float)s.impact_v, (float)s.impact_tilt);
+            touched_evt=1;
+        }
+        if(s.st.verdict != last_verdict && s.st.verdict != V_NONE){
+            emit_evt(&s, BL_EVT_VERDICT, (float)s.st.verdict, 0.0f);
+            last_verdict = s.st.verdict;
+        }
+
+        /* --- telemetry every 4th step (125 Hz) --- */
+        if(s.st.step % TLM_DECIM == 0){
+            BlTlmFixed tlm; fill_tlm(&s, &tlm, seq++);
+            if(ws_send_binary(&tlm, sizeof(tlm))!=0){ fprintf(stderr,"serve: client disconnected\n"); break; }
+            emitted++;
+            stats_accum_frames++;
+
+            /* STATS ~10 Hz (every ~12 emitted frames @125 Hz) */
+            if((emitted % 12)==0){
+                LARGE_INTEGER now; QueryPerformanceCounter(&now);
+                double dts = (double)(now.QuadPart - t_stats_last.QuadPart)/(double)freq.QuadPart;
+                BlStats stt; memset(&stt,0,sizeof(stt));
+                stt.magic=BL_MAGIC_STATS; stt.ver=BL_PROTO_VERSION;
+                stt.step=s.st.step; stt.t=s.st.t;
+                stt.max_qbar=(float)s.max_qbar; stt.peak_qdot=(float)s.peak_qdot;
+                stt.fuel_kg=(float)(s.st.y[S_MLOX]+s.st.y[S_MRP1]);
+                stt.twr=(float)s.diag.twr;
+                stt.tlm_seq=(float)seq;
+                stt.fps_emit=(float)((dts>1e-6)? stats_accum_frames/dts : 0.0);
+                ws_send_binary(&stt, sizeof(stt));
+                t_stats_last=now; stats_accum_frames=0;
+            }
+
+            /* service client control frames (PING/CLOSE); never blocks */
+            if(ws_poll_client()){ fprintf(stderr,"serve: client requested close\n"); break; }
+
+            /* pace this emitted frame to wall-clock so the descent plays at 1x */
+            double target = frame_dt * (double)emitted;
+            for(;;){
+                LARGE_INTEGER now; QueryPerformanceCounter(&now);
+                double elapsed = (double)(now.QuadPart - t_start.QuadPart)/(double)freq.QuadPart;
+                double slack = target - elapsed;
+                if(slack <= 0.0) break;
+                if(slack > 0.002) Sleep((DWORD)((slack-0.0015)*1000.0));  /* coarse sleep */
+                /* else spin the last <2 ms for tight alignment */
+            }
+        }
+
+        if(!alive){ running=0; }
+        if(s.st.t > 300.0){ running=0; }   /* hard safety cap */
+    }
+
+    /* final flush: one last TLM + verdict so the renderer settles on the end state */
+    { BlTlmFixed tlm; fill_tlm(&s, &tlm, seq++); ws_send_binary(&tlm, sizeof(tlm)); }
+    fprintf(stderr,"serve: done — verdict=%s emitted=%u frames, t=%.1f s\n",
+        verdict_str(s.st.verdict), emitted, s.st.t);
+    ws_close();
+    return 0;
+}
+/* Emit canonical packet bytes as hex to stdout (for goldens/protocol/*.hex).
+ * Deterministic: nominal terminal run, seed 42, run 1, advanced to a fixed step.
+ * Uses the SAME fill_hello/fill_tlm/emit path the server uses, so the golden is
+ * byte-identical to the live wire frame. Prints three lines: HELLO, TLM, EVT. */
+static void print_hex(const char* label, const void* p, size_t n){
+    const unsigned char* b=(const unsigned char*)p;
+    printf("%s %zu ", label, n);
+    for(size_t i=0;i<n;i++) printf("%02x", b[i]);
+    printf("\n");
+}
+static int cmd_golden(int argc, char** argv){
+    (void)argc; (void)argv;
+    Sim s; sim_init(&s, SCEN_TERMINAL, 42u, 1u, MOD_TURB, GM_HOVERSLAM);
+    /* HELLO reflects session start (t=0) */
+    BlHello hello; fill_hello(&s, 42u, 1u, &hello);
+    print_hex("HELLO", &hello, sizeof(hello));
+    /* advance to a representative mid-descent frame: 500 steps = 1.0 s sim.
+     * step%TLM_DECIM==0 so it is a real emit boundary. */
+    for(int i=0;i<500;i++) sim_step(&s);
+    BlTlmFixed tlm; fill_tlm(&s, &tlm, 125u /* seq at 1.0s @125Hz */);
+    print_hex("TLM", &tlm, sizeof(tlm));
+    /* a representative EVT: PHASE_CHANGE to the current phase at this step */
+    BlEvt e; memset(&e,0,sizeof(e));
+    e.magic=BL_MAGIC_EVT; e.code=BL_EVT_PHASE_CHANGE; e.step=s.st.step; e.t=s.st.t;
+    e.args[0]=(float)s.st.phase; e.args[1]=(float)PH_COAST;
+    print_hex("EVT", &e, sizeof(e));
+    return 0;
+}
+#else
+static int cmd_serve(int argc, char** argv){ (void)argc; (void)argv;
+    fprintf(stderr,"--serve requires Windows (Winsock2).\n"); return 2; }
+static int cmd_golden(int argc, char** argv){ (void)argc; (void)argv;
+    fprintf(stderr,"--golden requires Windows.\n"); return 2; }
+#endif /* _WIN32 */
+
 int main(int argc, char** argv){
     const char* mode = (argc>1)? argv[1] : "--selftest";
     if(!strcmp(mode,"--selftest")) return cmd_selftest();
     if(!strcmp(mode,"--headless")) return cmd_headless(argc,argv);
     if(!strcmp(mode,"--run")) return cmd_run(argc,argv);
-    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb] | --run [--scenario S --seed N --run N --verbose]\n");
+    if(!strcmp(mode,"--serve")) return cmd_serve(argc,argv);
+    if(!strcmp(mode,"--golden")) return cmd_golden(argc,argv);
+    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb] | --run [--scenario S --seed N --run N --verbose] | --serve [--scenario S --seed N --run N --port P]\n");
     return 2;
 }

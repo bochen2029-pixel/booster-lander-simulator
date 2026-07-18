@@ -1,0 +1,96 @@
+scenario=aero_offset seed=42 run=2  h0=11434 m  vz0=-354.7 m/s
+  t=  0.50 h= 11243.8 vz= -355.2 thr=0.00 tilt= 6.70 lat=  552.0 vrad=  -0.3 qbar= 22278 wperp= 0.07 m=   35715 ph=1
+  t=  1.00 h= 11066.1 vz= -355.6 thr=0.00 tilt= 8.36 lat=  552.0 vrad=   0.2 qbar= 22952 wperp= 0.16 m=   35715 ph=1
+  t=  1.50 h= 10888.3 vz= -355.7 thr=0.00 tilt=11.51 lat=  552.0 vrad=  -0.1 qbar= 23533 wperp= 0.16 m=   35715 ph=1
+  t=  2.00 h= 10710.5 vz= -355.6 thr=0.00 tilt=14.66 lat=  551.8 vrad=  -0.9 qbar= 24040 wperp= 0.12 m=   35715 ph=1
+  t=  2.50 h= 10532.8 vz= -355.1 thr=0.00 tilt=17.11 lat=  551.1 vrad=  -2.0 qbar= 24513 wperp= 0.08 m=   35715 ph=1
+  t=  3.00 h= 10355.4 vz= -354.4 thr=0.00 tilt=18.77 lat=  549.8 vrad=  -3.1 qbar= 24963 wperp= 0.05 m=   35715 ph=1
+  t=  3.50 h= 10178.4 vz= -353.6 thr=0.00 tilt=19.73 lat=  547.9 vrad=  -4.3 qbar= 25391 wperp= 0.02 m=   35715 ph=1
+  t=  4.00 h= 10001.9 vz= -352.5 thr=0.00 tilt=20.05 lat=  545.5 vrad=  -5.6 qbar= 25798 wperp= 0.01 m=   35715 ph=1
+  t=  4.50 h=  9825.9 vz= -351.4 thr=0.00 tilt=19.03 lat=  542.3 vrad=  -6.9 qbar= 26190 wperp= 0.04 m=   35715 ph=1
+  t=  5.00 h=  9650.4 vz= -350.4 thr=0.00 tilt=18.18 lat=  538.7 vrad=  -7.8 qbar= 26597 wperp= 0.03 m=   35715 ph=1
+  t=  5.50 h=  9475.5 vz= -349.3 thr=0.00 tilt=17.59 lat=  534.5 vrad=  -8.8 qbar= 26994 wperp= 0.03 m=   35715 ph=1
+  t=  6.00 h=  9301.2 vz= -348.1 thr=0.00 tilt=17.05 lat=  529.9 vrad=  -9.7 qbar= 27388 wperp= 0.03 m=   35715 ph=1
+  t=  6.50 h=  9127.4 vz= -346.9 thr=0.00 tilt=16.52 lat=  524.8 vrad= -10.5 qbar= 27772 wperp= 0.03 m=   35715 ph=1
+  t=  7.00 h=  8954.3 vz= -345.6 thr=0.00 tilt=16.02 lat=  519.4 vrad= -11.3 qbar= 28150 wperp= 0.03 m=   35715 ph=1
+  t=  7.50 h=  8781.8 vz= -344.3 thr=0.00 tilt=15.58 lat=  513.5 vrad= -12.0 qbar= 28519 wperp= 0.03 m=   35715 ph=1
+  t=  8.00 h=  8610.0 vz= -342.9 thr=0.00 tilt=15.24 lat=  507.4 vrad= -12.6 qbar= 28880 wperp= 0.03 m=   35715 ph=1
+  t=  8.50 h=  8438.9 vz= -341.5 thr=0.00 tilt=14.98 lat=  501.0 vrad= -13.1 qbar= 29226 wperp= 0.03 m=   35715 ph=1
+  t=  9.00 h=  8268.5 vz= -340.0 thr=0.00 tilt=14.79 lat=  494.3 vrad= -13.6 qbar= 29559 wperp= 0.02 m=   35715 ph=1
+  t=  9.50 h=  8098.9 vz= -338.5 thr=0.00 tilt=14.67 lat=  487.4 vrad= -14.0 qbar= 29881 wperp= 0.02 m=   35715 ph=1
+  t= 10.00 h=  7930.1 vz= -336.8 thr=0.00 tilt=14.61 lat=  480.3 vrad= -14.4 qbar= 30189 wperp= 0.02 m=   35715 ph=1
+  t= 10.50 h=  7762.1 vz= -335.2 thr=0.00 tilt=14.60 lat=  473.0 vrad= -14.7 qbar= 30497 wperp= 0.02 m=   35715 ph=1
+  t= 11.00 h=  7594.9 vz= -333.6 thr=0.00 tilt=14.62 lat=  465.6 vrad= -15.0 qbar= 30792 wperp= 0.01 m=   35715 ph=1
+  t= 11.50 h=  7428.5 vz= -331.9 thr=0.00 tilt=14.66 lat=  458.0 vrad= -15.3 qbar= 31078 wperp= 0.01 m=   35715 ph=1
+  t= 12.00 h=  7262.9 vz= -330.3 thr=0.00 tilt=14.70 lat=  450.2 vrad= -15.6 qbar= 31362 wperp= 0.01 m=   35715 ph=1
+  t= 12.50 h=  7098.2 vz= -328.6 thr=0.00 tilt=14.74 lat=  442.4 vrad= -15.9 qbar= 31644 wperp= 0.01 m=   35715 ph=1
+  t= 13.00 h=  6934.4 vz= -326.9 thr=0.00 tilt=14.79 lat=  434.4 vrad= -16.1 qbar= 31909 wperp= 0.01 m=   35715 ph=1
+  t= 13.50 h=  6771.3 vz= -325.2 thr=0.00 tilt=14.81 lat=  426.2 vrad= -16.4 qbar= 32177 wperp= 0.01 m=   35715 ph=1
+  t= 14.00 h=  6609.1 vz= -323.6 thr=0.00 tilt=14.82 lat=  418.0 vrad= -16.6 qbar= 32441 wperp= 0.01 m=   35715 ph=1
+  t= 14.50 h=  6447.7 vz= -321.9 thr=0.00 tilt=14.84 lat=  409.6 vrad= -16.9 qbar= 32700 wperp= 0.01 m=   35715 ph=1
+  t= 15.00 h=  6287.2 vz= -320.2 thr=0.00 tilt=14.86 lat=  401.1 vrad= -17.1 qbar= 32960 wperp= 0.01 m=   35715 ph=1
+  t= 15.50 h=  6127.5 vz= -318.6 thr=0.00 tilt=14.88 lat=  392.5 vrad= -17.3 qbar= 33206 wperp= 0.01 m=   35715 ph=1
+  t= 16.00 h=  5968.6 vz= -316.9 thr=0.00 tilt=14.88 lat=  383.8 vrad= -17.5 qbar= 33450 wperp= 0.01 m=   35715 ph=1
+  t= 16.50 h=  5810.6 vz= -315.3 thr=0.00 tilt=14.89 lat=  375.0 vrad= -17.6 qbar= 33702 wperp= 0.01 m=   35715 ph=1
+  t= 17.00 h=  5653.4 vz= -313.6 thr=0.00 tilt=14.90 lat=  366.2 vrad= -17.8 qbar= 33939 wperp= 0.01 m=   35715 ph=1
+  t= 17.50 h=  5497.0 vz= -312.0 thr=0.00 tilt=14.91 lat=  357.3 vrad= -17.9 qbar= 34174 wperp= 0.01 m=   35715 ph=1
+  t= 18.00 h=  5341.4 vz= -310.4 thr=0.00 tilt=14.92 lat=  348.3 vrad= -18.0 qbar= 34411 wperp= 0.01 m=   35715 ph=1
+  t= 18.50 h=  5186.6 vz= -308.7 thr=0.00 tilt=14.94 lat=  339.3 vrad= -18.1 qbar= 34640 wperp= 0.01 m=   35715 ph=1
+  t= 19.00 h=  5032.6 vz= -307.1 thr=0.00 tilt=14.96 lat=  330.2 vrad= -18.2 qbar= 34869 wperp= 0.01 m=   35715 ph=1
+  t= 19.50 h=  4879.5 vz= -305.5 thr=0.00 tilt=14.97 lat=  321.1 vrad= -18.3 qbar= 35083 wperp= 0.01 m=   35715 ph=1
+  t= 20.00 h=  4727.1 vz= -304.0 thr=0.00 tilt=14.98 lat=  311.9 vrad= -18.3 qbar= 35306 wperp= 0.01 m=   35715 ph=1
+  t= 20.50 h=  4575.5 vz= -302.4 thr=0.00 tilt=14.98 lat=  302.8 vrad= -18.4 qbar= 35533 wperp= 0.01 m=   35715 ph=1
+  t= 21.00 h=  4424.7 vz= -300.8 thr=0.00 tilt=15.01 lat=  293.6 vrad= -18.5 qbar= 35755 wperp= 0.01 m=   35715 ph=1
+  t= 21.50 h=  4274.6 vz= -299.3 thr=0.00 tilt=15.04 lat=  284.3 vrad= -18.5 qbar= 35967 wperp= 0.01 m=   35715 ph=1
+  t= 22.00 h=  4125.4 vz= -297.8 thr=0.00 tilt=15.07 lat=  275.0 vrad= -18.6 qbar= 36184 wperp= 0.01 m=   35715 ph=1
+  t= 22.50 h=  3976.9 vz= -296.3 thr=0.00 tilt=15.08 lat=  265.7 vrad= -18.6 qbar= 36375 wperp= 0.01 m=   35715 ph=1
+  t= 23.00 h=  3829.1 vz= -294.8 thr=0.00 tilt=15.07 lat=  256.4 vrad= -18.7 qbar= 36583 wperp= 0.01 m=   35715 ph=1
+  t= 23.50 h=  3682.1 vz= -293.3 thr=0.00 tilt=15.05 lat=  247.0 vrad= -18.8 qbar= 36782 wperp= 0.01 m=   35715 ph=1
+  t= 24.00 h=  3535.8 vz= -291.8 thr=0.00 tilt=15.04 lat=  237.5 vrad= -18.9 qbar= 36990 wperp= 0.01 m=   35715 ph=1
+  t= 24.50 h=  3390.2 vz= -290.4 thr=0.00 tilt=15.03 lat=  228.1 vrad= -19.1 qbar= 37189 wperp= 0.01 m=   35715 ph=1
+  t= 25.00 h=  3245.4 vz= -288.8 thr=0.00 tilt=13.91 lat=  218.5 vrad= -19.4 qbar= 37371 wperp= 0.08 m=   35715 ph=1
+  t= 25.50 h=  3101.4 vz= -287.4 thr=0.00 tilt=10.32 lat=  208.7 vrad= -19.7 qbar= 37561 wperp= 0.16 m=   35715 ph=1
+  t= 26.00 h=  2957.9 vz= -286.2 thr=0.36 tilt= 5.30 lat=  198.8 vrad= -19.5 qbar= 37789 wperp= 0.18 m=   35715 ph=4
+  t= 26.50 h=  2815.1 vz= -285.0 thr=0.99 tilt= 1.42 lat=  189.2 vrad= -18.7 qbar= 38001 wperp= 0.13 m=   35713 ph=4
+  t= 27.00 h=  2673.6 vz= -280.0 thr=1.00 tilt= 1.75 lat=  180.2 vrad= -17.7 qbar= 37189 wperp= 0.03 m=   35651 ph=4
+  t= 27.50 h=  2535.7 vz= -271.3 thr=1.00 tilt= 1.94 lat=  171.5 vrad= -16.8 qbar= 35412 wperp= 0.09 m=   35507 ph=4
+  t= 28.00 h=  2402.3 vz= -262.6 thr=1.00 tilt= 2.70 lat=  163.6 vrad= -14.7 qbar= 33589 wperp= 0.02 m=   35354 ph=4
+  t= 28.50 h=  2273.1 vz= -254.2 thr=1.00 tilt= 2.12 lat=  156.7 vrad= -12.8 qbar= 31855 wperp= 0.04 m=   35202 ph=4
+  t= 29.00 h=  2148.0 vz= -246.1 thr=1.00 tilt= 0.77 lat=  150.8 vrad= -10.8 qbar= 30196 wperp= 0.06 m=   35049 ph=4
+  t= 29.50 h=  2027.0 vz= -238.1 thr=1.00 tilt= 1.23 lat=  145.9 vrad=  -8.9 qbar= 28597 wperp= 0.06 m=   34896 ph=4
+  t= 30.00 h=  1909.9 vz= -230.4 thr=1.00 tilt= 2.68 lat=  141.9 vrad=  -7.1 qbar= 27052 wperp= 0.04 m=   34743 ph=4
+  t= 30.50 h=  1796.6 vz= -222.6 thr=1.00 tilt= 3.57 lat=  138.8 vrad=  -5.6 qbar= 25529 wperp= 0.02 m=   34591 ph=4
+  t= 31.00 h=  1687.2 vz= -214.8 thr=1.00 tilt= 3.92 lat=  136.4 vrad=  -4.0 qbar= 24028 wperp= 0.01 m=   34438 ph=4
+  t= 31.50 h=  1581.8 vz= -207.0 thr=1.00 tilt= 3.98 lat=  134.7 vrad=  -2.5 qbar= 22533 wperp= 0.01 m=   34285 ph=4
+  t= 32.00 h=  1480.2 vz= -199.2 thr=1.00 tilt= 4.01 lat=  133.8 vrad=  -1.0 qbar= 21051 wperp= 0.01 m=   34132 ph=4
+  t= 32.50 h=  1382.6 vz= -191.3 thr=1.00 tilt= 4.19 lat=  133.7 vrad=   0.4 qbar= 19607 wperp= 0.01 m=   33979 ph=4
+  t= 33.00 h=  1288.9 vz= -183.4 thr=1.00 tilt= 4.53 lat=  134.2 vrad=   1.7 qbar= 18184 wperp= 0.02 m=   33827 ph=4
+  t= 33.50 h=  1199.2 vz= -175.5 thr=1.00 tilt= 4.99 lat=  135.3 vrad=   2.8 qbar= 16785 wperp= 0.02 m=   33674 ph=4
+  t= 34.00 h=  1113.4 vz= -167.9 thr=0.91 tilt= 5.56 lat=  137.0 vrad=   3.8 qbar= 15493 wperp= 0.02 m=   33526 ph=4
+  t= 34.50 h=  1031.1 vz= -161.3 thr=0.87 tilt= 6.09 lat=  139.1 vrad=   4.6 qbar= 14426 wperp= 0.02 m=   33391 ph=4
+  t= 35.00 h=   952.0 vz= -155.0 thr=0.86 tilt= 6.61 lat=  141.5 vrad=   5.3 qbar= 13414 wperp= 0.02 m=   33259 ph=4
+  t= 35.50 h=   876.1 vz= -148.6 thr=0.86 tilt= 7.13 lat=  144.3 vrad=   5.8 qbar= 12430 wperp= 0.02 m=   33127 ph=4
+  t= 36.00 h=   803.4 vz= -142.3 thr=0.86 tilt= 7.65 lat=  147.3 vrad=   6.2 qbar= 11472 wperp= 0.02 m=   32995 ph=4
+  t= 36.50 h=   733.8 vz= -135.9 thr=0.86 tilt= 8.19 lat=  150.5 vrad=   6.4 qbar= 10543 wperp= 0.02 m=   32864 ph=4
+  t= 37.00 h=   667.4 vz= -129.6 thr=0.86 tilt= 8.78 lat=  153.8 vrad=   6.5 qbar=  9643 wperp= 0.02 m=   32733 ph=4
+  t= 37.50 h=   604.2 vz= -123.3 thr=0.85 tilt= 9.47 lat=  157.0 vrad=   6.4 qbar=  8775 wperp= 0.03 m=   32602 ph=4
+  t= 38.00 h=   544.2 vz= -116.9 thr=0.85 tilt=10.11 lat=  160.1 vrad=   5.9 qbar=  7946 wperp= 0.02 m=   32472 ph=4
+  t= 38.50 h=   487.3 vz= -110.6 thr=0.85 tilt=10.54 lat=  162.9 vrad=   5.4 qbar=  7155 wperp= 0.01 m=   32342 ph=4
+  t= 39.00 h=   433.6 vz= -104.3 thr=0.85 tilt=10.85 lat=  165.4 vrad=   4.7 qbar=  6404 wperp= 0.01 m=   32213 ph=4
+  t= 39.50 h=   383.0 vz=  -98.0 thr=0.85 tilt=11.11 lat=  167.5 vrad=   3.8 qbar=  5683 wperp= 0.01 m=   32083 ph=4
+  t= 40.00 h=   335.6 vz=  -91.7 thr=0.84 tilt=11.36 lat=  169.2 vrad=   2.9 qbar=  5003 wperp= 0.01 m=   31954 ph=4
+  t= 40.50 h=   291.3 vz=  -85.4 thr=0.84 tilt=11.62 lat=  170.4 vrad=   1.8 qbar=  4365 wperp= 0.01 m=   31826 ph=4
+  t= 41.00 h=   250.2 vz=  -79.1 thr=0.84 tilt=11.84 lat=  171.0 vrad=   0.5 qbar=  3776 wperp= 0.01 m=   31697 ph=4
+  t= 41.50 h=   212.2 vz=  -72.8 thr=0.84 tilt=12.02 lat=  170.9 vrad=  -0.8 qbar=  3229 wperp= 0.01 m=   31569 ph=4
+  t= 42.00 h=   177.4 vz=  -66.5 thr=0.84 tilt=12.18 lat=  170.2 vrad=  -2.3 qbar=  2709 wperp= 0.00 m=   31440 ph=4
+  t= 42.50 h=   145.7 vz=  -60.2 thr=0.84 tilt=12.07 lat=  168.6 vrad=  -4.1 qbar=  2265 wperp= 0.02 m=   31312 ph=4
+  t= 43.00 h=   117.2 vz=  -53.9 thr=0.83 tilt=11.33 lat=  166.1 vrad=  -6.0 qbar=  1879 wperp= 0.03 m=   31184 ph=4
+  t= 43.50 h=    91.8 vz=  -47.6 thr=0.83 tilt=10.24 lat=  162.7 vrad=  -7.6 qbar=  1536 wperp= 0.04 m=   31058 ph=4
+  t= 44.00 h=    69.6 vz=  -41.4 thr=0.82 tilt= 8.96 lat=  158.5 vrad=  -9.2 qbar=  1252 wperp= 0.08 m=   30932 ph=4
+  t= 44.50 h=    50.4 vz=  -35.2 thr=0.83 tilt= 6.50 lat=  153.3 vrad= -11.5 qbar=  1048 wperp= 0.16 m=   30806 ph=4
+  t= 45.00 h=    34.3 vz=  -29.0 thr=0.82 tilt= 3.61 lat=  147.3 vrad= -12.1 qbar=   812 wperp= 0.15 m=   30680 ph=4
+  t= 45.50 h=    21.4 vz=  -22.7 thr=0.82 tilt= 3.16 lat=  141.6 vrad= -10.7 qbar=   552 wperp= 0.09 m=   30555 ph=4
+  t= 46.00 h=    11.7 vz=  -16.3 thr=0.83 tilt= 3.45 lat=  136.6 vrad=  -9.3 qbar=   291 wperp= 0.04 m=   30430 ph=4
+  t= 46.50 h=     5.1 vz=   -9.9 thr=0.81 tilt= 3.50 lat=  132.2 vrad=  -8.4 qbar=   172 wperp= 0.02 m=   30305 ph=4
+  t= 47.00 h=     1.7 vz=   -3.6 thr=0.80 tilt= 3.22 lat=  128.3 vrad=  -7.2 qbar=    88 wperp= 0.03 m=   30182 ph=4
+RESULT: CRASHED  fault=none  td_v=7.34 m/s  lat=127.50 m  tilt=3.04 deg  fuel=4555 kg  t=47.1 s  maxq=38003 Pa

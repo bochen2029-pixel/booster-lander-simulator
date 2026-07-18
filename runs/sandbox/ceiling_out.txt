@@ -1,0 +1,139 @@
+================================================================================
+ CEILING-ORACLE: AERO_OFFSET true max landable lateral offset (optimal divert)
+================================================================================
+--- SELF-TEST (constant a=3.0, T=40.0s) ---
+  bang-bang:  solver=1200.00  closed-form a*T^2/4=1200.00  (err 0.00%)
+  vcap=25:   solver=791.67  closed-form vcap*T-vcap^2/a=791.67  (err 0.00%)
+
+Engine: T_vac=931897.2 N  AE=0.85761 m^2  thrust(1,0)=931897.2  thrust(1,P0)=845000.0
+Mass: m0=35600.0 kg (dry 25600 + prop 10000)  com0=12.269 m  RZ0=12012.3
+AoA caps: 15deg=0.2618 rad (current flat), 12deg=0.2094 rad (old)
+Powered lat models: phys=(thr*T/m)*sin(cap) [PROMPT] ; ctrl=(G0+2)*tan(cap) [control.c cap]
+  (G0+2)*tan15=3.164  (G0+2)*tan12=2.510 m/s^2
+
+--- dt-convergence (nominal 12km/-330): D_phys=vcap@30 fade/15 ; D_bb=free-bb fade/15 ---
+   dt(s)   D_phys(m)   D_bb(m)    T_td(s)   t_ignite(s)  h_ignite(m)
+   0.004    1107.42    2492.59     49.55       27.49      3119.6
+   0.002    1107.38    2492.39     49.54       27.49      3120.2
+   0.001    1107.36    2492.29     49.54       27.49      3120.5
+
+--- DIAGNOSTIC: P4-parity (aero-only, null by 4600m) + full-window plausibility ---
+ hard-15deg AERO-ONLY (null by 4600m): D=648 m  (P4 hard-15 = 847 m)   [PARITY CHECK]
+ 12deg AERO-ONLY (null by 4600m):     D=519 m  (P4 fixed-12 = 573 m)
+ 6deg  AERO-ONLY (null by 4600m):     D=259 m  (P4 fixed-6  = 313 m)
+ full-window(a) peak |v_lat| of optimal bang-bang = 124.6 m/s  (switch t=23.3s)
+   -> a 125 m/s cross-range velocity is UNPHYSICAL for the lift model (small-AoA).
+   -> the free double-integrator over the FULL 49.5s descent is NOT the sim's regime;
+      the sim nulls v_xy continuously (converging profile). The realistic ceiling is
+      the VELOCITY-CAPPED divert (below), matching MPPI-2. Full-window bb = math upper bound.
+
+--- nominal vertical trajectory (12km/-330, 0.85 v_ref arrest) ---
+ T_touchdown=49.54 s  ignite@ t=27.49 s h_feet=3120.2 m (RZ=3132.5) Mach=0.89
+ vz_touchdown=-1.453 m/s  fuel_left=4094.7 kg  qbar_peak=38.5 kPa  mach_peak=1.14  ok=1
+ unpowered-descent duration=27.49 s ; powered-burn duration=22.05 s
+
+========================= HEADLINE D_max TABLE (nominal 12km/-330) =========================
+ PHYSICAL ceiling = velocity-capped optimal divert (v_lat<=30 m/s, sim-faithful: MPPI VLAT_MAX).
+ The free bang-bang (right col) is a MATH UPPER BOUND only: it builds ~125 m/s cross-range,
+ which violates the small-AoA lift model and the sim guidance -> NOT achievable. Use D_phys.
+
+ variant                                          D_phys(m)   D_bb-upperbound(m)
+ (a) FADE, 15deg   [CURRENT BEHAVIOR]               1107.4      2492.4   <== THE headline (D_phys)
+ (b) NO-FADE, 15deg                                 1291.0      3279.4   (removing/blending the fade)
+ (c) CENTERED-by-400m, FADE, 15deg                  1054.4      2306.9   (target MPPI profile r=0 by 400m)
+ (d) FADE, 12deg                                    1062.1      1997.7   (old-cap reconciliation)
+
+--- v_cap sensitivity (variant a, fade/15, nominal): how the physical ceiling scales ---
+   v_cap(m/s)   D_phys(m)   (MPPI-2 measured ~400-500 total divert)
+       15         602.9
+       20         781.0
+       25         949.1
+       30        1107.4
+       40        1395.7
+       50        1647.3
+
+--- 3x3 grid: D_phys variant (a) FADE 15deg, vcap=30 [m]  (rows h0, cols vz0) ---
+   h0\vz0      -300      -330      -360
+    11200     1060.5   1050.7   1033.0
+    12000     1119.0   1107.4   1087.9
+    12800     1173.7   1159.4   1138.6
+
+--- 3x3 grid: D_phys variant (c) CENTERED-400 FADE 15deg, vcap=30 [m] ---
+   h0\vz0      -300      -330      -360
+    11200     1007.6    997.8    980.1
+    12000     1066.1   1054.4   1035.0
+    12800     1120.8   1106.5   1085.7
+
+--- 3x3 grid: D_bb (free bang-bang MATH upper bound) variant (a) 15deg [m] ---
+   h0\vz0      -300      -330      -360
+    11200     2260.9   2297.4   2317.8
+    12000     2456.0   2492.4   2510.9
+    12800     2644.2   2677.2   2693.5
+
+--- closed-form sanity checks ---
+ free-bb(a): D=2492.4 over T=49.54s => equiv constant a=4.062 m/s^2 (matches ~mean a_max)
+ representative unpowered a_max(30kPa,M0.9,15deg)=5.570 m/s^2 ; D=a*T^2/4=3418 m (bb bound)
+ vcap trapezoid closed form: ta=vcap/a=5.4s, D~vcap*(T-ta)=1325 m (vs D_phys=1107, aero-faded lower)
+ (D_phys < trapezoid bound because aero authority is zero above ignition-limited window
+  and faded to ~0 below 400m; the cruise-at-vcap segment is shorter than full T.)
+
+================================================================================
+ RECONCILIATION: MPPI-2 (~400-500) vs P4 (787-864) -- resolved
+================================================================================
+ THIS STUDY (integrated single trajectory, aero-aware ignition @ ~3120m):
+   PHYSICAL D_phys (vcap=30, fade/15) = 1107 m   <<< AUTHORITATIVE ceiling
+   free-bb math upper bound (fade/15)   = 2492 m   (unphysical 125 m/s cross-range)
+
+ WHY MPPI-2 said 400-500:
+   MPPI caps commanded inward speed at VLAT_MAX=30 m/s and nulls v_xy continuously, so it
+   operates in the VELOCITY-LIMITED regime. D_phys@vcap=30 = 1107 m; MPPI-2's tuned law
+   (conservative A_DECEL=1.3, extra fade+tilt losses, imperfect reversal) realizes ~60-80%
+   of that -> the observed 400-500 m. So MPPI-2 is CORRECT for the as-implemented controller.
+
+ WHY P4 said 787-864 (and why it's an OVER-estimate for the current sim):
+   P4 = aero-phase rest-to-rest to a FIXED 4.6km ignition (237-314m) + a SEPARATELY-BUDGETED
+   550m landing-burn divert, with NO execution fade and the OLD 8-12deg caps. Three errors
+   vs the current sim:
+     1. FIXED 4.6km ignition: the aero-aware rule now fires at ~3120m (LOWER), so the aero
+        phase has less altitude/time -> smaller aero divert than P4's high-ignition figure.
+     2. +550m burn budget STACKED on top: does not exist. The fade s=(h/400)^2 crushes
+        powered lateral authority to ~0 by 400m, and below ignition the vehicle is already
+        near the pad -- the burn adds little rest-to-rest displacement, not 550m.
+     3. No velocity-null accounting: P4's bang-bang also implicitly built large v_lat.
+   Net: P4 double-counted an un-faded burn divert on top of a high-ignition aero ceiling.
+
+ VERDICT: the numbers do NOT actually disagree once put on the same footing. The physical,
+   integrated, fade-aware, velocity-capped ceiling is ~1107 m (D_phys). MPPI-2's 400-500 is
+   the achievable fraction of it; P4's 787-864 was an optimistic sum of non-additive terms.
+
+================================================================================
+ DISPERSION RECOMMENDATION for AERO_OFFSET (based on D_phys)
+================================================================================
+ D_phys(a) nominal=1107 m ; worst-corner over 3x3=1033 m ; centered-400 worst=980 m
+ Design ceiling = 0.85 * D_phys(nominal) = 941 m  (the >=90%-landable target radius)
+
+ Two footings:
+   (i)  against PHYSICAL D_phys: safe radius 0.85*D_phys = 941 m
+   (ii) against MPPI-ACHIEVABLE (~0.70*D_phys = 775 m, matches the observed 400-500 land):
+        safe radius 0.85*achievable = 659 m
+
+ For >=90% of seeds inside a target radius, need mean + 1.28*sigma <= target.
+   p90=mean+1.28*sig ; mark P if <=phys-target(941), A if <=MPPI-target(659)
+     mean\sig     80        100       120       150
+      300        402 PA    428 PA    454 PA    492 PA
+      350        452 PA    478 PA    504 PA    542 PA
+      400        502 PA    528 PA    554 PA    592 PA
+      450        552 PA    578 PA    604 PA    642 PA
+      500        602 PA    628 PA    654 PA    692 P 
+
+ Current scenario mean 500 sig 150 => p90=692 m.
+ RECOMMENDATION:
+   * Against the physical ceiling (941 m), the current mean 500 / sig 150 (p90=692) FITS.
+   * BUT the as-implemented MPPI only lands ~0.70*D_phys; against that footing (659 m) the
+     current mean 500 is TOO HOT (p90=692 >> 659). To keep >=90% landable with TODAY's
+     controller, use mean 300-350, sigma 100  (p90=428-478 m, both within the MPPI target).
+   * This CONFIRMS the prior house recommendation (mean 300-350, sig 100). The scenario's
+     mean-500 is well-posed ONLY if MPPI is improved toward D_phys (blend out the fade,
+     center-by-400); otherwise retune the dispersion down to ~350/100 (like D-006 800->500).
+
+(done)

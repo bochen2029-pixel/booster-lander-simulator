@@ -90,6 +90,9 @@
  * slender-body range) — enough to tame the aero pendulum without over-resisting maneuvers. */
 #define BODY_CMQ_CDC  0.6
 
+/* Plume / engine chamber (for telemetry plume model; not used by the plant) */
+#define PC_REF        9.7e6          /* Pa chamber pressure ref [chosen] — p_chamber = throttle_act*PC_REF */
+
 /* Budgets / failure lines */
 #define QBAR_MAX      80000.0        /* Pa [estimate] */
 #define HEAT_RN       1.83           /* m nose radius */

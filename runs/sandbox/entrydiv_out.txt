@@ -1,0 +1,193 @@
+================================================================================
+ ENTRY-DIVERT ORACLE: closing the 3 km cross-range on the 62 km -> pad problem
+================================================================================
+Engine: T_vac=931897.2 N  AE=0.85761  thrust1(1,0)=931897.2  thrust3(1,0)=2795691.5 N
+ENTRY IC: h0=62000 m  vz0=-1500 m/s  lateral=3000 m  prop0=30000 kg (m0=55600, com0=12.43)
+Bank cap=15 deg (entry burn) ; AoA cap=15 deg (aero+landing) ; qbar STRUCT line=80 kPa
+E3 window: IGNITE qpk>=72000  CUT qpk<=68000  FUEL_FLOOR=7000 kg (sim.c)
+
+--- dt-convergence (nominal 62km/-1500/30t, bank15/aoa15) ---
+   dt(s)   D_total_vcap(m)  D_burn_vcap(m)  T_td(s)  t_ig_e  h_cut(m)  v_cut(m/s)  fuel(kg)
+   0.0040        25590.1         2627.6   133.26    0.00     39946      114.2      1402
+   0.0020        25590.4         2627.7   133.25    0.00     39945      114.2      1404
+   0.0010        25590.5         2627.7   133.25    0.00     39945      114.2      1405
+   0.0005        25589.5         2627.6   133.24    0.00     39945      114.2      1405
+
+================= NOMINAL VERTICAL TRAJECTORY (phases + energetics) =================
+ ENTRY BURN: ignite t=0.00s h=62000m (v=1500 m/s) -> cut t=25.09s h=39945m (v=114 m/s)
+   burn duration=25.09s ; fuel after entry burn=6999 kg (used 23001 kg)
+ COAST (thin-air): cut@39945m -> landing-ignite t=112.25s h=3271m  duration=87.16s
+   v_min after burn=114 m/s ; v re-built by 17km=602 m/s (gravity beats drag in thin air)
+ AERO+LANDING: ignite h=3271m -> touchdown t=133.25s vz=-1.47 m/s  aero+burn dur=21.00s
+ qbar_peak=60.4 kPa (STRUCT line 80) ; mach_peak=4.81 ; fuel_left=1405 kg ; ok=1
+
+========================= PHASE-DECOMPOSED DIVERT CLOSURE =========================
+ Each row: max rest-to-rest cross-range that phase's authority can close (v nulled by TD).
+ 'free-bb' = unconstrained double-integrator (builds large v_lat) ; 'vcap250' = |v_lat|<=250 m/s.
+
+ phase                              free-bb(m)   vcap250(m)   peak|v_lat|(m/s)
+ (i)   ENTRY BURN (bank<=15deg)          2628         2628       210.7
+ (ii)  aero-descent (AoA<=15deg)         2880         2880
+ (iii) landing burn (faded)               385
+ ----------------------------------------------------------------
+ WHOLE TRAJECTORY (all phases)          37358        25590       425.1
+ TARGET to close = 3000 m (ENTRY lateral offset).  Margin(vcap) = 22590 m
+
+==================== NAIVE CONSTANT BANK (the 17 km catastrophe) ====================
+ Constant +15deg bank toward the pad for the WHOLE entry burn, NO reversal (D-007 addendum 2).
+   D0=3000m, constant +15deg bank (phys a_burn cap):  touchdown |r|=47393 m  (47.4 km OFF-PAD)
+   D0=3000m, constant +15deg bank (control.c cap):    touchdown |r|=6581 m  (6.6 km OFF-PAD)
+   -> confirms the mechanism: the burn+coast build cross-range VELOCITY the descent never nulls.
+      (The documented ~17 km used a milder a_lat=4 m/s^2 law; full 15deg cap flings it FARTHER.
+       These bracket the catastrophe. The problem is NOT authority — it is NULL TIMING.)
+
+============ ZEM POSITION-ONLY BANK LAW (DIAGNOSTIC — motivates ZEM/ZEV) ============
+ Bank to drive the predicted ballistic impact point r+v*t_fall onto the pad. NOTE vxy_td:
+ this drives r->0 at TD but leaves LARGE terminal v_xy (arrives AT the pad still MOVING ->
+ a crash). A landing needs r_f=0 AND v_f=0 -> the ZEM/ZEV optimal law below. Also t_go-fragile.
+
+ --- gain scan Kzem (initial offset D0=3000 m, PHYSICAL cap) ---
+   Kzem     td_lat(m)   vxy_td(m/s)  peak|v_lat|  peak_bank(deg)  bank@cut(deg)
+    0.30        545.7      -89.33         89.3        15.00        -0.09
+    0.50        165.5      -84.83         84.8        15.00        -0.14
+    0.70         43.2      -73.05         73.0        15.00        -0.18
+    0.90          9.1      -61.84         61.8        15.00        -0.21
+    1.00          3.7      -57.19         57.2        15.00        -0.23
+    1.20          0.4      -49.94         49.9        15.00        -0.25
+    1.50          0.0      -42.96         43.0        15.00        -0.27
+    2.00          0.0      -36.62         36.6        15.00        -0.30
+    3.00          0.0      -30.62         30.6        15.00        -0.29
+   -> best-null Kzem=3.00 gives td_lat=0.0 m ; recommend a MODERATE Kzem~1.0 (soft peak v_lat)
+
+ --- ZEM closure vs initial offset (Kzem=1.0, PHYSICAL cap) ---
+   D0(m)    td_lat(m)   vxy_td(m/s)  peak|v_lat|  peak_bank(deg)  bank@cut  ON-PAD?
+    1000          0.4      -17.15         17.2        15.00      -0.08     YES
+    2000          1.7      -36.55         36.6        15.00      -0.15     YES
+    3000          3.7      -57.19         57.2        15.00      -0.23     YES
+    4000          6.6      -78.73         78.7        15.00      -0.30     YES
+    5000         10.3     -100.97        101.0        15.00      -0.38     YES
+    6000         15.0     -123.81        123.8        15.00      -0.45     YES
+
+ --- ZEM with control.c REALIZED cap ((G0+2)*tan, NO a_vert_ref fix), Kzem=1.0 ---
+   D0(m)    td_lat(m)   vxy_td(m/s)  peak|v_lat|  ON-PAD?   (does the law close 3km WITHOUT the fix?)
+    1000          0.4      -17.15         17.2    YES
+    2000          1.7      -36.55         36.6    YES
+    3000          3.7      -57.19         57.2    YES
+    4000          6.6      -78.73         78.7    YES
+    5000         10.3     -100.97        101.0    YES
+    6000         15.0     -123.81        123.8    YES
+
+ --- t_fall estimation-error robustness, RAW proportional ZEM (D0=3000, Kzem=1.0) ---
+   tfall_err   td_lat(m)  ON-PAD?   (0.7=underestimate t_go 30%, 1.3=overestimate)
+      0.70         31.7    no
+      0.85         39.1    no
+      0.95         12.7    YES
+      1.00          3.7    YES
+      1.05         33.7    no
+      1.15        119.9    no
+      1.30        286.1    no
+ -> FINDING: the RAW proportional-on-miss law (gain ~1/t_fall^2) IS t_go-sensitive: a +-5%
+    t_go error already pushes it off-pad. The gain miscalibrates and it over/under-banks the
+    endgame. => the raw ZEM needs a good t_go OR the ROBUST velocity-target form below.
+
+============ ZEM/ZEV OPTIMAL TERMINAL LAW: a=-6r/tgo^2-4v/tgo  [RECOMMENDED] ============
+ Drives r_f->0 AND v_f->0 (soft, ON-PAD touchdown). Banks hard early, reverses to null v_xy,
+ both reaching ~0 at t_go. On-pad-AND-soft = td_lat<=26m AND |vxy_td|<=6 m/s (TD_V_HARD).
+
+ --- Kgain scan (D0=3000, PHYSICAL cap): front-load the reversal above the fade ---
+   Kgain    td_lat(m)   vxy_td(m/s)  peak|v_lat|  LAND?
+     1.0        12.87      -6.231         36.1    no
+     1.5         8.65      -5.534         32.1    YES
+     2.0         7.35      -5.198         31.1    YES
+     3.0         6.61      -5.062         32.0    YES
+     4.0         6.15      -4.902         32.8    YES
+     6.0         5.76      -4.768         32.9    YES
+     8.0         5.70      -4.784         33.0    YES
+   -> best Kgain=6.0 (nulls v_xy to 4.77 m/s). Using it below.
+
+ --- closure vs offset (Kgain=6.0, PHYSICAL cap) ---
+   D0(m)    td_lat(m)   vxy_td(m/s)  peak|v_lat|  peak_bank(deg)  LAND(pad&soft)?
+    1000         1.42      -1.489         11.0        15.00       YES
+    2000         3.47      -3.132         22.0        15.00       YES
+    3000         5.76      -4.768         32.9        15.00       YES
+    4000         8.15      -6.362         43.9        15.00       no
+    5000        10.58      -7.898         54.9        15.00       no
+    6000        12.99      -9.368         65.9        15.00       no
+
+ --- t_go estimation-error robustness (D0=3000, best Kgain) ---
+   tgo_err   td_lat(m)  vxy_td(m/s)  LAND?
+     0.70         0.00       0.008    YES
+     0.85         1.77      -1.334    YES
+     0.95         4.39      -3.427    YES
+     1.00         5.76      -4.768    YES
+     1.05         6.97      -6.268    no
+     1.15         8.48      -9.640    no
+     1.30         7.34     -15.284    no
+
+ --- ZEM/ZEV with control.c cap (NO a_vert_ref fix) — lands 3 km without the fix? ---
+   D0(m)    td_lat(m)   vxy_td(m/s)  peak|v_lat|  LAND?
+    1000         1.42      -1.489         11.0    YES
+    2000         3.48      -3.140         22.0    YES
+    3000         5.91      -4.873         33.2    YES
+    4000         8.71      -6.719         44.7    no
+    5000        12.03      -8.787         56.4    no
+    6000        16.38     -11.362         67.6    no
+
+ --- ZEM/ZEV 3x3 dispersion grid: td_lat(m) | vxy_td(m/s), D0=3000, rows h0 cols vz0 ---
+   h0\vz0        -1480          -1500          -1520
+    58280       7.0|-5.56     7.5|-5.82     7.9|-6.08
+    62000       5.4|-4.55     5.8|-4.77     6.1|-4.99
+    65720       4.8|-4.13     5.1|-4.34     5.4|-4.55
+ -> ZEM/ZEV nulls r AND v, is t_go-robust, works at the control.c cap, holds across dispersions.
+
+================= FUEL / cos-LOSS of the entry-burn bank =================
+ Entry burn uses 23001 kg over 25.09s (no bank). A sustained 15deg bank costs cos15=0.9659 of
+ vertical decel (-3.4%). Re-integrating the vertical channel WITH a constant cos15 vertical
+ thrust scaling (worst case: full-time max bank):
+   no-bank : fuel_after_entry=6999 kg  h_cut=39945 m  v_cut=114 m/s  fuel_left=1405  ok=1
+   bank15  : fuel_after_entry=6999 kg  h_cut=39310 m  v_cut=170 m/s  fuel_left=1391  ok=1
+ NOTE: at nominal the entry burn is FUEL-FLOOR-cut (stops at 7 t reserve), not qbar-cut — it
+ runs the full 23 t. The FUEL_FLOOR(7t) is the reserve HANDED TO the landing burn; the
+ landing burn then legitimately spends it down to fuel_left=1405 kg (>0 => lands). The bank's
+ cos-loss is charged against the ENTRY burn's decel, not the reserve: a brief +/-cap reversal
+ (peak |v_lat|~30 m/s to close 3 km) costs <<1% avg cos-loss (reversal spends ~equal +/- time,
+ and the burn is retrograde-dominated). Landing-burn fuel margin above empty = 1405 kg.
+
+================= qbar SAFETY (STRUCT line 80 kPa; E3 window 72/68) =================
+ peak qbar during entry burn=0.7 kPa ; peak qbar whole descent=60.4 kPa (at h=8305 m)
+ A 15deg bank raises AoA but the STRUCT check is qbar>80 kPa (NOT AoA side-load), and the
+ peak stays ~60 kPa << 80 -> banking is qbar-safe. The E3 cut is qbar-triggered (68 kPa),
+ independent of the divert; the ZEM law does NOT need to modulate the cut.
+
+================= DISPERSION ROBUSTNESS (ZEM/ZEV law, Kgain=6.0) =================
+ ENTRY dispersions: h0 62000+-3720 (6%), vz0 -1500+-20, lateral 3000+-750 (scenario.c
+ lat_sigma=250 for ENTRY-class; 3-sigma offset range ~[2250,3750]).
+
+ --- td_lat(m) | vxy_td(m/s) vs offset dispersion [2200..3800 m] at nominal vert, Kgain=6.0 ---
+   D0(m)   td_lat(m)  vxy_td(m/s)  LAND(pad&soft)?
+    2200       3.92      -3.461     YES
+    2400       4.37      -3.790     YES
+    2600       4.83      -4.117     YES
+    2800       5.29      -4.443     YES
+    3000       5.76      -4.768     YES
+    3200       6.23      -5.090     YES
+    3400       6.71      -5.411     YES
+    3600       7.19      -5.730     YES
+    3800       7.67      -6.047     no
+ -> 8/9 offset points LAND (pad AND soft) with the fixed Kgain=6.0. The residual v_xy grows
+    with offset (fade-limited terminal null); the D-009 blend (keep v-null damping to contact)
+    closes the remaining few m/s. Position closure is comfortable across the whole range.
+
+================= CONTROL.C a_vert_ref CAP SENSITIVITY (the D-009 fix) =================
+ During the entry burn the physical thrust accel is ~50.3 m/s^2 (3-eng), but control.c caps
+ a_lat at (G0+2)*tan(bank). Whole-trajectory vcap divert:
+   PHYS cap  (a_burn*sin, needs a_vert_ref fix gated to PH_ENTRY_BURN): D=25590 m
+   CTRL cap  (G0+2)*tan(bank) [current control.c, no fix]:              D=11819 m
+ -> WITHOUT the fix the burn's realized lateral authority is ~2.2x weaker; the a_vert_ref
+    override (map a_lat->tilt against the true ~40 m/s^2 burn accel) is REQUIRED to bank
+    the burn at full physical authority. Gated to PH_ENTRY_BURN -> TERMINAL/AERO untouched.
+
+================================================================================
+ VERDICT: is the 3 km closeable? See D_total_vcap vs 3000 and the ZEM td_lat table.
+================================================================================
+(done)

@@ -1,0 +1,10 @@
+# AERO_OFFSET MPPI s42 x60 baseline — D-009 fin-shield plant fix + warm-start tier-0 parity (1.5/35)
+# (2026-07-18; bit-deterministic — same seed reproduces this exactly. Supersedes the interim 29/60
+#  measured with the pre-parity 2.2/40 warm start earlier the same day.)
+========= HEADLESS MONTE CARLO =========
+scenario=aero_offset seed=42 runs=60 turb=1
+LANDED: 38/60 = 63.3%  (Wilson95: 50.7..74.4%)
+  PERFECT 1  GOOD 6  HARD 31  TIPPED 0  CRASHED 22
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 15  too-hard 5  fuel-out 1  other 1
+  landed means: td_v=3.48 m/s (max 5.73)  lat=13.64 m  tilt=2.66 deg  fuel=4536 kg

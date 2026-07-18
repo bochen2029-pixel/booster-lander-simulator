@@ -77,8 +77,15 @@ prime directives (below) are enforced throughout the codebase:
 
 ## Key ideas
 
-- **Determinism as a contract.** Fixed 2 ms step, seeded Philox RNG, no wall-clock in the sim path,
-  no fast-math. Bit-identical replay is asserted, not hoped for.
+- **Determinism as a contract — with an explicit scope.** Fixed 2 ms step, seeded Philox RNG, no
+  wall-clock in the sim path, no fast-math. Bit-identical replay is asserted, not hoped for. Scope:
+  the **fp64 CPU plant is bit-identical everywhere the same binary runs** (the `memcmp` oracle), and
+  the CPU MPPI is bit-identical under OpenMP (Philox lane-per-rollout + fixed pairwise-tree
+  reductions). GPU rollouts, when they land (M5), are **structurally shared** (`__host__ __device__`
+  same source, `-fmad=false`, no atomics) but promise bit-identity only per GPU architecture
+  (goldens pinned `sm_89`); CPU↔GPU parity is a *toleranced* gate (per-step |Δr| < 1e-3 over 200
+  steps), not a bit claim — FMA contraction and device libm make cross-device bit parity a mirage,
+  so the contract never claims it.
 - **Headless Monte-Carlo as the proof-of-realness.** The core runs thousands of randomized descents
   and reports the landing rate with a Wilson-95 interval and a crash-cause breakdown
   (off-pad / too-hard / fuel-out / other). Numbers, not vibes.
@@ -98,7 +105,13 @@ prime directives (below) are enforced throughout the codebase:
 ## Status (honest)
 
 This is an in-progress build. What is claimed below is verified at the current checkpoint; what is
-not done is called out explicitly.
+not done is called out explicitly. Two provenance notes: this repository is a **public mirror** of a
+local working tree — development happens against local ledgers (`RUN_STATE.md`, the append-only
+`DECISIONS.md` ADR log, frozen `goldens/`), and pushes are periodic consolidated snapshots, so the
+public commit history is intentionally coarse while the decision history lives in `DECISIONS.md`.
+And the claims below no longer require trusting the author's machine: **CI re-runs the 10-oracle
+selftest (including the bit-identical determinism `memcmp`) and a 200-run Monte-Carlo gate on a
+clean `windows-latest` runner on every push** (`.github/workflows/ci.yml`).
 
 **Done and verified (milestones M0–M2 + an independent physics audit):**
 
@@ -108,8 +121,34 @@ not done is called out explicitly.
   inertia-rate vs. finite difference, hover-impossibility (minimum TWR ≈ 1.32), grid-fin passive
   stability, aero-descent closed-loop stability, and a **bit-identical determinism `memcmp`**.
 - **TERMINAL hoverslam lands ~97–98%** of randomized descents (Wilson-95 CI), across multiple seeds,
-  on the honest, audited plant — with 0 off-pad and 0 fuel-out failures; the residual is a small
-  hard-touchdown tail that the planned optimal guidance is expected to close.
+  on the honest, audited plant — with 0 off-pad and 0 fuel-out failures. The residual hard-touchdown
+  tail is **lateral-coupled, not solver-quantization-limited** (measured: corr(td_lat, td_v) ≈ +0.64
+  across the tail, while the ignition-timing quantization bound at the 50 Hz guidance tick is only
+  ~0.2 m/s — the tail is a dispersion/steering problem, not a discretization floor).
+- **ENTRY (62 km, Mach ~5, 3 km cross-range) lands 41–50%** across seeds 42/7/99 (median miss
+  ~23 m, 99/100 within 50 m, zero structural failures) — via the predictive entry-burn supervisor,
+  a ZEM/ZEV collision-course bank during the three-engine burn, and an SRP-shielded landing burn.
+- **AERO_OFFSET (12 km, mean 500 m offset) lands 55–60%** under the reactive tier-0 law and
+  **63.3%** under the integrated lateral-only MPPI (CPU, K=256, bit-deterministic under OpenMP).
+
+### What the Monte-Carlo numbers mean (the dispersion envelope)
+
+A landing rate is meaningless without the randomization it survives. Per run (all 1σ, seeded,
+bit-replayable): initial altitude ±6%, vertical speed ±12 m/s (TERMINAL) / ±20 m/s (others),
+lateral offset σ 30 m (TERMINAL) / **mean 500, σ 150 m** (AERO_OFFSET) / **mean 3000, σ 250 m**
+(ENTRY), horizontal velocity ±5 m/s per axis, initial tilt (scenario base 3–6°) ±2° at random
+azimuth, body rates ±0.02 rad/s, propellant load ±2%. Environment: an altitude power-law mean-wind
+profile (u_ref 3 / 6 / 8 m/s for TERMINAL / AERO / ENTRY, seeded azimuth) plus seeded Dryden
+turbulence (15 / 30 / 30 kt severity) — **guidance never reads the wind; it flies through it on
+state feedback alone**. With `--inject`, additional parameter dispersions the guidance cannot see:
+thrust up to −8%, Isp up to −1%, CoM offset up to 2 cm at random azimuth (TERMINAL passes this
+Tier-B at 97.3–98.1%).
+
+**Honest scoping of what is still idealized:** guidance currently reads true state (the canon's
+`NAV_NOISY` measurement layer — position/velocity/attitude noise and gyro bias — is specified but
+not yet implemented), and the guidance's internal predictors share the plant's aero tables (thrust
+/Isp/CoM/wind mismatch is exercised via `--inject` and the blind winds; aero-coefficient scatter is
+not yet dispersed). The physics is honest; the estimation problem is the next honesty upgrade.
 - **Plant physics independently audited** — a 5-agent, C-only audit confirmed the dynamics on three
   separate code paths and found and fixed real bugs (grid-fin allocation signs, gimbal rate-state
   windup, missing roll damping, a transonic CoP artifact).
@@ -121,12 +160,14 @@ not done is called out explicitly.
 
 **In progress / not yet done:**
 
-- The **entry-burn supervisor** for the full 62 km → pad `ENTRY` scenario (predictive three-engine
-  retropropulsion burn) and cross-range divert sequencing.
-- **MPPI guidance** (CPU → CUDA, `sm_89`) to optimize the aerodynamic descent and close the hard
-  touchdown tail.
-- The **full cinematic renderer** — plume, dust, sky, audio propagation, HUD, and director camera
-  are designed and partially scaffolded but not yet wired live.
+- **Closing ENTRY/AERO to their ≥90% gates** — the remaining tails are a 26–33 m pad-grazing band
+  and a hard-touchdown tail on uncentered arrivals (tuning, not architecture; the measured optimal-
+  divert ceiling from 12 km is ~1.1 km, so the dispersions are physically well-posed).
+- The **NAV_NOISY measurement layer** (estimation honesty) and aero-coefficient scatter.
+- **MPPI on CUDA** (`sm_89`, K=16384, p99 ≤ 6 ms gate) — the CPU MPPI is the frozen parity reference.
+- The **full cinematic renderer** — the binary-telemetry `--serve` path is live and validated
+  end-to-end; plume, dust, sky, audio propagation, HUD, and director camera are designed and
+  partially scaffolded but not yet wired live (needs a real WebGPU browser, not headless).
 
 See `RUN_STATE.md` for the current ledger, `DECISIONS.md` for the architecture-decision log
 (D-001 … D-006), and `NEXT_SESSION.md` for the detailed build plan.
@@ -192,6 +233,9 @@ core/                 C11 plant + guidance + sim + Monte-Carlo (zero deps, CUDA-
 ui/                   three.js r185 WebGPU renderer (read-only observer; vitest green)
 shell/                Tauri v2 sidecar shell (Rust supervisor)
 runs/                 design notes and audit artifacts (C harnesses, MC CSVs, taxonomies)
+goldens/              frozen MC baselines + protocol byte goldens (re-baselining is an ADR event)
+data/reference/       public telemetry reconstructions (events.xlsx — webcast-derived, reference only)
+.github/workflows/    CI attestation: selftest + MC gate on a clean runner per push
 ```
 
 `core/` must build and run with `ui/` and `shell/` deleted.

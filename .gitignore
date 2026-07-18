@@ -2,8 +2,17 @@
 build/
 _wstest/
 
-# temporary duplicate source tree — never publish
+# temporary duplicate source trees / agent worktrees — never publish
 _serve_wt/
+_mppi_wt/
+_mppi_wt2/
+
+# session-transcript exports + chunker output + local harness config — never publish
+bootstrap_and_awaken_*
+_NEXT_SESSION_*
+*.chunks/
+.claude/
+_adj_replay*
 
 # CMake
 CMakeCache.txt

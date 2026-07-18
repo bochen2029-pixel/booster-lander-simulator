@@ -145,6 +145,59 @@ typedef struct BlEvt {
     /* total 48 */
 } BlEvt;
 
+/* ---- HELLO — first frame the server sends after the WS handshake -------------
+ * Session descriptor + the invariant vehicle/world constants the renderer needs
+ * to build the scene once (mass-independent geometry, wire caps, decimation).
+ * Sent exactly once; the client validates ver == BL_PROTO_VERSION before decoding
+ * any TLM. Layout ordered f64/u64 first (8-aligned), then f32, then the small-int
+ * island — same discipline as BlTlmFixed. *ADDED by RENDERER-STREAM track 4-C.* */
+typedef struct BlHello {
+    uint32_t magic;        /* 0   BL_MAGIC_HELLO                              */
+    uint16_t ver;          /* 4   BL_PROTO_VERSION                           */
+    uint16_t flags;        /* 6   reserved (0)                               */
+    /* --- 8-byte-wide block (8) --- */
+    double   t0;           /* 8   sim time at session start [s] (0.0)        */
+    uint64_t seed;         /* 16  RNG seed (u32 value, widened)              */
+    /* --- rates / caps (24) --- */
+    float    dt;           /* 24  physics step [s] (0.002)                   */
+    float    tlm_hz;       /* 28  telemetry emit rate [Hz] (125)             */
+    uint32_t tlm_decim;    /* 32  steps per telemetry frame (TLM_DECIM)      */
+    uint32_t run_idx;      /* 36  scenario run index                         */
+    /* --- vehicle geometry (mass-independent) (40) --- */
+    float    veh_len;      /* 40  total length [m]                           */
+    float    veh_dia;      /* 44  diameter [m]                               */
+    float    leg_span;     /* 48  deployed leg footprint diameter [m]        */
+    float    pad_radius;   /* 52  landing pad radius [m]                     */
+    float    deck_z;       /* 56  ground/deck height [m]                     */
+    float    pc_ref;       /* 60  chamber-pressure reference [Pa]            */
+    /* --- session ids / caps island (64) --- */
+    uint16_t plan_max;     /* 64  BL_PLAN_MAX                                */
+    uint16_t cloud_max;    /* 66  BL_CLOUD_MAX                               */
+    uint8_t  scenario;     /* 68  scenario enum                              */
+    uint8_t  guidance_mode;/* 69  0 none / 1 hoverslam / 2 mppi              */
+    uint8_t  modules;      /* 70  module mask (MOD_*)                        */
+    uint8_t  _pad0;        /* 71                                             */
+    /* total 72                                                              */
+} BlHello;
+
+/* ---- STATS @~10 Hz — lightweight session/run scalars for the HUD ribbon ------
+ * Peaks + margins the renderer shows without re-deriving from the TLM stream.
+ * *ADDED by RENDERER-STREAM track 4-C — reconcile in real tree.* */
+typedef struct BlStats {
+    uint32_t magic;        /* 0   BL_MAGIC_STATS                             */
+    uint16_t ver;          /* 4   BL_PROTO_VERSION                           */
+    uint16_t _pad0;        /* 6                                             */
+    uint64_t step;         /* 8   physics step at emit                       */
+    double   t;            /* 16  sim time [s]                               */
+    float    max_qbar;     /* 24  peak dynamic pressure so far [Pa]          */
+    float    peak_qdot;    /* 28  peak stagnation heat rate so far [W/m^2]   */
+    float    fuel_kg;      /* 32  propellant remaining (LOX+RP1) [kg]        */
+    float    twr;          /* 36  current thrust/weight                      */
+    float    tlm_seq;      /* 40  last telemetry seq (as float, monotonic)   */
+    float    fps_emit;     /* 44  measured emit rate [Hz] (wall-clock)       */
+    /* total 48                                                              */
+} BlStats;
+
 #pragma pack(pop)
 
 /* ---- enums (kept small; values are wire-stable, append-only) ---- */
@@ -173,6 +226,8 @@ BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 276, "TLM fixed head must be 276 bytes"
 BL_STATIC_ASSERT(sizeof(BlPlanKnot)   == 16,  "plan knot must be 16 bytes");
 BL_STATIC_ASSERT(sizeof(BlCloudSample)== 12,  "cloud sample must be 12 bytes");
 BL_STATIC_ASSERT(sizeof(BlEvt)        == 48,  "EVT must be 48 bytes");
+BL_STATIC_ASSERT(sizeof(BlHello)      == 72,  "HELLO must be 72 bytes");
+BL_STATIC_ASSERT(sizeof(BlStats)      == 48,  "STATS must be 48 bytes");
 
 /* offsetof pins — these are what the TS decoder mirrors; a change here is an ADR */
 #include <stddef.h>
@@ -187,5 +242,15 @@ BL_STATIC_ASSERT(offsetof(BlTlmFixed, mach)       == 160, "mach@160");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, p_chamber)  == 176, "p_chamber@176");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, deck_z)     == 252, "deck_z@252");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 272, "plan_n@272");
+/* HELLO pins */
+BL_STATIC_ASSERT(offsetof(BlHello, t0)            == 8,   "hello.t0@8");
+BL_STATIC_ASSERT(offsetof(BlHello, seed)          == 16,  "hello.seed@16");
+BL_STATIC_ASSERT(offsetof(BlHello, dt)            == 24,  "hello.dt@24");
+BL_STATIC_ASSERT(offsetof(BlHello, veh_len)       == 40,  "hello.veh_len@40");
+BL_STATIC_ASSERT(offsetof(BlHello, plan_max)      == 64,  "hello.plan_max@64");
+/* STATS pins */
+BL_STATIC_ASSERT(offsetof(BlStats, step)          == 8,   "stats.step@8");
+BL_STATIC_ASSERT(offsetof(BlStats, t)             == 16,  "stats.t@16");
+BL_STATIC_ASSERT(offsetof(BlStats, max_qbar)      == 24,  "stats.max_qbar@24");
 
 #endif /* BOOSTER_PROTOCOL_H */

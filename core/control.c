@@ -44,30 +44,77 @@ BL_HD void control_step(const State* st, const GuidanceCmd* g, const EnvCtx* env
     act->deploy_cmd = g->deploy_cmd;
     act->rcs_dm = 0.0;
 
-    /* Regime: is this the UNPOWERED aero-descent (fins steer via body AoA) vs powered (gimbal)? */
+    /* Lateral steering SIGN depends on whether aero LIFT or thrust-vectoring dominates the response
+     * to a body tilt. A base-first body's aero lift points OPPOSITE the tilt; thrust points TOWARD it.
+     * Per rad of tilt the aero lateral authority is ~qbar*Aref*CNa and the thrust authority is ~T, so
+     * the NET response flips sign at qbar*Aref*CNa == T. Negate the steering demand while aero
+     * dominates: the whole unpowered aero-descent (no thrust) AND the EARLY landing burn at high qbar.
+     * Without this the burn tilts toward the pad while aero shoves the vehicle the other way, so it
+     * overshoots inbound and drifts back off-pad (the AERO_OFFSET failure; instrumented vrad flips
+     * outward at the aero/thrust crossover ~22 kPa — DECISIONS D-006/D-007). */
     double ramp0 = st->engine_on?ignition_ramp(st->ign_timer):0.0;
     double thr_est0 = (g->n_eng>0?g->n_eng:1)*engine_thrust(y[S_THR],atm.p)*ramp0;
-    int aero_steer = (thr_est0<5000.0 && env->fins_deployed && qbar>200.0);
-
+    double aero_lat_auth = qbar*VEH_AREF*body_cna_ctrl(mach);
+    /* Signed steering-authority factor in [-1,1]: +1 when thrust dominates (tilt TOWARD pad), -1 when
+     * aero dominates (tilt AWAY), smoothly through 0 at the crossover where a body tilt makes ~no net
+     * lateral force. A HARD sign flip caused a tilt-reversal transient (the body still tilted the old
+     * way while the newly-dominant effector shoved it outbound — seen in the instrumented vrad); the
+     * smooth blend fades steering through the dead zone instead of snapping it. */
+    double steer_sign = 1.0;
+    if(env->fins_deployed && qbar>200.0){
+        /* D-009 ROOT-CAUSE FIX #1: during the powered LANDING burn the SRP plume shields body lift
+         * up to ~95% (dynamics.c C_T blend), so comparing thrust against UN-shielded aero authority
+         * wrongly concludes aero still competes (830 vs 790 kN at 30 kPa -> steer_sign ~0) and
+         * muzzles the burn's steering for its whole duration (measured: -84 m/s commanded, -8%
+         * realized -> the ~140 m wind floor). Weight the aero term by the SAME shielding factor the
+         * plant uses so the crossover reflects the REAL aero authority. Unpowered descent (thrust~0,
+         * shield=1) is unchanged; TERMINAL (fins stowed) never enters this block. */
+        double shield = 1.0;
+        if(thr_est0 > 1000.0 && qbar > 1.0){
+            double CT = thr_est0/(qbar*VEH_AREF);
+            if(CT >= 3.0)      shield = 0.05;
+            else if(CT > 0.5)  shield = 1.0 - 0.95*(CT-0.5)/2.5;
+        }
+        double aero_eff = aero_lat_auth*shield;
+        double denom = fmax(thr_est0, aero_eff); if(denom<1.0) denom=1.0;
+        steer_sign = (thr_est0 - aero_eff)/denom;
+    }
     /* desired thrust-axis direction in world */
-    double a_lat[2]={g->a_lat[0],g->a_lat[1]};
-    /* A base-first body's aero LIFT points OPPOSITE the tilt (unlike thrust vectoring): tilting
-     * the top toward +x pushes the vehicle toward -x. So in the unpowered aero-descent the
-     * airframe must tilt AWAY from the pad to translate toward it — negate the steering demand. */
-    if(aero_steer){ a_lat[0]=-a_lat[0]; a_lat[1]=-a_lat[1]; }
+    double a_lat[2]={g->a_lat[0]*steer_sign, g->a_lat[1]*steer_sign};
     double a_vert_ref = G0 + 2.0;
+    /* D-009: during the high-thrust ENTRY burn the true vertical specific force is ~n*T/m ~ 50
+     * m/s^2, not G0+2 — map a_lat->tilt against THAT, or a commanded bank over-produces lateral
+     * ~3.4x (the naive-bank 17 km catastrophe's second ingredient). Roughly doubles the burn's
+     * realized divert authority (study: 25.6 km phys vs 11.8 km at the old mapping) — needed for
+     * the far-offset tail. Gated to PH_ENTRY_BURN -> TERMINAL/AERO steering is byte-identical. */
+    if(st->phase==PH_ENTRY_BURN || (st->phase==PH_LANDING_BURN && env->fins_deployed)){
+        /* D-009 FIX #2: the same true-specific-force mapping for the fins-deployed LANDING burn —
+         * a_vert_ref=G0+2 clamped the burn's lateral authority to 3.16 m/s^2 (amax=11.8*tan(cap))
+         * while the real specific force is ~26 m/s^2. With the correct reference the same tilt cap
+         * yields ~3x the claw-back authority against the wind seed. FINS-GATED: TERMINAL's landing
+         * burn (fins stowed) keeps the original mapping byte-identically. */
+        double thr_e  = act->n_eng * engine_thrust(y[S_THR], atm.p) * ramp0;
+        double avert_e = (mp.m>1.0)? thr_e/mp.m : a_vert_ref;
+        if(avert_e>a_vert_ref) a_vert_ref=avert_e;
+    }
     /* tilt cap scheduled by altitude: generous up high for lateral divert, vertical near
      * ground so touchdown is on all four legs at the profile speed. */
-    double tilt_max = (4.0 + 8.0*((h_base-20.0)/180.0))*DEG2RAD;
+    double tmax_hi = env->fins_deployed ? 15.0 : 12.0;   /* fins-deployed aero-divert gets more AoA; TERMINAL keeps 12 */
+    double tilt_max = (4.0 + (tmax_hi-4.0)*((h_base-20.0)/180.0))*DEG2RAD;
     if(tilt_max<4.0*DEG2RAD) tilt_max=4.0*DEG2RAD;
-    if(tilt_max>12.0*DEG2RAD) tilt_max=12.0*DEG2RAD;
+    if(tilt_max>tmax_hi*DEG2RAD) tilt_max=tmax_hi*DEG2RAD;
     /* side-load limit (§5.7): shrink the AoA cap where dynamic pressure is high — only in the
      * unpowered aero-descent (fins deployed); the powered landing burn is unconstrained. */
     if(env->fins_deployed){
-        /* qbar peaks ~36 kPa on the profile (audit P4) and the STRUCT side-load line is 15 deg,
-         * so allow up to ~12 deg AoA for divert — the old 3-8 deg was over-conservative. */
-        double qcap=(12.0 - 4.0*((qbar-10000.0)/30000.0))*DEG2RAD;
-        if(qcap<6.0*DEG2RAD)qcap=6.0*DEG2RAD; if(qcap>12.0*DEG2RAD)qcap=12.0*DEG2RAD;
+        /* STRUCT side-load line is 15 deg and aero-descent qbar peaks only ~36 kPa (audit P4), so
+         * allow up to 15 deg AoA for divert authority: the 12 deg cap left cross-range decel at only
+         * ~2.5 m/s² — too weak to null v_xy at the pad, so the divert overshoots off-pad (D-007). */
+        /* FLAT 15 deg for max aero-divert authority (raises the divert ceiling — MPPI-2 found the far
+         * seeds were ceiling-limited when qcap dropped to ~12 deg at 38 kPa). The sim's STRUCT line is
+         * qbar>80 kPa (NOT an AoA side-load), and the aero-descent qbar peaks only ~36-39 kPa, so 15
+         * deg is safe throughout; only soften above 50 kPa (which the descent never reaches). (D-007) */
+        double qcap=15.0*DEG2RAD;
+        if(qbar>50000.0){ qcap=(15.0 - 4.0*((qbar-50000.0)/30000.0))*DEG2RAD; if(qcap<9.0*DEG2RAD)qcap=9.0*DEG2RAD; }
         if(tilt_max>qcap) tilt_max=qcap;
     }
     double amax = a_vert_ref*tan(tilt_max);

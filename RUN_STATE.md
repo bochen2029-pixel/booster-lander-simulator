@@ -2,16 +2,72 @@
 
 **Canon:** `CLAUDE_v1.md` (read §0–§2 first). `CLAUDE_v0.md` is history — do not edit.
 
-**Current milestone:** M2 (hoverslam headless) — **GATE GREEN, TERMINAL ~97-98% across seeds**
-(honest corrected plant; was 100% on the old too-stable plant). Plant physics corrected &
-independently VERIFIED by a 5-agent C-only audit (D-005 + D-006): CoP marginal-unstable, Cmq
-damping, fin signs — all confirmed on 3 code paths. Audit also FOUND & FIXED: gimbal rate-state
-windup, zero roll damping, transonic CoP bump. Implemented P5 AoA-hold (holds 6°, was 2°) + the
-base-first "lift opposes tilt" steering-direction physics. Grid-fin control now flies STABLE and
-holds/steers correctly. **AERO_OFFSET still 0% land** — the landing burn at 5 km/300 m/s fights
-its own passive fin aero (lat grows during the burn); this is the ENTRY-BURN problem (M6). Next:
-build the entry supervisor (E3) + divert sequencing (P5 §5.1) + burn-phase aero transition, or
-MPPI. See D-006, runs/agentP5_aoa_hold_control.md, runs/sandbox/p4_divert.c.
+**Current milestone:** M2 GREEN (TERMINAL ~97-98% across seeds) + **M3 socket path LIVE** + **M6
+entry supervisor BUILT**. This session (D-007, ran 4-A + 4-C concurrently per operator "BOTH"):
+(1) **E3 entry-burn supervisor** — predictive-peak-qbar 3-engine retrograde burn above hoverslam;
+**ENTRY STRUCT_FAIL 100→0** (peak qbar 105→~39 kPa). (2) **Renderer `--serve` integrated** — ws.c
+RFC6455 stream (HELLO/TLM@125Hz/EVT/STATS), goldens frozen; `pnpm -C ui dev` vs `--serve` shows a
+live descent. (3) **Burn-phase aero steering fix** — smooth aero/thrust-crossover sign in control.c
+(the AERO_OFFSET off-pad was a hard-flip tilt-reversal at the ~22 kPa crossover). TERMINAL unchanged
+(97.0% s42 / 98.6% s7), determinism + 10 oracles green. **ENTRY & AERO_OFFSET still 0% land but now
+AUTHORITY-LIMITED, not broken:** ENTRY is fuel-bound (entry burn decelerates then the vehicle
+re-accelerates in thin air; 1-engine landing burn from 17 km runs dry — 92% fuel-out; 45t-prop
+diagnostic → 29% fuel + 71% off-pad, so fuel AND lateral both bind), AERO_OFFSET is divert-cap-
+limited (well-behaved, lands ~150 m out; can't close the last ~150 m at the 12° AoA tilt cap). Both
+= genuine trajectory optimization → **MPPI (4-B) is the next lever** (its HIER inner loop reuses the
+AoA-hold + this E3 supervisor). Also: repo pushed to public GitHub (MIT). See **D-007**.
+
+**LATEST (autonomous push, D-007 addenda):** (a) **Aero-aware suicide-burn ignition** (thrust-only
+forward-shoot, SRP-drag-shielded) → **ENTRY fuel-out 92%→0**. (b) **Divert recipe**: 15° tilt cap
+(gated fins-deployed; TERMINAL stays 12°) + conservative decel profile `vdes=√(2·1.5·r)` + smooth
+crossover steer → **FIRST AERO_OFFSET LANDING EVER** (1/300, min td_lat 12 m; median 328→145 m, 78/300
+within 100 m). Tier-0 is now VARIANCE-limited (IC sensitivity the reactive law can't beat) — that is
+MPPI's job. (c) **INJECT_DISTURBANCE (F4)** implemented (thrust/Isp/CoM, seeded/replayable) →
+**TERMINAL passes Tier-B**: LANDED 97.3-98.1%, GOOD+ 88.9-89.4%, td_v p95 3.5/p99 ≤4.5 across 3 seeds.
+(d) ENTRY (3 km offset) still off-pad (median ~2 km); banking the entry burn without a null-out
+reversal is CATASTROPHIC (→17 km) = needs P5 §5.1 bang-bang = MPPI. **TWO Opus MPPI-HIER CPU builds
+in flight** (tournament, intercom lanes mppi-build/mppi-build2); main session coaching them (warm-start
+the mean with the hoverslam recipe → search corrections; cap crash cost; weight |v_xy| hard). Integrate
+the winner's guidance_mppi.c when it clears the ≥90% gate. TERMINAL 97% / determinism / 10 oracles green.
+
+**MPPI INTEGRATED (autonomous push, ~10am CST):** Both MPPI subagents' agents stalled/died mid-batch
+(watchdog), but MPPI-2's 614-line `guidance_mppi.c` (all coaching implemented: lateral-only, ZEM
+terminal, TD_VXY null-at-pad, bounded/clipped crash cost, adaptive λ, lean in-rollout vertical, feas
+shoot) was PRESERVED. Main session **took over + integrated it into the real tree**: `guidance_mppi.{c,h}`
++ a GM_MPPI block in sim.c (E3 supervisor above MPPI; replan @10 Hz, cheap knot-emit between) + `MppiState`
+in Sim + `--mppi` flag + OpenMP + the **flat-15° qcap** (raises the divert ceiling MPPI-2 found limiting).
+Build clean, **selftest PASS (GM_HOVERSLAM byte-identical → determinism intact)**, single AERO run under
+MPPI diverts run1(843 m)→**88 m** (beats tier-0's 158 m). Rate batch in flight. Run under MPPI:
+`booster-core --headless --scenario aero_offset --mppi` (~9 s/run w/ OpenMP). Winner-file provenance:
+`_mppi_wt2/core/guidance_mppi.c`. Known open lever if rate < 90: the warm-start A_DECEL=1.3/VLAT=30 is
+conservative — raise for the ceiling-limited far seeds (MPPI's TD_VXY nulls the resulting overshoot).
+
+**★★ BREAKTHROUGH (afternoon session, D-009 addenda 2-3): ENTRY 50% + AERO 60% LANDED, spec winds.**
+The multi-session 0%-land wall on both hard scenarios was ONE plant bug: the §6.3 SRP shield was
+applied to body aero only — the GRID FINS (45 m arm, deepest in the plume wake) passed the full
+crosswind side-force through every landing burn, re-trimming the vehicle downwind so the 830 kN
+thrust followed it (~140 m systematic miss no guidance could null; guidance commanded −84 m/s of
+correction, vehicle realized −8%). Fixed (dynamics.c srp_shield on fin forces) plus: shield-aware
+steer_sign, true-a_vert_ref landing-burn mapping, damp-through-ignition, ignition feather, ENTRY
+ZEM/ZEV overdamped collision-course bank (3 km divert → med 23 m — design runs/d009_entry_divert_
+design.md), MPPI gradient unlock (gamut clamp + ignition-anchored ZEM + fade→blend). **ENTRY
+50/100 s42 (41/45% s7/s99; med miss 23 m, 99/100 within 50 m, STRUCT 0) · AERO tier-0 181/300=60.3%
+(55% s7; med 19 m, 225/300 on-pad) · AERO --mppi 38/60=63.3% (warm-start tier-0 parity — MPPI now
+LEADS) · TERMINAL 97.0% byte-stable · selftest PASS · determinism green (ENTRY+MPPI run-twice).** Ceiling oracle
+(runs/sandbox/ceiling.c): D_phys≈1107 m from 12 km → mean-500 σ150 IS well-posed. Remaining: the
+too-hard tail (td_v 6-8 uncentered arrivals), the 26-33 m grazing band, MPPI re-batch, cross-seeds,
+M4 ≥90% push. See D-009 (+3 addenda).
+
+**POST-BATCH TRUTH + NEW PUSH (afternoon session, D-009):** the in-flight batch finished **0/60**
+(59 off-pad, 1 too-hard) — D-008's "in flight" optimism is corrected in D-009. Failed + reverted:
+A_DECEL 2.2/VLAT 48 (reaches 46-103 m, hard td_v 6-8); fade h/150 (worse, td_v 11-12). Root causes
+diagnosed (D-009): (1) unmeasured divert ceiling (two estimates disagree 2×) — compiled-C oracle
+study `runs/sandbox/ceiling.c` measuring now → scenario-retune ADR; (2) "centered by 400 m" never
+implemented in the COST; (3) the execution fade kills velocity damping near the ground (D-003
+repeated at the MPPI layer) → near-seeds hit dead-center but crash at td_v 6-8. NOW EXECUTING:
+fade→blend (damping persists to contact), gate cost @400 m + altitude-ramped running |v_xy| weight,
+warm-start parity with the tier-0 landing recipe (1.5/35). Gates per step: selftest PASS, TERMINAL
+97.0% unchanged, MPPI run-twice bit-identical.
 
 **TOOLING RULE (user, 2026-07-18):** C/C++/CUDA for everything, NEVER Python (crawls this
 CPU). Core is all C — keep it. `tools/` (MC report, G-FOLD oracle, protocol codegen) must be
@@ -55,11 +111,17 @@ because the plant is sluggish; **overdamped** attitude loop (zeta=1.1) to avoid 
 saturation oscillation; lateral steering fades out below ~40 m so the vehicle straightens
 to vertical before touchdown (a tilted booster contacts one leg early at high profile speed).
 
-**Next concrete action:** (1) freeze M2 goldens (MC baseline + a canned trajectory hash).
-(2) Wire the telemetry protocol structs + a `--serve` WS stub (M3 groundwork). (3) Begin
-ENTRY scenario hardening (fins aero for the aero-descent, thermal/struct budgets) — fins are
-currently STUBBED (stowed, zero force); TERMINAL/AERO don't need them but ENTRY does.
-Then MPPI (M4 CPU → M5 CUDA).
+**Next concrete action:** (1) **MPPI (M4 CPU → M5 CUDA, track 4-B)** — the real lever for ENTRY-land
++ AERO_OFFSET-land, both now authority/fuel-limited (D-007), not broken. HIER K=256 CPU first; each
+rollout reuses the AoA-hold inner loop (control.c) and runs UNDER the E3 entry supervisor (sim.c).
+Design: runs/agentB_mppi_design.md. (2) **Renderer visuals** now that `--serve` is live (M7):
+procedural booster from HELLO → plume (ui/src/fx/plume.ts) → sky → HUD; run `pnpm -C ui dev` vs
+`booster-core --serve`. (3) Optional pre-MPPI tuning: AERO_OFFSET divert authority (aero-descent AoA
+aggressiveness + the terminal 12° tilt cap) to close the last ~150 m; ENTRY landing-burn efficiency
+(harder/later suicide burn from the ~17 km handoff — currently a 57 s min-throttle fuel-waster).
+(4) Consolidate D-007's local entry constants into constants.h; add an ENTRY entry-burn selftest
+oracle. (5) INJECT_DISTURBANCE: **DONE** (D-007 addendum 2 — `--inject`, thrust/Isp/CoM seeded,
+TERMINAL passes Tier-B); remaining Tier-B extension = NAV_NOISY sensor bias + 12 m/s gust.
 
 **Known simplifications to revisit (all deliberate, tracked):** grid-fin aero stubbed;
 slosh module present in state but excitation not yet wired; Dryden turbulence is a
