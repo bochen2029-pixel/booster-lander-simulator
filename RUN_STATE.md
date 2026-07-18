@@ -1,6 +1,9 @@
 # RUN_STATE
 
 **Canon:** `CLAUDE_v1.md` (read §0–§2 first). `CLAUDE_v0.md` is history — do not edit.
+**COLD-START:** point a fresh session at **`HANDOFF_2026-07-18_EVENING.md`** — the self-contained
+bootstrap (state + knob provenance + do-not-retry list + tool contracts + ranked roadmap). It
+supersedes `HANDOFF_2026-07-18.md` and `NEXT_SESSION.md`.
 
 **Current milestone:** M2 GREEN (TERMINAL ~97-98% across seeds) + **M3 socket path LIVE** + **M6
 entry supervisor BUILT**. This session (D-007, ran 4-A + 4-C concurrently per operator "BOTH"):
