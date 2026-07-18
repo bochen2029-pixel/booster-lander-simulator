@@ -1,0 +1,9 @@
+# ENTRY s42 x100 baseline — D-010 composed config (C14 trim + height-split Kvel + NAV layer)
+# (2026-07-18 evening; bit-deterministic. Cross-seed: s7=77%, s99=76%. --nav-noisy: 73%.)
+========= HEADLESS MONTE CARLO =========
+scenario=entry seed=42 runs=100 turb=1
+LANDED: 85/100 = 85.0%  (Wilson95: 76.7..90.7%)
+  PERFECT 0  GOOD 14  HARD 71  TIPPED 0  CRASHED 15
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 5  too-hard 7  fuel-out 3  other 0
+  landed means: td_v=3.73 m/s (max 5.96)  lat=12.48 m  tilt=2.66 deg  fuel=2247 kg

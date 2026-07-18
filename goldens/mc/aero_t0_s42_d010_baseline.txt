@@ -1,0 +1,8 @@
+# AERO_OFFSET tier-0 s42 x300 baseline — D-010 composed config (C14 trim + height-split Kvel + NAV)
+# (2026-07-18 evening; bit-deterministic. Cross-seed: s7=75.3%. --nav-noisy: 70.3%.)
+========= HEADLESS MONTE CARLO =========
+scenario=aero_offset seed=42 runs=300 turb=1
+LANDED: 215/300 = 71.7%  (Wilson95: 66.3..76.5%)
+  PERFECT 0  GOOD 46  HARD 169  TIPPED 0  CRASHED 85
+  crash causes: off-pad 58  too-hard 22  fuel-out 1  other 4
+  landed means: td_v=3.33 m/s (max 5.98)  lat=12.92 m  tilt=2.50 deg  fuel=4405 kg

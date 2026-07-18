@@ -6,6 +6,7 @@
 #include "dynamics.h"
 #include "scenario.h"
 #include "guidance_mppi.h"
+#include "nav.h"
 
 typedef struct {
     State st;
@@ -26,6 +27,7 @@ typedef struct {
     Diag diag;   /* last-step diagnostics */
     MppiState mppi;   /* HIER MPPI planner state (GM_MPPI only, track 4-B) */
     double lat_eint[2];   /* D-009 wind-rejection integral trim (fins-deployed LANDING burn only) */
+    NavState nav;     /* D-010 §8.1 measurement layer (NAV_TRUTH pass-through / NAV_NOISY) */
 } Sim;
 
 typedef struct {

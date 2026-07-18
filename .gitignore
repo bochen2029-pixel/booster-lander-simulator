@@ -6,6 +6,8 @@ _wstest/
 _serve_wt/
 _mppi_wt/
 _mppi_wt2/
+_sweep_wt/
+_*_wt/
 
 # session-transcript exports + chunker output + local harness config — never publish
 bootstrap_and_awaken_*

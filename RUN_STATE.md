@@ -53,7 +53,18 @@ ZEM/ZEV overdamped collision-course bank (3 km divert → med 23 m — design ru
 design.md), MPPI gradient unlock (gamut clamp + ignition-anchored ZEM + fade→blend). **ENTRY
 50/100 s42 (41/45% s7/s99; med miss 23 m, 99/100 within 50 m, STRUCT 0) · AERO tier-0 181/300=60.3%
 (55% s7; med 19 m, 225/300 on-pad) · AERO --mppi 38/60=63.3% (warm-start tier-0 parity — MPPI now
-LEADS) · TERMINAL 97.0% byte-stable · selftest PASS · determinism green (ENTRY+MPPI run-twice).** Ceiling oracle
+LEADS) · TERMINAL 97.0% byte-stable · selftest PASS · determinism green (ENTRY+MPPI run-twice).**
+
+**★★★ D-010 COMPOSED STATE (fleet sweep + split-gain + NAV layer; the current tree + goldens):
+ENTRY 85/100 s42 (77 s7 / 76 s99; off-pad 5, fuel 3, STRUCT 0) · AERO tier-0 71.7% s42 (75.3 s7) ·
+AERO --mppi 68.3% (softest ever: too-hard 2, td_v mean 2.97) · TERMINAL 194/200 byte-exact ·
+selftest PASS · deterministic · NAV §8.1 layer LIVE (--nav-noisy: ENTRY 73, AERO 70.3, TERMINAL
+96.5; NAV_TRUTH bit-transparent).** Knobs: Kvel(fins)=0.9 + height-split null→1.6 below 250 m
+(guidance_hoverslam.c), KI_WIND 0.012 + output-fade trim gated GM_HOVERSLAM-only (sim.c), MPPI
+rollout Kvd parity (guidance_mppi.c), nav.{h,c} routed per D-010 addendum. M6 gate (ENTRY ≥90%)
+is 5 points away (misses graze 26-33 m); M4 (AERO ≥90%) needs state-adaptive divert or M5-CUDA
+MPPI capacity. See DECISIONS D-010 (+addendum) and D-011 (+addendum) for the full record + the
+graphics/audio/UE roadmap. Ceiling oracle
 (runs/sandbox/ceiling.c): D_phys≈1107 m from 12 km → mean-500 σ150 IS well-posed. Remaining: the
 too-hard tail (td_v 6-8 uncentered arrivals), the 26-33 m grazing band, MPPI re-batch, cross-seeds,
 M4 ≥90% push. See D-009 (+3 addenda).

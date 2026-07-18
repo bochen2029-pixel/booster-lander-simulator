@@ -520,3 +520,164 @@ dispersion retune per the measured ceiling. Every step gated by: selftest PASS, 
   ≈ +0.64, Agent C) — the 50 Hz ignition-quantization bound is ~0.2 m/s, an order below the tail.
   .gitignore hardened: session-transcript exports, chunker output, agent worktrees never publish.
 
+## D-010 — Graphics-review deltas adopted into canon (2026-07-18, evening)
+
+An external graphics review (operator-relayed) independently re-derived ~80% of canon §11–§12 —
+plume-as-hero with HDR/AgX rolloff, propagation-honest audio, ground-effect, soot states, director
+cameras, guidance-mind visualization, and the ASDS deck-motion-must-live-in-the-plant flag (already
+satisfied by the core-side SEA module §4.4 + HELLO-exported spectrum §11.9). Convergence noted as
+validation; the DELTAS are hereby adopted as canon amendments (the §0 epigraph mechanism):
+
+1. **Predicted-impact-point diegetic marker** (the review's best idea, now cheap): stream the
+   guidance's ZEM/ZEV impact projection + t_go + ignite_h (all computed since D-009) and draw a
+   marker that converges onto the pad as the solve tightens — "it actually solved it," visible from
+   62 km. **Protocol plan (deferred to the M7-prep session so the TS mirror + goldens are updated
+   as one validated unit):** add `pred_impact[2] (f32)`, `ignite_h (f32)` to BlTlmFixed, bump
+   BL_PROTO_VERSION, update static asserts + decode.ts + offset tests, re-freeze
+   goldens/protocol/*.hex (this ADR pre-authorizes that re-baseline).
+2. **LOX frost band + GOX vent wisps**, telemetry-honest: the frost line IS m_lox through the HELLO
+   tank geometry (§5.2 column model) — directive-8 legal, added to §11.5's detail states.
+3. **Grid-fin entry glow** keyed to the streamed qdot_heat (titanium fins; real F9 behavior) —
+   added to §11.5. (Bells still never glow — regen-cooled rule stands.)
+4. **M7 "first light" internal ordering = the review's 80/20:** plume → propagation-delayed sound →
+   ONE volumetric cloud-deck punch-through at 2-5 km (promoted from §11.8 weather-preset garnish to
+   a first-class beat: the strongest visceral altitude cue in the 70 km→1 m shot) → one great
+   long-lens ground camera. Reference target unchanged: indistinguishable from LZ-1 tracking footage.
+5. **Shadows scoped to a near-ground cascade** so the floating-origin rebase never fights the
+   shadow frusta (practical note; composes with §11.12's budget).
+6. Noted for the record: the SRP plume envelopment (§11.6) and the D-009 fin-shield physics are the
+   SAME phenomenon — the renderer drawing the envelopment correctly will be visualizing the exact
+   mechanism that hid the landing for three sessions.
+
+M7 remains gated behind M6 (ENTRY ≥90%) per directive 10; the ui/ scaffold (decode/frame/interp
+vitest green) and `--serve` are ready, and `ui/src/fx/plume.ts` already holds the typecheck-clean
+raymarched plume node. First light requires a real WebGPU browser (headless preview hangs).
+
+**D-010 addendum — fleet results composed: ENTRY 85%, AERO 71.7%, MPPI 68.3%, NAV layer live:**
+- **16-config sweep** (runs/d010_sweep.csv; gates held on every row — selftest PASS + TERMINAL
+  exactly 194/200): Kvel(fins) 0.9 dominates every pairing; winner **C14** = KI_WIND 0.012 + trim
+  output-fade + margin 150 + Kvel 0.9 → ENTRY 80/AERO 69.3. The interactions the single-knob
+  probes couldn't see: the strong trim only wins when its near-ground output FADES and Kvel is 0.9
+  (identical trim at Kvel 1.2 = C13, 109 vs C14's 149).
+- **KVEL agent** cross-seed-validated 0.9 (ENTRY 69/76/60 s42/7/99) and mapped the value sweep;
+  **TOOHARD agent** instrumented the too-hard cohort — 100% LATERAL (|vz|≈2.4 soft in 63/63;
+  ignition-margin exonerated), diagnosed the one-gain-two-jobs conflict, and delivered the tested
+  **HEIGHT-SPLIT null gain** (divert 0.9; −v_xy damping ramps to 1.6 below 250 m). Two independent
+  methods + the MPPI batch converged on the same mechanism (predicted 17→23→30 too-hard trend
+  measured exactly).
+- **COMPOSED (real tree): ENTRY 85/100 s42 (77 s7 / 76 s99; off-pad 5, fuel 3, STRUCT 0) · AERO
+  tier-0 215/300=71.7 (75.3 s7) · TERMINAL 194/200 byte-exact · selftest PASS · deterministic.**
+- **NAV layer integrated** (NAVBUILD agent, canon §8.1; new core/nav.{h,c} + routed sim.c —
+  guidance now consumes a NavState view; NAV_TRUTH proven BIT-TRANSPARENT on the composed baseline
+  (85/215/194 reproduced exactly; agent's CSVs SHA-256-identical pre-merge). Honest `--nav-noisy`
+  degradation (pos σ .5/.5/.3 m, vel σ .1, att σ .1°, gyro walk): ENTRY 85→73, AERO 71.7→70.3,
+  TERMINAL 97.0→96.5. NAVBUILD also found+fixed a real stale-snapshot bug at the entry-burn CUT
+  (nav_resync) — ENTRY would have been 0% under nav without it.
+- **MPPI under the composition: two directive-7 lessons.** The batch fell 63.3→40% when the split
+  landed: (a) the rollout lean-model's fixed 0.6 damping no longer matched the split execution —
+  mirrored the Kvd ramp into cmd_from_u_lean; (b) the REAL culprit: the sim-level wind-trim
+  integral double-corrects a replanning controller — **gated to GM_HOVERSLAM** → **MPPI 41/60 =
+  68.3%, its best and softest batch ever** (too-hard 2, landed td_v mean 2.97, run 1 GOOD @7.4 m).
+  Lesson: reactive-law medicine (integral trim) poisons a replanning controller; MPPI's wind
+  rejection IS its replan loop.
+- **Goldens re-frozen** (entry/aero_t0/aero_mppi *_d010_baseline.txt). Gate status: M6 ENTRY ≥90%
+  now 5 points away (misses graze at 26-33 m); M4 AERO ≥90% needs the next lever (state-adaptive
+  divert gain per TOOHARD, or MPPI capacity at M5-CUDA).
+
+## D-011 — Audio observer, presentation ladder, and the UE endgame (noted-for-later; 2026-07-18)
+
+Second external review (operator-relayed; the reviewer verified OUR claims — their own claims about
+post-cutoff tooling are tagged [reviewer, verify-at-build-time]). Adopted-in-principle roadmap;
+nothing here is scheduled before the M6/M7 gates. Recorded so the M7+/M8+ sessions inherit it whole.
+
+**1. AUDIO = A THIRD PURE OBSERVER (the doctrinal extension).** Not part of the renderer — its own
+client on the same one-way TLM stream. Two tiers:
+- **Tier A (in the existing ui/, cheap, transforms the current renderer):** Web Audio —
+  THREE.AudioListener + PositionalAudio over PannerNode (HRTF), ConvolverNode IR reverb,
+  AudioWorklet for sample-level synth DSP; all works in WebView2. Honest ceiling: binaural over
+  headphones is genuinely excellent; no true object-based speaker-array output from a browser.
+- **Tier B (native C sidecar, fits the zero-deps ethos):** subscribe to TLM like any observer;
+  **Windows Spatial Audio (`ISpatialAudioClient`)** for real object-based output (engines, RCS,
+  booms as OS-mixed 3D objects → Windows Sonic / Dolby Atmos / DTS:X abstracted away) +
+  **Steam Audio** (Valve, Apache-2, C API) for HRTF, physics-based occlusion/reflection/pathing
+  from scene geometry, convolution reverb (better than parametric outdoors), ambisonics.
+  [reviewer]. FMOD/Wwise remain the middleware alternates if authoring tools are ever wanted.
+- **Synthesis doctrine = canon §12, sharpened: causally derived, never loops.** Source layers per
+  engine object (turbulent-mixing bed keyed to throttle/chamber count; the CRACKLE layer as
+  Poisson-distributed steep asymmetric shocklets, density ∝ thrust — canon already pins the
+  measured positive-skewness signature; ignition overpressure thump; shutdown pop; RCS hiss per
+  mask bit; grid-fin actuator whine on close cams; leg-deploy bang; touchdown clang + die-off).
+  Propagation computed from streamed state: retarded-time arrival (distance/c — the silent
+  touchdown then the sound wall; canon's triple boom stands), 1/r spreading, **frequency-dependent
+  atmospheric absorption driven by OUR OWN US76 model** (NEW vs canon's "distance strips highs":
+  at 20 km slant range the rocket is pure infrasonic rumble and crackle fades in as range closes —
+  the spectral reveal IS the F9-footage sound), Doppler with supersonic handling, ground-reflection
+  comb near the pad, slow turbulence amplitude flutter on distant sources; then a real mastering
+  bus (compressor/limiter/LFE management) for cinematic dynamic range.
+
+**2. PRESENTATION LADDER.** WebGPU/TSL path ≈ 90% of the wow: compute-shader GPU particles for the
+plume (no CPU roundtrip), BAKED volumetrics (EmberGen / Blender pyro → flipbooks / 3D textures
+rather than real-time volumes), Bruneton precomputed sky, the §11.1 post stack. Credible second
+engine: Unity HDRP + VFX Graph; Godot/Bevy trail for this use case. The deep point: **the protocol
+means never choosing** — renderers are swappable clients; the WebGPU one remains the fast,
+agent-iterable, always-works observer even after UE exists.
+
+**3. UE 5.8 ENDGAME — UE as just another pure observer.** [reviewer: UE 5.8 shipped 2026-06, last
+major UE5 before UE6; Epic's official "Unreal MCP" plugin embeds an MCP server in the editor
+(local HTTP: spawn actors, lighting, material instances, automation tests; experimental);
+community layers: ClaudeUnreal; Blender MCP exists incl. unified Blender+UE servers — verify all
+at build time.] Wiring that keeps it OUR project: a thin UE plugin whose ONLY job is decoding
+`BlTlm` (a THIRD static-asserted mirror of protocol.h) and driving actor transforms. UE
+contributes: Nanite for a TurboSquid-class booster hull (static hull ideal; fins/legs as separate
+articulated components), Lumen/MegaLights for plume-as-light at night, Niagara pyro, the path
+tracer for offline money shots, **MetaSounds as the native home for the telemetry-driven synth**
+(with OS-level Atmos output free), and double-precision Large World Coordinates (the 70 km→1 m
+shot without floating-origin gymnastics).
+
+**4. FluidX3D (OpenCL lattice-Boltzmann DNS; free non-commercial; free-surface/temperature/
+Smagorinsky-Lilly LES; moving-geometry voxelization; STL import) — enters twice, BOTH OFFLINE:**
+(a) visuals: sim the plume + ground-effect impingement around the actual mesh → baked vector
+fields / VDB volumes driving Niagara; (b) **the deeper one: regenerate the plant's aero data** —
+CA/CNα tables, CoP vs Mach and α, fin effectiveness — replacing hand-modeled coefficients with a
+deterministic, auditable precompute artifact (ledger-grade provenance). Directly answers the
+D-006/P2 transonic-CoP amplitude and the VEH_STAGE_LEN-vs-VEH_LEN caveat.
+
+**5. THE HARD LINE (contract, canon-grade):** CFD and UE must NEVER close a runtime loop into
+dynamics. The moment the pretty half feeds state back, determinism, the memcmp oracle, and the
+anti-cheat thesis die. **Precompute in, telemetry out, always.** (Directives 2/7 extended to all
+future observers and all offline tooling.)
+
+**6. Build order adopted (each rung independently shippable; the core never learns):** finish
+`--serve` renderer first-light → Tier-A Web Audio synth → UE plugin decoding the same stream →
+Blender-MCP model prep + Nanite import → Niagara plume with FluidX3D bakes → MetaSounds port →
+**aero-table regeneration as the final physics payoff.**
+
+**D-011 addendum — the "don't pay the cinematic layer twice" sharpening (same reviewer, follow-up):**
+Revises §6's ordering with a cleaner split, ADOPTED:
+- **Web client = renderer-AGNOSTIC validation only, then STOP.** Wire `--serve` to a live tracked
+  descent; prove interpolation/replay, camera logic, basic vehicle/pad/exhaust sprite, HUD, and a
+  Tier-A audio SKETCH (not the full production). Target: "credible documentary view, not AAA
+  polish." This validates everything that transfers to any client — the protocol, the observer
+  model, the timing — and most of it is already built (vitest-green decode/frame/interp).
+- **UE spike EARLY and CHEAP:** the thin plugin — decode HELLO/TLM, drive a placeholder mesh
+  transform at 60 fps with Large World Coordinates — is DAYS (MCP-assisted), not weeks. Run it as
+  soon as the wire is proven; it de-risks the engine decision with a tiny artifact instead of
+  speculation.
+- **The cinematic maximalism (plume, volumetrics, full audio production) is built ONCE, in the
+  winner** — realistically UE (Niagara + Lumen + MetaSounds is exactly the layer we'd otherwise
+  hand-build in TSL/WebAudio). The expensive layer is never paid twice.
+- **Reframe (doctrine): this is never a migration — we ADD CLIENTS.** The web renderer stays
+  forever as the fast, agent-iterable debug view (shareable in a browser / embeddable on
+  wholemachine.org); UE becomes the IMAX theater. Same stream, and the core never knows.
+- **DO NOT DEFER THE TELEMETRY SCHEMA (supersedes D-010 item 1's "defer to M7-prep"):** the
+  protocol is the real coupling point — renderers are disposable, the contract is not. Any channel
+  the cinematic layer will need gets into protocol.h EARLY, while ONE cheap client consumes it:
+  the D-010 predictor internals (`pred_impact[2]`, `ignite_h` — the ghost/impact marker), and an
+  audit of per-engine state + event coverage for ignition/boom timing (note: the EVT channel
+  §10.4 already carries IGNITION_CMD/GREEN_FLASH/MACH1_CROSS with emission position — likely
+  sufficient; the audit confirms rather than assumes). Schedule: the FIRST renderer-touching
+  session does the schema extension as its opening act (one version bump, TS mirror + goldens
+  re-frozen as one validated unit, per D-010's pre-authorization).
+- Unchanged and re-affirmed: none of this blocks the core roadmap — the guidance gates (M4/M6)
+  remain the highest-value work in the repo, and all of the above stays behind them.
+

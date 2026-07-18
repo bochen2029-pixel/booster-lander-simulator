@@ -38,6 +38,15 @@ BL_HD double entry_predict_peak_qbar(double h0, double speed0, double mass){
                                        * shoot arrests within this of the ground. (D-009: 220 was tried
                                        * for the 6-9 m/s marginal-arrest band and made td_v WORSE overall
                                        * — the longer burn adds trim/tilt exposure; reverted.) */
+/* D-010 HEIGHT-SPLIT of the cross-range velocity-null gain (fins-deployed only). The too-hard
+ * cohort is PURELY residual cross-range velocity at contact (TOOHARD instrumentation: |vz|~2.4 m/s
+ * soft in 63/63 too-hard runs; |vxy| 6-10 is the whole excess; ignition state identical to soft
+ * landers). Kvel does TWO opposed jobs — shape the divert inward-command (wants LOW: off-pad 30->5
+ * as Kvel 1.0->0.9) and null velocity near the deck (wants HIGH). Decouple by ALTITUDE: divert
+ * Kvel stays on the inward-seek term; only the -v_xy null gain ramps up below the split. Measured
+ * (s42): ENTRY 69->78%, AERO 71.7->76.7% with TERMINAL byte-identical. */
+#define KVEL_SPLIT_H  250.0
+#define KVEL_NEAR     1.6
 /* ---- Aero-aware suicide-burn feasibility (fins-deployed handoffs) ----
  * Forward-shoot FULL 1-engine thrust + gravity + aero drag (body + deployed fins, CA_eff≈1.5) from
  * the current vertical state; return the altitude MARGIN [m] by which the vehicle arrests (vz→0)
@@ -121,7 +130,8 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     /* Inward-velocity target. The binding limit for the aero divert is NULLING the cross-range
      * velocity before the burn: residual inward velocity gets reversed AT the aero/thrust crossover
      * (~22 kPa) where lateral authority vanishes, so it overshoots outbound. */
-    double Kvel = st->fins_deployed ? 1.2 : 0.6;
+    double Kvel = st->fins_deployed ? 0.9 : 0.6;   /* D-010: 0.9 divert gain (sweep C02/C14 + KVEL
+                                                    * cross-seed validated; 1.2 over-drove tilt) */
     double vdes_mag;
     if(st->fins_deployed){
         /* Decelerating (bang-bang-ish) profile: vdes = sqrt(2·a_decel·r) commands the inward velocity
@@ -145,8 +155,17 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     if(r_mag>1e-3){ vdes[0]=-vdes_mag*r_xy[0]/r_mag; vdes[1]=-vdes_mag*r_xy[1]/r_mag; }
     double lat_scale = (h_feet-30.0)/90.0; if(lat_scale>1.0)lat_scale=1.0; if(lat_scale<0.0)lat_scale=0.0;
     lat_scale*=lat_scale;
-    g->a_lat[0] = Kvel*(vdes[0]*lat_scale - v_xy[0]);
-    g->a_lat[1] = Kvel*(vdes[1]*lat_scale - v_xy[1]);
+    /* D-010 height-split (see KVEL_SPLIT_H above): boost ONLY the -v_xy velocity-null damping
+     * below the split; keep the inward-seek term at the divert Kvel (byte-identical divert above
+     * the split -> the off-pad win is preserved; boosting the seek too chases the pad into the
+     * crossover -> measured WORSE on both counts). TERMINAL (fins stowed) has Kvd==Kvel. */
+    double Kvd = Kvel;
+    if(st->fins_deployed){
+        double b = (KVEL_SPLIT_H - h_feet)/KVEL_SPLIT_H; if(b<0.0)b=0.0; if(b>1.0)b=1.0;
+        Kvd = Kvel + b*(KVEL_NEAR - Kvel);
+    }
+    g->a_lat[0] = Kvel*vdes[0]*lat_scale - Kvd*v_xy[0];
+    g->a_lat[1] = Kvel*vdes[1]*lat_scale - Kvd*v_xy[1];
 
     if(!st->engine_on){
         /* Aero-descent steering, with STABILIZE-FIRST logic. The bare body is marginally
@@ -190,8 +209,8 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
      * steer_sign shielding fix the thrust has authority immediately, so damping from t=0 arrests
      * the seed as it forms. TERMINAL (fins stowed) unchanged. */
     if(st->fins_deployed && st->ign_timer>=0.0 && st->ign_timer<2.0){
-        g->a_lat[0] = Kvel*(-v_xy[0]);
-        g->a_lat[1] = Kvel*(-v_xy[1]);
+        g->a_lat[0] = Kvd*(-v_xy[0]);   /* D-010: the height-boosted null gain (== Kvel high up) */
+        g->a_lat[1] = Kvd*(-v_xy[1]);
     }
 
     /* burning: feedback-track the reference velocity profile. High Kv nulls the first-order

@@ -10,6 +10,7 @@ add_executable(booster-core
     guidance_mppi.c
     scenario.c
     sim.c
+    nav.c
     ws.c
 )
 

@@ -1,0 +1,9 @@
+# AERO_OFFSET MPPI s42 x60 baseline — D-010 composed config (rollout split-Kvd parity;
+# wind-trim integral gated to GM_HOVERSLAM — MPPI replans, an integral double-corrects)
+# (2026-07-18 evening; bit-deterministic. Softest batch yet: too-hard 2, landed td_v mean 2.97.)
+========= HEADLESS MONTE CARLO =========
+scenario=aero_offset seed=42 runs=60 turb=1
+LANDED: 41/60 = 68.3%  (Wilson95: 55.8..78.7%)
+  PERFECT 0  GOOD 13  HARD 28  TIPPED 0  CRASHED 19
+  crash causes: off-pad 16  too-hard 2  fuel-out 1  other 0
+  landed means: td_v=2.97 m/s (max 4.84)  lat=13.78 m  tilt=2.58 deg  fuel=4542 kg

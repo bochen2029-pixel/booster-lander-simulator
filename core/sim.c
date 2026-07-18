@@ -66,6 +66,9 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     s->impact_v=s->impact_tilt=s->impact_lat=0.0;
     s->max_qbar=0; s->peak_qdot=0; s->done=0; s->touched=0;
     s->gcmd.mode=guidance_mode; s->gcmd.n_eng=1;
+    /* §8.1 measurement layer: NAV_TRUTH pass-through by default; NAV_NOISY under
+     * MOD_NAV_NOISY. Keyed by (seed, run_idx) for replayable per-run noise. (D-010) */
+    nav_init(&s->nav, modules, seed, run_idx);
     if(guidance_mode==GM_MPPI) mppi_init(&s->mppi, seed, scenario);   /* HIER MPPI planner (track 4-B) */
 }
 
@@ -152,14 +155,18 @@ static void entry_divert_step(const State* st, GuidanceCmd* g){
 #define ENTRY_QBAR_IGNITE  72000.0   /* predicted peak qbar to arm the entry burn [Pa] */
 #define ENTRY_QBAR_CUT     68000.0   /* predicted remaining peak qbar to cut the burn [Pa] */
 #define ENTRY_FUEL_FLOOR   7000.0    /* kg: reserve at least this for the landing burn */
-static int entry_supervisor(Sim* s){
+/* §8.1 (D-010): `nav` is the measurement view (r/v/q/w = estimate, rest = truth). All GUIDANCE
+ * readouts — the peak-qbar predictor inputs, the ZEM/ZEV divert, the t_go — read `nav`; the PLANT
+ * state machine (phase, engine latch/cut) writes truth via `s->st`. In NAV_TRUTH `nav` IS a byte
+ * copy of truth, so this path stays bit-identical. */
+static int entry_supervisor(Sim* s, const State* nav){
     State* st=&s->st;
-    if(st->phase!=PH_COAST && st->phase!=PH_ENTRY_BURN) return 0;   /* only pre-landing regimes */
-    MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
-    double vx=st->y[S_VX],vy=st->y[S_VY],vz=st->y[S_VZ];
+    if(st->phase!=PH_COAST && st->phase!=PH_ENTRY_BURN) return 0;   /* only pre-landing regimes (truth) */
+    MassProps mp; mass_props(nav->y[S_MLOX],nav->y[S_MRP1],0,0,&mp);   /* mass = truth (pass-through) */
+    double vx=nav->y[S_VX],vy=nav->y[S_VY],vz=nav->y[S_VZ];            /* velocity = estimate */
     double speed=sqrt(vx*vx+vy*vy+vz*vz);
-    double fuel=st->y[S_MLOX]+st->y[S_MRP1];
-    double qpk=entry_predict_peak_qbar(st->y[S_RZ], speed, mp.m);
+    double fuel=nav->y[S_MLOX]+nav->y[S_MRP1];                         /* fuel = truth */
+    double qpk=entry_predict_peak_qbar(nav->y[S_RZ], speed, mp.m);     /* altitude = estimate */
 
     if(st->phase==PH_ENTRY_BURN){
         if(qpk<=ENTRY_QBAR_CUT || fuel<=ENTRY_FUEL_FLOOR){
@@ -178,9 +185,9 @@ static int entry_supervisor(Sim* s){
          * instead of flying past it. The E3 cut logic is untouched (qbar/fuel-floor binds; the
          * divert never modulates the cut). */
         s->gcmd.mode=GM_HOVERSLAM; s->gcmd.engine_cmd=1; s->gcmd.throttle=1.0; s->gcmd.n_eng=3;
-        entry_divert_step(st, &s->gcmd);
+        entry_divert_step(nav, &s->gcmd);   /* divert reads the estimate (§8.1) */
         s->gcmd.deploy_cmd=0; s->gcmd.solver_flags=0;
-        s->gcmd.t_go=(vz<-0.1)?(st->y[S_RZ]/(-vz)):5.0;
+        s->gcmd.t_go=(vz<-0.1)?(nav->y[S_RZ]/(-vz)):5.0;
         return 1;
     }
     /* PH_COAST: arm the entry burn iff the ballistic descent would over-pressure and we can spare
@@ -201,10 +208,22 @@ int sim_step(Sim* s){
     /* advance ignition timer */
     if(st->engine_on && st->ign_timer>=0.0) st->ign_timer += DT;
 
+    /* §8.2 measurement layer (D-010): build the nav view ONCE per 50 Hz guidance tick (not at
+     * the 500 Hz physics rate). All guidance layers below consume `nav` instead of raw truth.
+     * In NAV_TRUTH `nav` is a byte copy of `*st` -> the guidance path is bit-identical to
+     * pre-nav (the hard acceptance gate). The ignition latch, ada freeze, and every PLANT
+     * state write stay on truth `st`. */
+    int is_gtick = (st->step % (long)(GUIDANCE_DT/DT) == 0);
+    State nav;
+    if(is_gtick) nav_measure(&s->nav, st, st->step, &nav);
+
     /* guidance at 50 Hz */
-    if(st->step % (long)(GUIDANCE_DT/DT) == 0 && s->guidance_mode==GM_HOVERSLAM){
-        int entry_handled = entry_supervisor(s);   /* E3: 3-engine entry burn above hoverslam (D-007) */
-        if(!entry_handled) hoverslam_step(st,&s->gcmd);
+    if(is_gtick && s->guidance_mode==GM_HOVERSLAM){
+        int entry_handled = entry_supervisor(s, &nav);   /* E3: 3-engine entry burn above hoverslam (D-007) */
+        /* entry_supervisor's CUT flips engine_on/phase/ign_timer on TRUTH mid-tick; refresh the
+         * nav view's pass-through fields so hoverslam does not read a stale engine/phase snapshot
+         * (the perturbed r/v/q/w estimate is preserved). No-op-equivalent when nothing was cut. */
+        if(!entry_handled){ nav_resync(st, &nav); hoverslam_step(&nav,&s->gcmd); }
         /* engine ignition latch */
         if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
             st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
@@ -228,11 +247,12 @@ int sim_step(Sim* s){
      * aero-descent divert + landing burn (full solve every MPPI_REPLAN_DECIM ticks; cheap knot-emit
      * between), then the SAME ignition latch/ada freeze. Guarded by GM_MPPI so GM_HOVERSLAM is
      * byte-for-byte untouched (goldens, selftest, determinism). */
-    if(st->step % (long)(GUIDANCE_DT/DT) == 0 && s->guidance_mode==GM_MPPI){
-        int entry_handled = entry_supervisor(s);   /* E3 above MPPI (unchanged) */
+    if(is_gtick && s->guidance_mode==GM_MPPI){
+        int entry_handled = entry_supervisor(s, &nav);   /* E3 above MPPI (reads the estimate) */
         if(!entry_handled){
-            if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, st, &s->env, &s->gcmd);
-            else mppi_execute(&s->mppi, st, &s->gcmd);   /* emit next warm-start knot + shift (cheap) */
+            nav_resync(st, &nav);   /* refresh pass-through fields after a possible entry-burn CUT */
+            if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, &nav, &s->env, &s->gcmd);
+            else mppi_execute(&s->mppi, &nav, &s->gcmd);   /* emit next warm-start knot + shift (cheap) */
         }
         s->mppi.gtick++;
         if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
@@ -259,20 +279,27 @@ int sim_step(Sim* s){
      * integration: only PH_LANDING_BURN + fins deployed + past the 2 s ignition hold; capped
      * (anti-windup); reset otherwise. TERMINAL (fins stowed) and the entry burn (ZEM/ZEV owns it)
      * never integrate. Applied to gcmd on guidance ticks for BOTH GM_HOVERSLAM and GM_MPPI. */
-    if(st->step % (long)(GUIDANCE_DT/DT) == 0){
+    if(is_gtick && s->guidance_mode==GM_HOVERSLAM){
+        /* D-010: the wind-trim integral is REACTIVE-LAW medicine. MPPI replans on the fresh
+         * estimate every tick and compensates the wind implicitly; layering an integral on top
+         * double-corrects and pushed its batch 63->40% (off-pad 24). GM_HOVERSLAM only. */
         if(st->engine_on && st->fins_deployed && st->phase==PH_LANDING_BURN && st->ign_timer>=2.0){
-            /* D-009 baseline trim (the goldens' configuration). Tail-tuning probes — Ki 0.012 +
-             * 1 s engage (cycle 1) and + a near-ground output fade (cycle 2) — traded off-pad for
-             * too-hard/fuel and netted BELOW this baseline (ENTRY 51/49 vs 50; AERO 52/57.3 vs
-             * 60.3): the grazing-band/td_v tails interact and need a systematic sweep (or MPPI),
-             * not single-knob probes. Reverted to the measured-best values. */
-            const double KI_WIND=0.004, EINT_CAP=2.0;
-            double rr[2]={st->y[S_RX],st->y[S_RY]};
+            /* D-010 sweep winner C14: STRONG trim (Ki 0.012) whose OUTPUT fades near the ground.
+             * The 16-config grid resolved the interaction the single-knob probes could not: the
+             * strong integral only wins when (a) its near-ground output is faded (D-002 straighten
+             * lesson — the memory keeps integrating, only the applied command fades) AND (b) the
+             * divert Kvel is 0.9 (C13, the same trim at Kvel 1.2, scores 109 vs C14's 149).
+             * §8.1: position feedback reads the NAV estimate; the gates are plant truth. */
+            const double KI_WIND=0.012, EINT_CAP=2.0;
+            MassProps mpw; mass_props(nav.y[S_MLOX],nav.y[S_MRP1],0,0,&mpw);
+            double h_feet_w = nav.y[S_RZ]-mpw.com-1.0*st->deploy_frac;
+            double wfade=(h_feet_w-40.0)/160.0; if(wfade<0.0)wfade=0.0; if(wfade>1.0)wfade=1.0;
+            double rr[2]={nav.y[S_RX],nav.y[S_RY]};
             for(int ax=0;ax<2;ax++){
                 s->lat_eint[ax] += KI_WIND*rr[ax]*GUIDANCE_DT;
                 if(s->lat_eint[ax]> EINT_CAP) s->lat_eint[ax]= EINT_CAP;
                 if(s->lat_eint[ax]<-EINT_CAP) s->lat_eint[ax]=-EINT_CAP;
-                s->gcmd.a_lat[ax] -= s->lat_eint[ax];
+                s->gcmd.a_lat[ax] -= s->lat_eint[ax]*wfade;
             }
         } else { s->lat_eint[0]=0.0; s->lat_eint[1]=0.0; }
     }

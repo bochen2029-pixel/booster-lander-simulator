@@ -187,14 +187,17 @@ static const char* verdict_str(int v){ const char* s[]={"NONE","PERFECT","GOOD",
 static const char* fault_str(int f){ const char* s[]={"none","FUEL","STRUCT","THERMAL","LOC","OFFPAD"}; return (f>=0&&f<=5)?s[f]:"?"; }
 static int cmd_run(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=0; int verbose=0; int gmode=GM_HOVERSLAM;
+    int modules=MOD_TURB;
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--run")&&i+1<argc) run=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--verbose")) verbose=1;
+        else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;
+        else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
     }
-    Sim s; sim_init(&s,scen,seed,run,MOD_TURB,gmode);
+    Sim s; sim_init(&s,scen,seed,run,modules,gmode);
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
     long n=0;
@@ -228,6 +231,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--out")&&i+1<argc) out=argv[++i];
         else if(!strcmp(argv[i],"--no-turb")) modules&=~MOD_TURB;
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;   /* Tier-B plant disturbances (F4) */
+        else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
     }
     /* --out: open the report up front and FAIL LOUDLY if it can't be created -- otherwise we
@@ -308,6 +312,7 @@ static void fill_tlm(const Sim* s, BlTlmFixed* p, uint32_t seq){
     p->ver   = BL_PROTO_VERSION;
     p->flags = 0;
     if(s->modules & MOD_SEA)       p->flags |= BL_TLM_FLAG_SEA_ACTIVE;
+    if(s->modules & MOD_NAV_NOISY) p->flags |= BL_TLM_FLAG_NAV_NOISY;
     if(s->modules & MOD_NAV_NOISY) p->flags |= BL_TLM_FLAG_NAV_NOISY;
 
     p->step = st->step;
@@ -409,16 +414,18 @@ static void emit_evt(const Sim* s, uint16_t code, float a0, float a1){
 
 static int cmd_serve(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=1; unsigned short port=8080;
+    int modules=MOD_TURB;
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--run")&&i+1<argc)  run=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--port")&&i+1<argc) port=(unsigned short)strtoul(argv[++i],0,10);
     }
 
     /* Same sim config as --run: turbulence module + hoverslam guidance. This does
      * NOT change determinism — identical seed/run reproduces the headless path. */
-    Sim s; sim_init(&s, scen, seed, run, MOD_TURB, GM_HOVERSLAM);
+    Sim s; sim_init(&s, scen, seed, run, modules, GM_HOVERSLAM);
 
     if(ws_serve_init(port)!=0){ fprintf(stderr,"serve: could not start WS server on port %u\n", port); return 4; }
 
@@ -560,6 +567,6 @@ int main(int argc, char** argv){
     if(!strcmp(mode,"--run")) return cmd_run(argc,argv);
     if(!strcmp(mode,"--serve")) return cmd_serve(argc,argv);
     if(!strcmp(mode,"--golden")) return cmd_golden(argc,argv);
-    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb] | --run [--scenario S --seed N --run N --verbose] | --serve [--scenario S --seed N --run N --port P]\n");
+    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi] | --serve [--scenario S --seed N --run N --port P --nav-noisy]\n");
     return 2;
 }

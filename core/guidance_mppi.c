@@ -312,8 +312,14 @@ static void cmd_from_u_lean(State* rst, const double u[MPPI_NCH], double h_feet,
         double fe=(h_feet - ignite_h)/450.0; if(fe<0.0)fe=0.0; if(fe>1.0)fe=1.0;
         s=fe;                                                                /* pre-ignition feather */
     }
-    g->a_lat[0]=s*u[1] + damp*(-0.6*y[S_VX]);
-    g->a_lat[1]=s*u[2] + damp*(-0.6*y[S_VY]);
+    /* D-010 rollout<->execution parity: the execution blend inherits hoverslam's HEIGHT-SPLIT null
+     * gain (0.9 -> 1.6 at the deck), so the rollout's damping must mirror it — a fixed 0.6 here
+     * made rollouts rank trajectories a way the plant no longer flies (directive 7), and the MPPI
+     * batch dropped 63->40% when the split landed. Same ramp, same constants. */
+    double bk=(250.0-h_feet)/250.0; if(bk<0.0)bk=0.0; if(bk>1.0)bk=1.0;
+    double kvd=0.9 + bk*(1.6-0.9);
+    g->a_lat[0]=s*u[1] + damp*(-kvd*y[S_VX]);
+    g->a_lat[1]=s*u[2] + damp*(-kvd*y[S_VY]);
     g->t_go=(vz<-0.1)?(h_feet/(-vz)):5.0;
 }
 
