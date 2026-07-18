@@ -37,8 +37,12 @@
 #endif
 
 /* Wire protocol version. Bump on ANY layout change; HELLO carries it too and the
- * renderer refuses to decode a mismatched TLM_VERSION. */
-#define BL_PROTO_VERSION   2u
+ * renderer refuses to decode a mismatched TLM_VERSION.
+ * v3 (D-010 item 1 / D-011 addendum "DO NOT DEFER THE TELEMETRY SCHEMA"): added
+ * the guidance-derived pred_impact[2] + ignite_h fields to BlTlmFixed (the diegetic
+ * predicted-impact marker + landing-burn ignition altitude). TS mirror + hex
+ * goldens re-frozen as one unit (re-baseline pre-authorized by both ADRs). */
+#define BL_PROTO_VERSION   3u
 
 /* Packet magic tags (first 4 bytes of every frame — lets the decoder switch on
  * packet kind and reject garbage). ASCII, read as LE u32. */
@@ -109,18 +113,20 @@ typedef struct BlTlmFixed {
     /* --- guidance-derived (212) --- */
     float t_go;            /* 212 time-to-go [s]                             */
     float dist_pad;        /* 216 slant distance to pad [m]                  */
-    /* --- legs (220) --- */
-    float deploy_frac;     /* 220 0..1 leg deploy fraction                   */
-    float stroke[4];       /* 224 per-leg crush stroke [m]                   */
-    /* --- aero force for HUD/VFX (240) --- */
-    float f_aero[3];       /* 240 aero force [N] (world)                     */
-    /* --- ASDS deck pose (252), valid iff flags & SEA_ACTIVE --- */
-    float deck_z;          /* 252 deck heave [m]                             */
-    float deck_quat[4];    /* 256 deck attitude, xyzw                        */
-    /* --- tail counts (272) --- */
-    uint16_t plan_n;       /* 272 count of plan knots (<= BL_PLAN_MAX)       */
-    uint16_t cloud_n;      /* 274 count of cloud samples (<= BL_CLOUD_MAX)   */
-    /* total fixed size = 276                                                */
+    float pred_impact[2];  /* 220 predicted impact point, world XY [m] *v3*  */
+    float ignite_h;        /* 228 landing-burn ignition altitude [m]   *v3*  */
+    /* --- legs (232) --- */
+    float deploy_frac;     /* 232 0..1 leg deploy fraction                   */
+    float stroke[4];       /* 236 per-leg crush stroke [m]                   */
+    /* --- aero force for HUD/VFX (252) --- */
+    float f_aero[3];       /* 252 aero force [N] (world)                     */
+    /* --- ASDS deck pose (264), valid iff flags & SEA_ACTIVE --- */
+    float deck_z;          /* 264 deck heave [m]                             */
+    float deck_quat[4];    /* 268 deck attitude, xyzw                        */
+    /* --- tail counts (284) --- */
+    uint16_t plan_n;       /* 284 count of plan knots (<= BL_PLAN_MAX)       */
+    uint16_t cloud_n;      /* 286 count of cloud samples (<= BL_CLOUD_MAX)   */
+    /* total fixed size = 288                                                */
 } BlTlmFixed;
 
 /* Tail element structs (appended immediately after BlTlmFixed, tightly packed) */
@@ -222,7 +228,7 @@ typedef enum BlEvtCode {
 } BlEvtCode;
 
 /* ---- size + offset contract (frozen; goldens/protocol/tlm_layout.txt) ---- */
-BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 276, "TLM fixed head must be 276 bytes");
+BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 288, "TLM fixed head must be 288 bytes");
 BL_STATIC_ASSERT(sizeof(BlPlanKnot)   == 16,  "plan knot must be 16 bytes");
 BL_STATIC_ASSERT(sizeof(BlCloudSample)== 12,  "cloud sample must be 12 bytes");
 BL_STATIC_ASSERT(sizeof(BlEvt)        == 48,  "EVT must be 48 bytes");
@@ -240,8 +246,10 @@ BL_STATIC_ASSERT(offsetof(BlTlmFixed, throttle_cmd)== 112,"throttle_cmd@112");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, rcs_mask)   == 152, "rcs_mask@152");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, mach)       == 160, "mach@160");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, p_chamber)  == 176, "p_chamber@176");
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, deck_z)     == 252, "deck_z@252");
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 272, "plan_n@272");
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, pred_impact)== 220, "pred_impact@220"); /* v3 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, ignite_h)   == 228, "ignite_h@228");    /* v3 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, deck_z)     == 264, "deck_z@264");
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 284, "plan_n@284");
 /* HELLO pins */
 BL_STATIC_ASSERT(offsetof(BlHello, t0)            == 8,   "hello.t0@8");
 BL_STATIC_ASSERT(offsetof(BlHello, seed)          == 16,  "hello.seed@16");

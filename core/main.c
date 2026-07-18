@@ -365,6 +365,23 @@ static void fill_tlm(const Sim* s, BlTlmFixed* p, uint32_t seq){
         double dx=st->y[S_RX], dy=st->y[S_RY], dz=st->y[S_RZ]-s->se.deck_z;
         p->dist_pad = (float)sqrt(dx*dx+dy*dy+dz*dz);
     }
+    /* v3: predicted impact point + ignition altitude — the D-010 diegetic marker. Both are
+     * PURE READS of state/gcmd (directive 2): guidance reads nothing new, no feedback path.
+     * pred_impact = ballistic/ZEM projection r_xy + v_xy*t_go (v1 formula): the world-XY the
+     * current lateral state coasts to over the estimated time-to-go. It CONVERGES onto the pad
+     * as the solve tightens (t_go and v_xy shrink toward a centered touchdown) — "it actually
+     * solved it," drawn from 62 km. Limitation: kinematic only (no wind / future burn steering /
+     * aero); a first-order marker, not the solver's own touchdown estimate. Same semantic for
+     * hoverslam AND mppi so the renderer has one consistent marker. */
+    {
+        double tg = s->gcmd.t_go; if(tg < 0.0) tg = 0.0; if(tg > 60.0) tg = 60.0;
+        p->pred_impact[0] = (float)(st->y[S_RX] + st->y[S_VX]*tg);
+        p->pred_impact[1] = (float)(st->y[S_RY] + st->y[S_VY]*tg);
+    }
+    /* ignite_h: aero-aware landing-burn ignition altitude (thrust-only suicide-burn shoot),
+     * the same value the MPPI planner precomputes per replan (mppi.ignite_h) and hoverslam's
+     * trigger implies. Computed fresh from the live state each frame via the shared predictor. */
+    p->ignite_h = (float)bl_predict_ignite_h(st);
 
     /* legs */
     p->deploy_frac = (float)st->deploy_frac;

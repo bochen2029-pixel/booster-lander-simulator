@@ -14,9 +14,9 @@ export const HELLO_MAGIC = 0x304c4c48; // 'HLL0'
 export const EVT_MAGIC = 0x30545645; // 'EVT0'
 export const STATS_MAGIC = 0x30545453; // 'STT0'
 
-export const PROTO_VERSION = 2;
+export const PROTO_VERSION = 3;
 
-export const TLM_FIXED_SIZE = 276;
+export const TLM_FIXED_SIZE = 288;
 export const PLAN_KNOT_SIZE = 16;
 export const CLOUD_SAMPLE_SIZE = 12;
 export const PLAN_MAX = 64;
@@ -88,6 +88,8 @@ export interface TlmFrame {
 
   tGo: number;
   distPad: number;
+  predImpact: [number, number]; // v3: predicted impact point, world XY [m] (ballistic r+v*t_go)
+  igniteH: number; // v3: landing-burn ignition altitude [m]
 
   deployFrac: number;
   stroke: [number, number, number, number];
@@ -161,17 +163,19 @@ export function decodeTlm(buf: ArrayBuffer, byteOffset = 0): TlmFrame {
 
   const tGo = f(212);
   const distPad = f(216);
+  const predImpact: [number, number] = [f(220), f(224)]; // v3
+  const igniteH = f(228); // v3
 
-  const deployFrac = f(220);
-  const stroke: [number, number, number, number] = [f(224), f(228), f(232), f(236)];
+  const deployFrac = f(232);
+  const stroke: [number, number, number, number] = [f(236), f(240), f(244), f(248)];
 
-  const fAero: [number, number, number] = [f(240), f(244), f(248)];
+  const fAero: [number, number, number] = [f(252), f(256), f(260)];
 
-  const deckZ = f(252);
-  const deckQuat: [number, number, number, number] = [f(256), f(260), f(264), f(268)];
+  const deckZ = f(264);
+  const deckQuat: [number, number, number, number] = [f(268), f(272), f(276), f(280)];
 
-  let planN = dv.getUint16(272, LE);
-  let cloudN = dv.getUint16(274, LE);
+  let planN = dv.getUint16(284, LE);
+  let cloudN = dv.getUint16(286, LE);
   if (planN > PLAN_MAX) planN = PLAN_MAX; // defensive clamp (canon §10.3)
   if (cloudN > CLOUD_MAX) cloudN = CLOUD_MAX;
 
@@ -201,7 +205,7 @@ export function decodeTlm(buf: ArrayBuffer, byteOffset = 0): TlmFrame {
     throttleCmd, throttleAct, gimbalCmd, gimbalAct, finsAct,
     rcsMask, nEng, phase, guidanceMode, verdict, solverFlags,
     mach, qbar, alphaTotal, pAmb, pChamber, windLocal, aBody, qdotHeat, Qheat,
-    tGo, distPad,
+    tGo, distPad, predImpact, igniteH,
     deployFrac, stroke,
     fAero,
     deckZ, deckQuat,

@@ -66,4 +66,11 @@ void mppi_step(MppiState* M, const State* st, const EnvCtx* env, GuidanceCmd* g)
  * guidance ticks between full solves (MPPI_REPLAN_DECIM). */
 void mppi_execute(MppiState* M, const State* st, GuidanceCmd* g);
 
+/* Landing-burn IGNITION ALTITUDE predictor (aero-aware, thrust-only suicide-burn shoot). PURE
+ * function of state (reads only st->y) — matches guidance_hoverslam.c's ignition trigger and is
+ * exactly what the MPPI rollout precomputes per replan (MppiState.ignite_h). Public so the
+ * telemetry writer (fill_tlm) can populate the v3 BlTlmFixed.ignite_h field for ANY guidance mode
+ * (hoverslam or MPPI) without a feedback path — it is a read-only diagnostic, directive-2 legal. */
+double bl_predict_ignite_h(const State* st);
+
 #endif /* BL_GUIDANCE_MPPI_H */

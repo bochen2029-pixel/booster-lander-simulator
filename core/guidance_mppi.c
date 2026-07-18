@@ -200,6 +200,10 @@ static double compute_ignite_h(const State* st){
     return h_ig;
 }
 
+/* Public wrapper (declared in guidance_mppi.h): expose the aero-aware ignition-altitude predictor
+ * to the telemetry writer. Read-only over state; no side effects; not a guidance input path. */
+double bl_predict_ignite_h(const State* st){ return compute_ignite_h(st); }
+
 /* NaN/inf-safe clamp (D-009, ported from MPPI-1's hardening: a non-finite value must not escape
  * into the executed plan — map it to 0, the neutral correction). Pure function, determinism-safe. */
 static double clampd(double x, double lo, double hi){

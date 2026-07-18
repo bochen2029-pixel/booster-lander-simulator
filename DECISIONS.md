@@ -792,3 +792,53 @@ probe, then M5 CUDA) which subsumes the th tail. AERO/M4 waits on (c) regardless
   the th tail and the overshoot-op tail by replanning — and is the M4 path anyway. Next session:
   start at Roadmap B.
 
+## D-013 — Telemetry protocol v3: the predicted-impact marker fields (2026-07-18, night)
+
+The D-010-item-1 / D-011-addendum pre-authorized schema extension, executed as ONE validated unit
+by a fleet worktree agent (lane `proto`, `_proto_wt`) and integrated with full gates. The renderer
+remains a PURE OBSERVER: both fields are computed by a pure read of sim/guidance state in the
+telemetry writer (`fill_tlm`); guidance reads nothing new; no feedback path exists.
+
+- **`BlTlmFixed` += `float pred_impact[2]` (world XY, offsets 220/224) and `float ignite_h`
+  (offset 228)**, placed in the guidance-derived group after `dist_pad`; tail fields shift +12;
+  `sizeof 276→288`; **`BL_PROTO_VERSION 2→3`** (the TS decoder rejects mismatched `ver` — old
+  clients fail loud, intended). C static asserts updated and passing (compile-time layout proof).
+- **`pred_impact` v1 formula:** `r_xy + v_xy·clamp(t_go,0,60)` — the kinematic coast point, one
+  consistent semantic for GM_HOVERSLAM and GM_MPPI; it converges onto the pad as the solve
+  tightens (the D-010 diegetic "it actually solved it" marker). LIMITATION: no wind/steering/aero
+  — a v2 could stream the planner's own terminal projection. **`ignite_h`:** the existing
+  state-pure `compute_ignite_h` bisection (MPPI's per-replan precompute; matches hoverslam's
+  trigger), exposed via `bl_predict_ignite_h()`.
+- **Validation:** worktree-first (C asserts + selftest PASS + TERMINAL 194/200 exact + vitest
+  26/26 + `--golden` re-emit == frozen hex + a raw-WS live-wire probe decoding HELLO/TLM v3 with
+  the formula reproducing wire bytes), then REPEATED on the main tree post-integration: selftest
+  PASS, TERMINAL 194/200 byte-exact, **MPPI run-1 invariance pair byte-identical** (HARD
+  td_v 2.63 / lat 10.48 twice — behavior-neutral; note this run-1 line is the correct
+  (1.5,3)-config reference, superseding the v2-constants 2.52/8.58 reference), vitest 26/26,
+  all three protocol goldens MATCH.
+- **`goldens/protocol/*.hex` re-frozen** (tlm 276→288 B; hello ver→3; evt unchanged) — the
+  re-baseline pre-authorized by D-010/D-011. `runs/ws_probe.mjs` added (stdlib-Node raw-RFC6455
+  smoke reader). Full field/offset tables: `runs/proto_report.md`.
+
+**Also recorded this push — the fleet's completed research + tooling artifacts (no core changes):**
+- `runs/mppi_research.md` (lane mppi-research): vanilla MPPI saturates ~1-2k samples; our misses
+  are exploration-limited → pair capacity with a variant. Keep σ fixed, let the ESS-servo sharpen
+  λ (lower LAMBDA_MIN 2.0→~0.5); tune OU θ 0.15→0.08-0.10; CoVO covariance and MPOPI
+  iterate-per-replan (4096×4 ≥ 16384×1) are the structural upgrades; **fp64 on sm_89 is ~1/64
+  fp32 throughput — the CUDA p99≤6ms@K16384 gate likely needs fp32 rollouts with §9.5 toleranced
+  parity**; keep H=5 s + projection terminals (the literature endorses our structure).
+- `runs/gfold_research.md` (lane gfold-research): LCvx/G-FOLD is provably valid only where we
+  don't need it (drag-free TERMINAL); the aero-dominant divert needs SCvx (local optimality,
+  3-10× compute). Onboard solve times are affordable but the honest role is **offline oracle +
+  fuel-optimal MPPI warm-starts**, not an onboard replacement; PIPG-on-GPU noted. MPPI@K256
+  already realizes ~0.70·D_phys ≈ 775 m of the 1107 m ceiling.
+- `runs/windthink_design.md` (lane windthink): the NAV-legal wind estimator closes to <0.2 m/s in
+  a plant-parity probe IF the commanded-AoA correction is applied (~4.5 m/s error per degree of
+  AoA otherwise); τ 4-6 s; freeze at ignition (the SRP shield kills the aero signal in-burn);
+  feedforward ranked upwind-aim-pre-bias first, C14-eint warm-start as an unstackable fallback;
+  staged validation with explicit falsification bars. Build in flight (lane windbuild).
+- `runs/toolsmith_report.md` (lane toolsmith): compiled-C analysis tools `mcdiff` (per-run CSV
+  A/B: verdict flips, cause-transition matrix, distribution deltas) and `tracestat` (--verbose
+  trace features: ignition/arrest/climb/fuel-margin; auto-flags the min-throttle climb trap).
+  Sources in `_tools_wt\` pending a tools/ fold-in; contracts posted to all lanes.
+

@@ -44,12 +44,12 @@ function buildFrame(planN: number, cloudN: number): ArrayBuffer {
   dv.setUint8(157, Verdict.LandedGood);
   dv.setUint16(158, 0x0010, LE); // solver_flags
   for (let o = 160; o <= 208; o += 4) f(o); // env & derived
-  for (let o = 212; o <= 216; o += 4) f(o); // t_go, dist_pad
-  for (let o = 220; o <= 236; o += 4) f(o); // deploy, stroke
-  for (let o = 240; o <= 248; o += 4) f(o); // f_aero
-  for (let o = 252; o <= 268; o += 4) f(o); // deck_z, deck_quat
-  dv.setUint16(272, planN, LE);
-  dv.setUint16(274, cloudN, LE);
+  for (let o = 212; o <= 228; o += 4) f(o); // t_go, dist_pad, pred_impact[2], ignite_h (v3)
+  for (let o = 232; o <= 248; o += 4) f(o); // deploy, stroke
+  for (let o = 252; o <= 260; o += 4) f(o); // f_aero
+  for (let o = 264; o <= 280; o += 4) f(o); // deck_z, deck_quat
+  dv.setUint16(284, planN, LE);
+  dv.setUint16(286, cloudN, LE);
 
   let off = TLM_FIXED_SIZE;
   for (let i = 0; i < planN; i++) {
@@ -69,8 +69,8 @@ function buildFrame(planN: number, cloudN: number): ArrayBuffer {
 }
 
 describe("TLM decoder mirrors protocol.h", () => {
-  it("fixed size is 276", () => {
-    expect(TLM_FIXED_SIZE).toBe(276);
+  it("fixed size is 288", () => {
+    expect(TLM_FIXED_SIZE).toBe(288);
   });
 
   it("decodes every field at the right offset", () => {
@@ -116,11 +116,13 @@ describe("TLM decoder mirrors protocol.h", () => {
 
     expect(f.tGo).toBe(212);
     expect(f.distPad).toBe(216);
-    expect(f.deployFrac).toBe(220);
-    expect(f.stroke).toEqual([224, 228, 232, 236]);
-    expect(f.fAero).toEqual([240, 244, 248]);
-    expect(f.deckZ).toBe(252);
-    expect(f.deckQuat).toEqual([256, 260, 264, 268]);
+    expect(f.predImpact).toEqual([220, 224]); // v3
+    expect(f.igniteH).toBe(228); // v3
+    expect(f.deployFrac).toBe(232);
+    expect(f.stroke).toEqual([236, 240, 244, 248]);
+    expect(f.fAero).toEqual([252, 256, 260]);
+    expect(f.deckZ).toBe(264);
+    expect(f.deckQuat).toEqual([268, 272, 276, 280]);
 
     // tails
     expect(f.plan).toHaveLength(3);
