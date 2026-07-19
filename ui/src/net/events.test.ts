@@ -64,7 +64,7 @@ describe("EVT tables", () => {
 });
 
 describe("decodeHello", () => {
-  it("reads geometry + session fields at the v3 offsets", () => {
+  it("reads geometry + session fields at the v4 offsets", () => {
     const buf = new ArrayBuffer(HELLO_SIZE);
     const dv = new DataView(buf);
     dv.setUint32(0, HELLO_MAGIC, LE);
@@ -86,6 +86,9 @@ describe("decodeHello", () => {
     dv.setUint8(68, 1); // scenario
     dv.setUint8(69, 2); // guidance_mode
     dv.setUint8(70, 0x1f); // modules
+    dv.setUint8(71, 0); // world_id (v4)
+    dv.setUint32(72, 0x4ea27408, LE); // world_hash (v4)
+    dv.setUint16(76, 0, LE); // np_version (v4)
     const h = decodeHello(buf);
     expect(h.ver).toBe(PROTO_VERSION);
     expect(h.seed).toBe(42);
@@ -98,6 +101,9 @@ describe("decodeHello", () => {
     expect(h.planMax).toBe(64);
     expect(h.cloudMax).toBe(128);
     expect(h.guidanceMode).toBe(2);
+    expect(h.worldId).toBe(0); // v4
+    expect(h.worldHash).toBe(0x4ea27408); // v4
+    expect(h.npVersion).toBe(0); // v4
   });
 });
 

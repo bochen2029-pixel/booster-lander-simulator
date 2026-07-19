@@ -1262,3 +1262,79 @@ VLM-ready socket; beacon optional-at-N0/required-at-N4; M4 stays a hard ≥90 la
 gate with the frontier metric as overlay only). Authoring record:
 runs/D019_proposed_canon_v2.md. First build session = N0, launched same day.
 
+## D-020 — N0 GREEN: the wide socket + protocol v4 + engine-out/movable-target BUILT-DIALED-OFF (2026-07-19)
+
+**The widen-once milestone (§14 N0 = §H.0 Step 0+1 + §10.9) executed and byte-gated; the
+perception-to-policy socket is LIVE at nominal.** Build lane: settling copy `_n0_wt/`
+(background agent N0BUILD); integrated into this tree by this commit. Scope exactly as
+pre-authorized by D-019:
+
+- **§8.1 wide socket:** `TargetEstimate {xy, vxy, cov[3], deck_z, age, src, valid}` +
+  `EngineHealth` join `State` (state.h) and the nav view rides `nav_measure`'s existing
+  truth memcpy — ZERO new nav code; NAV_NOISY adds no target noise (beacon/VLM noise
+  models arrive with those sources, §8.4). Nominal defaults reproduce v1 byte-exactly.
+- **The `null(r − target)` substitution (directive-7-clean):** `hoverslam_step` shifts
+  `r_xy` ONCE at the top — the ENTIRE reactive law (vdes profile, D-012 brake, divert)
+  inherits with no other edit. MPPI mirrors it at every position read (warm-start, running
+  cost, D-009 ignition gate, in-air terminal, `cmd_from_u_lean`) and latches
+  `g->target_xy` into `MppiState` per replan; the CUDA pathway threads `target_xy`
+  (NULL ⇒ origin). Velocity stays INERTIAL — correct for the slow/static N0 target;
+  fast-target lead is a deferred extension.
+- **Protocol v4 as ONE validated unit (§10.9, the D-013 ceremony):** TLM 288→328 (+40:
+  the wide-socket group @232 — `target_est_xy/vxy`, `target_cov`, `src/valid` @260,
+  `target_age` @264, `eng_health` bitmask + `eng_n` @268, `guidance_np_ver` @270; tail
+  pins shift +40 → `deploy_frac`@272, `deck_z`@304, `plan_n`@324). HELLO 72→80
+  (`world_id`@71, `world_hash`@72 = the pinned Earth `0x4EA27408` [chosen], `np_version`@76
+  — §4.7 Worlds provenance). EVT unchanged 48. Version 4; TLM flags TARGET_MOVABLE /
+  ENGINE_OUT; `BL_MOD_*` mask mirror in HELLO. TS mirrors decode.ts/events.ts/hello.ts +
+  tests re-pinned; hex goldens re-frozen as one unit (`goldens/protocol/*.hex`).
+- **Engine-out BUILT-OFF (§4.6, engineout_design §E):** `--engine-out <k>@<t> | random`
+  (random draws (k, t-in-window) from the run key). Fires ONCE, only during a MULTI-engine
+  burn (`engine_on && n_eng>1`): drops `n_eng` (thrust/mdot/gimbal-allocation follow),
+  sets the survivor-centroid `thrust_offset` whose induced torque rides the EXISTING
+  `arm_thr × Fthr` lever (the ONLY EOM edit, dynamics.c; `ENG_RING_R = 0.6·R` [chosen,
+  representative]), zeroes the failed engine's §4.3-legal chamber-P `eng_health` flag,
+  emits EVT FAULT. Honest semantics, measured: armed OUTSIDE a multi-engine burn ⇒ never
+  fires ⇒ nominal byte-exact (ENTRY r14 `1@40` == nominal — the entry burn ends before
+  t=40); in-burn `1@20` under `--mppi` ⇒ CRASHED 1787 m off-pad — a real degraded-authority
+  problem, N3's to solve.
+- **Movable target BUILT-OFF (§4.5, target_sandbox_design §B.3):** `--target seeded |
+  circle:<amp>:<per> | line:<reach>:<dur>:<deg>` — pure closed-form `target_sample(config,t)`
+  (wind_sample's replay pattern: no filter memory), seeded amp∈[8,20] m / period∈[40,80] s /
+  phases from the `target` Philox key; fills `gcmd.target_xy` + streams TargetEstimate
+  src=SEEDED.
+- **The serve contract fix (the §10.9 "one cheap client" payoff):** `cmd_serve` silently
+  DROPPED every disturbance flag the cockpit's play menu sends (pre-existing for `--gust`
+  since D-017 — the picker clicked into a void). It now parses + arms
+  gust/engine-out/target exactly like `cmd_run`, with stderr banners for the shell panel;
+  malformed specs disarm-with-stderr and the stream continues nominal.
+- **Consumer reconciliation:** the fleet's speculative `readTargetEst` accessor
+  (db9e3a5) guessed `targetEstXY`/`targetEstVXY`; the decoder — the protocol reference —
+  camelizes `targetEstXy`/`targetEstVxy`. targetMarker.{ts,test.ts} retargeted (the
+  `unknown`-indexed read tsc could never catch would have silently never drawn).
+
+**Gate (all measured in `_n0_wt`, then RE-MEASURED in THIS tree post-integration):**
+byte-equality at nominal/off vs EVERY golden — TERMINAL s42 194/200 · AERO t0 s42 220/300 ·
+AERO `--mppi` s42 44/60 · ENTRY `--mppi` s42 95/100 · MPPI run-1 (2.63 m/s / 10.48 m) ·
+`--selftest` (incl. the memcmp determinism oracle) — ALL BYTE-IDENTICAL, both trees.
+`--golden` emit == frozen v4 hex. CUDA: parity max|Δcost| 5.0e-12 (rel 1.5e-15), top-16/64
+rank 100%, GPU run-twice bit-identical — identical numbers both trees. On-state determinism
+pairs, run-twice bit-identical: `--engine-out 1@40`, `--engine-out random`, `--target
+seeded`, `--target`+`--mppi`, `--engine-out`+`--mppi`. Chase proof: `line:30:10:{0,180}`
+lands 28.18/28.23 m from origin AT the parked 30 m target with differing trajectories
+(bearing consumed, magnitude right, td_v 1.68/1.98 soft); `--mppi` + `line:100:30:45`
+lands 99.75 m out ⇒ the MPPI mirror chases. UI: vitest 14 files / 163 tests (incl.
+targetMarker against the REAL decoder), tsc clean. Serve smoke (both exes): HELLO
+ver=4 / modules 0x50 / world_hash 0x4EA27408 + first-TLM `target_est=(15, 0.0094)` ==
+the analytic `circle:15:60` pose at t, src=SEEDED — the play menu binds to the real plant.
+
+**Known Stage-1 gap (deliberate, documented):** the verdict + `td_lat` score the ORIGIN,
+not the armed target — `target_sandbox_design` §A.3 (target-relative verdict) is Stage-1
+scope, so an armed-target run that lands ON the target grades off-pad/CRASHED (measured
+above). Fix lands with the SEA-deck/`asds_night` stage. Off-state untouched by this gap.
+
+**Artifacts:** `_n0_wt/runs/n0_*` (baselines, post-batches, determinism pairs, smokes, the
+serve-smoke script) + `runs/n0main_*` (this tree's re-verification). **Next per §14:** N1
+(distill → `GM_NEURAL` ships) or target Stage-1 (SEA deck + §A.3 + `asds_night`); M4's
+designated vehicle remains N3.
+

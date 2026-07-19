@@ -1,0 +1,14 @@
+[atmosphere US76]
+[rng philox determinism]
+[quaternion + frame conv]
+[oracle: vacuum ballistic]
+[oracle: coast energy + quat norm]
+[oracle: mass props + analytic Idot]
+[oracle: hover impossibility]
+       TWR_min=1.321
+[oracle: grid-fin passive stability]
+       w0=0.150 wmax=0.150 wf=0.024 rad/s
+[oracle: aero-descent closed-loop fin stability]
+       max|w| over descent = 0.170 rad/s
+[oracle: determinism memcmp]
+SELFTEST: PASS

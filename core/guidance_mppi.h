@@ -44,6 +44,10 @@ typedef struct {
     uint32_t replan;                 /* full-solve counter -> Philox counter hi word */
     uint32_t gtick;                  /* 50 Hz guidance-tick counter (replan cadence) */
     double   ignite_h;               /* precomputed landing-burn ignition altitude [m] (per replan) */
+    double   target_xy[2];           /* N0 movable target (§4.5): copied from g->target_xy at
+                                      * mppi_step entry; the rollout cost/profile + warm-start null
+                                      * (r − target_xy). ZERO by default => byte-identical (directive-7
+                                      * mirror of the hoverslam substitution, target_sandbox_design §B.2). */
     int      scenario;
     int      inited;
     /* last-solve telemetry */

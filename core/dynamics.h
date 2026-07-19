@@ -26,6 +26,11 @@ typedef struct {
     double thrust_scale;     /* multiplicative thrust deficit (1.0 nominal; 0 → treated as 1.0) */
     double isp_scale;        /* multiplicative Isp deficit    (1.0 nominal; 0 → treated as 1.0) */
     double com_offset[2];    /* lateral CoM offset [m] → thrust-misalignment disturbance torque   */
+    /* N0 ENGINE-OUT (§4.6, engineout_design §3.1): the surviving-cluster thrust-APPLICATION-point
+     * offset (body lateral). Kept SEPARATE from com_offset — a survivor centroid moves where THRUST
+     * acts (the torque lever) but NOT the CoM (gravity/inertia). Sums with com_offset in arm_thr.
+     * Defaults (0,0) => nominal (no induced torque) => byte-identical when no engine is out. */
+    double thrust_offset[2]; /* lateral thrust-application offset [m] (engine-out survivor centroid) */
 } EnvCtx;
 
 /* Diagnostics filled during a derivative eval (for telemetry / termination). */

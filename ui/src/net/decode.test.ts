@@ -17,6 +17,7 @@ import {
   tlmFrameSize,
   Phase,
   Verdict,
+  TargetSrc,
 } from "./decode";
 
 const LE = true;
@@ -45,11 +46,20 @@ function buildFrame(planN: number, cloudN: number): ArrayBuffer {
   dv.setUint16(158, 0x0010, LE); // solver_flags
   for (let o = 160; o <= 208; o += 4) f(o); // env & derived
   for (let o = 212; o <= 228; o += 4) f(o); // t_go, dist_pad, pred_impact[2], ignite_h (v3)
-  for (let o = 232; o <= 248; o += 4) f(o); // deploy, stroke
-  for (let o = 252; o <= 260; o += 4) f(o); // f_aero
-  for (let o = 264; o <= 280; o += 4) f(o); // deck_z, deck_quat
-  dv.setUint16(284, planN, LE);
-  dv.setUint16(286, cloudN, LE);
+  // v4 wide socket (@232): float sentinels 232..256, then the small ints
+  for (let o = 232; o <= 256; o += 4) f(o); // target_est_xy[2], target_est_vxy[2], target_cov[3]
+  dv.setUint8(260, TargetSrc.Seeded); // target_src
+  dv.setUint8(261, 1); // target_valid
+  // 262: _pad1 (u16)
+  f(264); // target_age
+  dv.setUint8(268, 0x05); // eng_health bitmask (engines 0,2 healthy)
+  dv.setUint8(269, 2); // eng_n
+  dv.setUint16(270, 7, LE); // guidance_np_ver
+  for (let o = 272; o <= 288; o += 4) f(o); // deploy, stroke (v4-shifted +40)
+  for (let o = 292; o <= 300; o += 4) f(o); // f_aero
+  for (let o = 304; o <= 320; o += 4) f(o); // deck_z, deck_quat
+  dv.setUint16(324, planN, LE);
+  dv.setUint16(326, cloudN, LE);
 
   let off = TLM_FIXED_SIZE;
   for (let i = 0; i < planN; i++) {
@@ -69,8 +79,9 @@ function buildFrame(planN: number, cloudN: number): ArrayBuffer {
 }
 
 describe("TLM decoder mirrors protocol.h", () => {
-  it("fixed size is 288", () => {
-    expect(TLM_FIXED_SIZE).toBe(288);
+  it("fixed size is 328 (v4)", () => {
+    expect(TLM_FIXED_SIZE).toBe(328);
+    expect(PROTO_VERSION).toBe(4);
   });
 
   it("decodes every field at the right offset", () => {
@@ -118,11 +129,22 @@ describe("TLM decoder mirrors protocol.h", () => {
     expect(f.distPad).toBe(216);
     expect(f.predImpact).toEqual([220, 224]); // v3
     expect(f.igniteH).toBe(228); // v3
-    expect(f.deployFrac).toBe(232);
-    expect(f.stroke).toEqual([236, 240, 244, 248]);
-    expect(f.fAero).toEqual([252, 256, 260]);
-    expect(f.deckZ).toBe(264);
-    expect(f.deckQuat).toEqual([268, 272, 276, 280]);
+    // v4 wide socket (float sentinels == their offsets; small ints == their set values)
+    expect(f.targetEstXy).toEqual([232, 236]);
+    expect(f.targetEstVxy).toEqual([240, 244]);
+    expect(f.targetCov).toEqual([248, 252, 256]);
+    expect(f.targetSrc).toBe(TargetSrc.Seeded);
+    expect(f.targetValid).toBe(1);
+    expect(f.targetAge).toBe(264);
+    expect(f.engHealth).toBe(0x05);
+    expect(f.engN).toBe(2);
+    expect(f.guidanceNpVer).toBe(7);
+    // v4-shifted tail (+40)
+    expect(f.deployFrac).toBe(272);
+    expect(f.stroke).toEqual([276, 280, 284, 288]);
+    expect(f.fAero).toEqual([292, 296, 300]);
+    expect(f.deckZ).toBe(304);
+    expect(f.deckQuat).toEqual([308, 312, 316, 320]);
 
     // tails
     expect(f.plan).toHaveLength(3);

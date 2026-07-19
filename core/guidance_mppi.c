@@ -262,7 +262,7 @@ static double predict_tgo(double h_feet, double vz, double m){
  * touchdown cut. No inner shoot. MPPI contributes ONLY the world-lateral-accel steering u[1],u[2].
  * (At EXECUTION the exact hoverslam_step runs; this proxy only needs to rank rollouts consistently.) */
 static void cmd_from_u_lean(State* rst, const double u[MPPI_NCH], double h_feet, double ignite_h,
-                            GuidanceCmd* g){
+                            const double target_xy[2], GuidanceCmd* g){
     const double* y=rst->y;
     MassProps mp; mass_props(y[S_MLOX],y[S_MRP1],0,0,&mp);
     double m=mp.m;
@@ -326,7 +326,9 @@ static void cmd_from_u_lean(State* rst, const double u[MPPI_NCH], double h_feet,
     double kbase = KDIV_SEEK;
     if(rst->engine_on){   /* D-012 powered-burn gate — parity with hoverslam_step */
         double vdxm,vdym,rhxm,rhym;
-        converging_vdes(y[S_RX],y[S_RY],y[S_VX],y[S_VY],&vdxm,&vdym,&rhxm,&rhym);
+        /* N0 target shift (directive-7 mirror of hoverslam_step's r_xy substitution): the D-012
+         * brake profile reads the offset TO THE TARGET. target_xy=(0,0) => x−0.0 => byte-identical. */
+        converging_vdes(y[S_RX]-target_xy[0],y[S_RY]-target_xy[1],y[S_VX],y[S_VY],&vdxm,&vdym,&rhxm,&rhym);
         double vdmm = sqrt(vdxm*vdxm+vdym*vdym);
         double vxym = sqrt(y[S_VX]*y[S_VX]+y[S_VY]*y[S_VY]);
         double osm = (vxym - vdmm)/KDIV_VBLEND; if(osm<0.0)osm=0.0; if(osm>1.0)osm=1.0;
@@ -373,7 +375,9 @@ static double rollout_cost(const MppiState* M, const State* st0, const EnvCtx* e
          * constant offset, harmless.) */
         if(!gate_done && h_feet<=M->ignite_h+50.0){
             gate_done=1;
-            double gr2=(rst.y[S_RX]*rst.y[S_RX]+rst.y[S_RY]*rst.y[S_RY])/(R_REF*R_REF);
+            /* N0 target shift: the D-009 centered-ignition gate measures the offset TO THE TARGET. */
+            double grx=rst.y[S_RX]-M->target_xy[0], gry=rst.y[S_RY]-M->target_xy[1];
+            double gr2=(grx*grx+gry*gry)/(R_REF*R_REF);
             double gv2=(rst.y[S_VX]*rst.y[S_VX]+rst.y[S_VY]*rst.y[S_VY])/(V_REF*V_REF);
             cost += G_RXY*gr2 + G_VXY*gv2;
         }
@@ -383,7 +387,7 @@ static double rollout_cost(const MppiState* M, const State* st0, const EnvCtx* e
         for(int c=0;c<MPPI_NCH;c++) u[c] = M->ubar[t][c] + eps[t][c];
 
         GuidanceCmd g; memset(&g,0,sizeof(g));
-        cmd_from_u_lean(&rst, u, h_feet, M->ignite_h, &g);   /* lean vertical proxy (perf) */
+        cmd_from_u_lean(&rst, u, h_feet, M->ignite_h, M->target_xy, &g);   /* lean vertical proxy (perf) */
 
         /* engine ignition latch inside the rollout (mirror of sim.c) */
         if(g.engine_cmd && !rst.engine_on && rst.relights_left>0){
@@ -399,7 +403,10 @@ static double rollout_cost(const MppiState* M, const State* st0, const EnvCtx* e
         rk4_step(&rst, &act, &env, MPPI_DT);
 
         /* ---- running cost: track a CONVERGING-VELOCITY reference (no overshoot) ---- */
-        double rx=rst.y[S_RX], ry=rst.y[S_RY];
+        /* N0 target shift (§B.2): the POSITION reads become target-relative (r − target_xy); the
+         * integrated plant state rst.y is NOT shifted (the EOM/ground test need true world position).
+         * Velocity vx/vy stay inertial. target_xy=(0,0) => byte-identical. */
+        double rx=rst.y[S_RX]-M->target_xy[0], ry=rst.y[S_RY]-M->target_xy[1];
         double vx=rst.y[S_VX], vy=rst.y[S_VY];
         double wmag2 = rst.y[S_WX]*rst.y[S_WX]+rst.y[S_WY]*rst.y[S_WY]+rst.y[S_WZ]*rst.y[S_WZ];
         double tilt = state_tilt(rst.y);
@@ -469,7 +476,9 @@ static double rollout_cost(const MppiState* M, const State* st0, const EnvCtx* e
         /* ---- in-air terminal at horizon end: reward being ON the converging profile ----
          * NOT a hard r_xy=0 (that caused the overshoot). Penalize velocity-tracking error to the
          * converging reference + a MODERATE, altitude-faded position pull + feasibility. */
-        double rx=rst.y[S_RX], ry=rst.y[S_RY];
+        /* N0 target shift (§B.2): POSITION target-relative; ZEM (zx=rx+vx*t) inherits it; velocity
+         * stays inertial; the integrated rst.y is untouched. target_xy=(0,0) => byte-identical. */
+        double rx=rst.y[S_RX]-M->target_xy[0], ry=rst.y[S_RY]-M->target_xy[1];
         double vx=rst.y[S_VX], vy=rst.y[S_VY], vz=rst.y[S_VZ];
         double wmag2 = rst.y[S_WX]*rst.y[S_WX]+rst.y[S_WY]*rst.y[S_WY]+rst.y[S_WZ]*rst.y[S_WZ];
         double tilt = state_tilt(rst.y);
@@ -561,7 +570,9 @@ static void warm_start_nominal(MppiState* M, const State* st0, const EnvCtx* env
         double alx=0.0, aly=0.0;
         if(!grounded){
             double vdxw=0.0,vdyw=0.0,rhxw=0.0,rhyw=0.0;
-            converging_vdes(rst.y[S_RX],rst.y[S_RY],rst.y[S_VX],rst.y[S_VY],&vdxw,&vdyw,&rhxw,&rhyw);
+            /* N0 target shift (directive-7 warm-start mirror): the converging profile reads the
+             * offset TO THE TARGET. Velocity-null (vdxw − v) stays inertial. target=0 => identical. */
+            converging_vdes(rst.y[S_RX]-M->target_xy[0],rst.y[S_RY]-M->target_xy[1],rst.y[S_VX],rst.y[S_VY],&vdxw,&vdyw,&rhxw,&rhyw);
             /* clamp the BASELINE to the physical gamut so sampling around it explores the
              * actually-flyable range instead of saturating every rollout at the plant (D-009) */
             alx = clampd(1.0*(vdxw - rst.y[S_VX]), -A_LAT_GAMUT, A_LAT_GAMUT);
@@ -575,7 +586,7 @@ static void warm_start_nominal(MppiState* M, const State* st0, const EnvCtx* env
          * consistent baseline trajectory + inherited ignition timing) */
         double uu[MPPI_NCH]={0.0,alx,aly};
         GuidanceCmd g; memset(&g,0,sizeof(g));
-        cmd_from_u_lean(&rst, uu, h_feet, M->ignite_h, &g);
+        cmd_from_u_lean(&rst, uu, h_feet, M->ignite_h, M->target_xy, &g);
         if(g.engine_cmd && !rst.engine_on && rst.relights_left>0){
             rst.engine_on=1; rst.ign_timer=0.0; rst.n_eng=g.n_eng; rst.relights_left--;
             if(rst.phase==PH_COAST||rst.phase==PH_AERO) rst.phase=PH_LANDING_BURN;
@@ -627,6 +638,12 @@ void mppi_init(MppiState* M, uint32_t seed, int scenario){
 void mppi_step(MppiState* M, const State* st, const EnvCtx* env, GuidanceCmd* g){
     if(!M->inited) mppi_init(M, M->seed, M->scenario);
     if(getenv("MPPI_DBG")){ static int once=0; if(!once){ fprintf(stderr,"[mppi] ENTER mppi_step first call\n"); once=1; } }
+
+    /* N0 movable target: latch the target pose sim.c filled into g->target_xy so the rollout cost +
+     * warm-start null (r − target_xy) — the directive-7 mirror of the hoverslam substitution. The
+     * mppi_execute blend below already goes through hoverslam_step(st,g), which reads g->target_xy
+     * directly, so the EXECUTION path is target-relative too. Zero by default => byte-identical. */
+    M->target_xy[0]=g->target_xy[0]; M->target_xy[1]=g->target_xy[1];
 
     MassProps mp0; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp0);
     double m0 = mp0.m;

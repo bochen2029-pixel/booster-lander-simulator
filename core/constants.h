@@ -11,6 +11,17 @@
 #define GAMMA_AIR     1.4
 #define RHO0          1.225           /* kg/m^3 sea level [official] */
 #define P0_ATM        101325.0        /* Pa [official] */
+/* N0 (§4.7): Earth is World #0; its parameter set is §4.1-4.3. The World abstraction (§4.7) is a
+ * forward-pointer (Mars etc. arrive at N4); today HELLO carries a PINNED Earth id+hash so a replay
+ * is attributable to the world that flew it. [chosen] pin — a real per-world FNV hash lands with §4.7. */
+#define WORLD_EARTH_ID   0u
+#define WORLD_EARTH_HASH 0x4EA27408u   /* [chosen] pinned Earth-World hash (World #0) */
+
+/* N0 (§4.6): the 3-engine cluster geometry the surviving-centroid math needs — center engine on the
+ * axis + a symmetric side pair on a ring of radius ENG_RING_R (engineout_design §2.1). Side-out
+ * moves the survivor centroid to −R/2 (induced torque); center-out keeps it on-axis (thrust loss
+ * only). [chosen, representative] — the octaweb outer ring sits ~2/3 out. Sensitivity is linear. */
+#define ENG_RING_R    (0.6*VEH_RADIUS)  /* m, side-engine ring radius [chosen, representative] */
 
 /* Integration */
 #define DT            0.002           /* s, 500 Hz fixed [directive 3] */

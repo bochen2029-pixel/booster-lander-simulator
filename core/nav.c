@@ -71,7 +71,12 @@ void nav_resync(const State* st, State* out){
 void nav_measure(NavState* nav, const State* st, uint64_t step, State* out){
     /* PASS-THROUGH is the whole State, always. In NAV_TRUTH we stop here: the view is a
      * byte copy of truth with zero RNG draws and no bias update — provably transparent
-     * (the bit-identical acceptance gate). */
+     * (the bit-identical acceptance gate).
+     * N0 §8.1 WIDE SOCKET: the TargetEstimate (out->tgt) + EngineHealth (out->eng_health /
+     * out->n_eng / out->relights_left) ride this memcpy as truth-pass-through bookkeeping (exactly
+     * like n_eng). At N0 the plant fills them nominal (target=origin/FIXED/valid, all engines
+     * healthy) so they carry byte-exact, and NAV_NOISY adds NO target noise (beacon/VLM noise models
+     * arrive with those sources, §8.4) — so the wide socket needs no code here beyond the copy. */
     memcpy(out, st, sizeof(State));
     if(nav->mode == NAV_TRUTH) return;
 

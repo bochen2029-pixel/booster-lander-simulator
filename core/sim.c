@@ -27,6 +27,50 @@ double sim_body_tilt(const State* st){
     double c=zw[2]; if(c>1)c=1; if(c<-1)c=-1; return acos(c);
 }
 
+/* N0 ENGINE-OUT (§4.6, engineout_design §2.3): the surviving-cluster geometric centroid, body
+ * lateral. Layout = center engine on the axis (0,0) + a symmetric side pair at (+R,0)/(−R,0). One
+ * failure removes an engine; the centroid of the survivors is where the resultant thrust acts.
+ *   center out (k=0): survivors (+R,0),(−R,0) -> centroid (0,0)      => ON-axis, NO induced torque
+ *   side out   (k=1): survivors (0,0),(−R,0)  -> centroid (−R/2,0)   => OFF-axis, induced torque
+ *   side out   (k=2): survivors (0,0),(+R,0)  -> centroid (+R/2,0)   => mirror
+ * Pure function; fires once per run (no rollout-hot-path concern). */
+static void survivor_centroid(int n_eng_before, int failed_k, double c[2]){
+    const double R = ENG_RING_R;
+    double px[3]={0.0, +R, -R}, py[3]={0.0, 0.0, 0.0};   /* center, side+, side- */
+    double sx=0.0, sy=0.0; int ns=0;
+    for(int i=0;i<n_eng_before && i<3;i++){
+        if(i==failed_k) continue;
+        sx+=px[i]; sy+=py[i]; ns++;
+    }
+    if(ns>0){ c[0]=sx/ns; c[1]=sy/ns; } else { c[0]=c[1]=0.0; }
+}
+
+/* N0 SEEDED MOVABLE TARGET (§4.5, target_sandbox_design §A.1b): a deterministic closed-form
+ * HORIZONTAL target drift (the SEEDED source — the training source; Stage-1a "pad drift", the
+ * cleanest moving target — no vertical/contact coupling at N0). PURE function of (config, t) exactly
+ * like wind_sample's mean profile => replay-safe by construction (no filter memory). The `target`
+ * Philox stream keys the amplitude/rate/phase from (seed,run) so an armed run replays bit-exact and
+ * different seeds move differently. tgt_mode==0 (default) => origin => byte-identical. */
+static void target_sample(const Sim* s, double t, double out_xy[2], double out_vxy[2]){
+    out_xy[0]=out_xy[1]=0.0; out_vxy[0]=out_vxy[1]=0.0;
+    if(s->tgt_mode==0) return;
+    if(s->tgt_mode==1){
+        /* circular drift: a slow seeded wander around the origin (the ±few-m station-keeping analog) */
+        double a=s->tgt_amp, w=s->tgt_omega, ph0=s->tgt_phase[0], ph1=s->tgt_phase[1];
+        out_xy[0]  =  a*cos(w*t+ph0);
+        out_xy[1]  =  a*sin(w*t+ph1);
+        out_vxy[0] = -a*w*sin(w*t+ph0);
+        out_vxy[1] =  a*w*cos(w*t+ph1);
+    } else if(s->tgt_mode==2){
+        /* linear ramp along a seeded bearing (a scripted pad drift) */
+        double a=s->tgt_amp, w=s->tgt_omega;   /* here w reused as ramp speed [1/s]; a as reach [m] */
+        double dx=cos(s->tgt_phase[0]), dy=sin(s->tgt_phase[0]);
+        double f=w*t; if(f>1.0) f=1.0;         /* saturate at full reach */
+        out_xy[0]=a*f*dx; out_xy[1]=a*f*dy;
+        if(f<1.0){ out_vxy[0]=a*w*dx; out_vxy[1]=a*w*dy; }
+    }
+}
+
 /* Mean wind profile (world horizontal), altitude-scaled. */
 static void wind_sample(Sim* s, double h, double out[3]){
     out[0]=out[1]=out[2]=0.0;
@@ -107,6 +151,27 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     s->impact_v=s->impact_tilt=s->impact_lat=0.0;
     s->max_qbar=0; s->peak_qdot=0; s->done=0; s->touched=0;
     s->gcmd.mode=guidance_mode; s->gcmd.n_eng=1;
+    /* N0 §8.1 WIDE SOCKET nominal fill (memset zeroed everything; nominal needs valid=1, all engines
+     * healthy). target=origin, vxy=0, deck_z=0, src=FIXED, age=0, valid=1; cov=tiny const so the
+     * renderer's uncertainty ellipse is a point, not degenerate. These ride truth st; nav passes them
+     * through. gcmd.target_xy stays (0,0) => hoverslam/MPPI null the origin (v1 behavior, byte-exact).
+     * The seeded target (§4.5) / engine-out (§4.6) below OVERWRITE these when armed. */
+    for(int i=0;i<3;i++) s->st.eng_health[i]=1;                 /* all healthy */
+    s->st.tgt.target_xy[0]=s->st.tgt.target_xy[1]=0.0;          /* FIXED at origin */
+    s->st.tgt.target_vxy[0]=s->st.tgt.target_vxy[1]=0.0;
+    s->st.tgt.target_cov[0]=s->st.tgt.target_cov[1]=1e-4;       /* σ_target^2 tiny (near-certain) */
+    s->st.tgt.target_cov[2]=0.0;                                /* xy covariance */
+    s->st.tgt.deck_z=0.0;
+    s->st.tgt.target_age=0.0;
+    s->st.tgt.target_src=TGT_FIXED;
+    s->st.tgt.target_valid=1;
+    s->gcmd.target_xy[0]=s->gcmd.target_xy[1]=0.0;
+    s->gcmd.target_vxy[0]=s->gcmd.target_vxy[1]=0.0;
+    /* N0 engine-out event state (armed via --engine-out; default OFF => never fires => byte-identical) */
+    s->eo_engine=-1; s->eo_time=0.0; s->eo_fired=0;
+    /* N0 seeded-target state (armed via --target; default OFF => FIXED origin => byte-identical) */
+    s->tgt_mode=0; s->tgt_seed=seed; s->tgt_run=run_idx;
+    s->tgt_amp=0.0; s->tgt_omega=0.0; s->tgt_phase[0]=s->tgt_phase[1]=0.0;
     /* §8.1 measurement layer: NAV_TRUTH pass-through by default; NAV_NOISY under
      * MOD_NAV_NOISY. Keyed by (seed, run_idx) for replayable per-run noise. (D-010) */
     nav_init(&s->nav, modules, seed, run_idx);
@@ -181,7 +246,13 @@ static void entry_divert_step(const State* st, GuidanceCmd* g){
     const double* y=st->y;
     MassProps mp; mass_props(y[S_MLOX],y[S_MRP1],0,0,&mp);
     AtmoOut atm; atmo_eval(y[S_RZ],&atm);
-    double a_burn = 3.0*engine_thrust(1.0, atm.p)/mp.m;      /* ~50 m/s^2 near-vacuum */
+    /* N0 ENGINE-OUT (§4.6, engineout_design §C.3): the entry divert authority is n_eng-sized. Was the
+     * literal 3.0; now (double)st->n_eng so a mid-burn engine-out shrinks the ZEM/ZEV divert (the
+     * honest "burn longer with less authority" — far-offset seeds may become un-divertable, directive
+     * 3). BYTE-SAFETY: with no engine-out, st->n_eng == 3 throughout the entry burn (nothing decrements
+     * it), so this == 3.0 exactly — verified by the ENTRY baseline reproducing 95/100. st->n_eng is the
+     * §4.3-legal sensed firing count (nav pass-through), not privileged information. */
+    double a_burn = (double)st->n_eng*engine_thrust(1.0, atm.p)/mp.m;   /* ~50 m/s^2 near-vacuum (3 eng) */
     double amax = a_burn*sin(15.0*DEG2RAD);
     double t_go = entry_tgo_estimate(y[S_RZ]-mp.com, y[S_VZ], mp.m);
     double rr[2]={y[S_RX],y[S_RY]}, vv[2]={y[S_VX],y[S_VY]};
@@ -248,6 +319,37 @@ int sim_step(Sim* s){
 
     /* advance ignition timer */
     if(st->engine_on && st->ign_timer>=0.0) st->ign_timer += DT;
+
+    /* ---- N0 ENGINE-OUT (§4.6, engineout_design §E.2): a seeded, time-triggered failure. Fires ONCE
+     * when armed (MOD_ENGINE_OUT) and t reaches eo_time during a MULTI-engine burn (only a burn with
+     * >1 engine can survive/absorb it — the 3-engine entry burn is the money regime). On fire: drop
+     * n_eng (thrust + mdot + gimbal-allocation denom all scale via st->n_eng), set the survivor-
+     * centroid thrust_offset (the induced torque rides the existing arm_thr lever), flag the failed
+     * engine's chamber-P health (the §4.3-legal signal guidance may read), and emit EVT FAULT. No
+     * runtime RNG => replayable. Absent flag => never enters => byte-identical. */
+    if((s->modules & MOD_ENGINE_OUT) && !s->eo_fired && s->eo_engine>=0 && s->eo_engine<3
+       && st->t >= s->eo_time && st->engine_on && st->n_eng > 1){
+        s->eo_fired=1;
+        double c[2]; survivor_centroid(st->n_eng, s->eo_engine, c);
+        st->n_eng = st->n_eng - 1;                          /* 3 -> 2 (thrust/mdot/allocation follow) */
+        s->env.thrust_offset[0]=c[0]; s->env.thrust_offset[1]=c[1];  /* induced torque (arm_thr) */
+        st->eng_health[s->eo_engine]=0;                     /* chamber-P health flag (§8.1 LEGAL) */
+    }
+
+    /* ---- N0 SEEDED MOVABLE TARGET (§4.5, target_sandbox_design §B.3): write the target slot from the
+     * seeded closed form each step (like wind_sample), fill the guidance-visible target (gcmd) so
+     * hoverslam/MPPI null (r − target_xy), and stream it as the nav TargetEstimate (src=SEEDED). Absent
+     * (tgt_mode==0) => origin, gcmd.target_xy stays (0,0) => guidance nulls the origin => byte-identical. */
+    if(s->modules & MOD_TARGET){
+        double txy[2], tvxy[2];
+        target_sample(s, st->t, txy, tvxy);
+        s->gcmd.target_xy[0]=txy[0];  s->gcmd.target_xy[1]=txy[1];
+        s->gcmd.target_vxy[0]=tvxy[0]; s->gcmd.target_vxy[1]=tvxy[1];
+        /* nav TargetEstimate view (truth pass-through at N0 — no target noise, §8.4) */
+        st->tgt.target_xy[0]=txy[0];  st->tgt.target_xy[1]=txy[1];
+        st->tgt.target_vxy[0]=tvxy[0]; st->tgt.target_vxy[1]=tvxy[1];
+        st->tgt.target_src=TGT_SEEDED; st->tgt.target_valid=1; st->tgt.target_age=0.0;
+    }
 
     /* §8.2 measurement layer (D-010): build the nav view ONCE per 50 Hz guidance tick (not at
      * the 500 Hz physics rate). All guidance layers below consume `nav` instead of raw truth.

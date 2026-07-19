@@ -133,8 +133,14 @@ BL_HD void dynamics_deriv(const State* st, const Actuators* act, const EnvCtx* e
     double Fthr[3]; v3_scale(Fthr,tdir,thrust);
     v3_add(Fb,Fb,Fthr);
     /* CoM laterally offset by the disturbance → the base-mounted thrust gains a moment arm (thrust
-     * misalignment). com_offset defaults to 0 (nominal, no torque). */
-    double arm_thr[3]={-env->com_offset[0],-env->com_offset[1],-com};   /* r_gimbal - r_com */
+     * misalignment). com_offset defaults to 0 (nominal, no torque).
+     * N0 ENGINE-OUT (§4.6): the surviving-cluster centroid offset thrust_offset sums into the arm —
+     * the induced torque rides the EXISTING arm_thr × Fthr lever (no new torque term; §B.2). Both
+     * default (0,0) => arm_thr identical to v1 => byte-identical when no engine is out. This is the
+     * ONLY EOM edit; it affects the THRUST moment only (com_offset/thrust_offset touch nothing else). */
+    double arm_thr[3]={ -(env->com_offset[0]+env->thrust_offset[0]),
+                        -(env->com_offset[1]+env->thrust_offset[1]),
+                        -com };                                          /* r_gimbal - r_com */
     double Tthr[3]; v3_cross(Tthr,arm_thr,Fthr); v3_add(Tb,Tb,Tthr);
 
     /* aero */

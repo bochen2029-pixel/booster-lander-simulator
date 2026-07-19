@@ -140,8 +140,10 @@ cycle-1 rollout already reaches close and cycle-2 refines it. The AERO x20 misse
 (the far seeds), where *no* cycle-1 rollout reaches the target nulled, so recentering the ball on the
 best-of-a-non-reaching-set doesn't pull it in — the rate is unchanged (off-pad even +1, within N=20 noise).
 This is the research §b prediction made concrete: iterate-recenter sharpens an already-good proposal but does
-not *extend reach* — the very thing AERO needs. (CoVO's reach-axis Σ shaping, the peer `covo` lane, targets
-reach directly and is the more promising lever for this specific failure mode.)
+not *extend reach* — the very thing AERO needs. (The peer `covo` lane tested reach-axis Σ shaping expecting it
+to target reach directly; it *also* came back null — see §8. The convergence of the two complementary
+sampler-side attacks, plus kprobe and mppi-var, is the real result: the reach limit is in the plant, not the
+sampler.)
 
 ## 5. CUDA PORT + FIXED-BUDGET RESULTS (experiment B)
 

@@ -12,6 +12,12 @@ typedef struct {
     int    mode;          /* 0 none 1 hoverslam 2 mppi */
     int    solver_flags;  /* diagnostics */
     double t_go;          /* estimated time to touchdown s */
+    /* N0 movable target (§4.5, target_sandbox_design §B.3): the target's CURRENT pose, the
+     * §8.1-legal quantity guidance nulls the offset to (r_xy − target_xy). sim.c fills these each
+     * guidance tick from the seeded/nominal target slot; hoverslam_step + mppi_step read them.
+     * ZERO by default (memset / FIXED-at-origin) => TERMINAL/AERO/ENTRY byte-identical. */
+    double target_xy[2];  /* target position, world XY [m] (0 => pad at origin, v1 behavior) */
+    double target_vxy[2]; /* target velocity, world XY [m/s] (0 for a static/slow target) */
     /* plan tail for telemetry (filled by mppi later) */
 } GuidanceCmd;
 

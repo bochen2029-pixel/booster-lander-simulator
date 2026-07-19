@@ -156,7 +156,7 @@ BL_HD static inline double mr_predict_tgo(double h_feet, double vz, double m){
 
 /* cmd_from_u_lean — verbatim (uses KDIV_* from guidance_hoverslam.h) */
 BL_HD static inline void mr_cmd_from_u_lean(State* rst, const double u[MPPI_NCH], double h_feet,
-                            double ignite_h, GuidanceCmd* g){
+                            double ignite_h, const double target_xy[2], GuidanceCmd* g){
     const double* y=rst->y;
     MassProps mp; mass_props(y[S_MLOX],y[S_MRP1],0,0,&mp);
     double m=mp.m;
@@ -202,7 +202,8 @@ BL_HD static inline void mr_cmd_from_u_lean(State* rst, const double u[MPPI_NCH]
     double kbase = KDIV_SEEK;
     if(rst->engine_on){
         double vdxm,vdym,rhxm,rhym;
-        mr_converging_vdes(y[S_RX],y[S_RY],y[S_VX],y[S_VY],&vdxm,&vdym,&rhxm,&rhym);
+        /* N0 target shift (directive-7 CUDA mirror, parity with the CPU cmd_from_u_lean). */
+        mr_converging_vdes(y[S_RX]-target_xy[0],y[S_RY]-target_xy[1],y[S_VX],y[S_VY],&vdxm,&vdym,&rhxm,&rhym);
         double vdmm = sqrt(vdxm*vdxm+vdym*vdym);
         double vxym = sqrt(y[S_VX]*y[S_VX]+y[S_VY]*y[S_VY]);
         double osm = (vxym - vdmm)/KDIV_VBLEND; if(osm<0.0)osm=0.0; if(osm>1.0)osm=1.0;
@@ -219,7 +220,8 @@ BL_HD static inline void mr_cmd_from_u_lean(State* rst, const double u[MPPI_NCH]
  * MppiState* M and reads M->ubar[t][c] + eps[t][c] and M->ignite_h; here ubar and ignite_h are
  * passed explicitly (bit-identical values) so the device kernel needs no MppiState in registers.
  * eps is the pre-sampled OU noise sequence for THIS rollout. Returns C_k. */
-BL_HD static inline double mr_rollout_cost(double ignite_h, const State* st0, const EnvCtx* env0,
+BL_HD static inline double mr_rollout_cost(double ignite_h, const double target_xy[2],
+                           const State* st0, const EnvCtx* env0,
                            const double ubar[MPPI_H][MPPI_NCH], const double eps[MPPI_H][MPPI_NCH],
                            double gamma, double m0){
     State rst = *st0;                 /* full hybrid state copy (engine/legs/timers) */
@@ -244,7 +246,9 @@ BL_HD static inline double mr_rollout_cost(double ignite_h, const State* st0, co
 
         if(!gate_done && h_feet<=ignite_h+50.0){
             gate_done=1;
-            double gr2=(rst.y[S_RX]*rst.y[S_RX]+rst.y[S_RY]*rst.y[S_RY])/(MR_R_REF*MR_R_REF);
+            /* N0 target shift (directive-7 CUDA mirror). */
+            double grx=rst.y[S_RX]-target_xy[0], gry=rst.y[S_RY]-target_xy[1];
+            double gr2=(grx*grx+gry*gry)/(MR_R_REF*MR_R_REF);
             double gv2=(rst.y[S_VX]*rst.y[S_VX]+rst.y[S_VY]*rst.y[S_VY])/(MR_V_REF*MR_V_REF);
             cost += MR_G_RXY*gr2 + MR_G_VXY*gv2;
         }
@@ -253,7 +257,7 @@ BL_HD static inline double mr_rollout_cost(double ignite_h, const State* st0, co
         for(int c=0;c<MPPI_NCH;c++) u[c] = ubar[t][c] + eps[t][c];
 
         GuidanceCmd g; memset(&g,0,sizeof(g));
-        mr_cmd_from_u_lean(&rst, u, h_feet, ignite_h, &g);
+        mr_cmd_from_u_lean(&rst, u, h_feet, ignite_h, target_xy, &g);
 
         if(g.engine_cmd && !rst.engine_on && rst.relights_left>0){
             rst.engine_on=1; rst.ign_timer=0.0; rst.n_eng=g.n_eng; rst.relights_left--;
@@ -266,7 +270,8 @@ BL_HD static inline double mr_rollout_cost(double ignite_h, const State* st0, co
         control_step(&rst, &g, &env, &act);
         rk4_step(&rst, &act, &env, MPPI_DT);
 
-        double rx=rst.y[S_RX], ry=rst.y[S_RY];
+        /* N0 target shift (§B.2): POSITION target-relative; integrated rst.y untouched; v inertial. */
+        double rx=rst.y[S_RX]-target_xy[0], ry=rst.y[S_RY]-target_xy[1];
         double vx=rst.y[S_VX], vy=rst.y[S_VY];
         double wmag2 = rst.y[S_WX]*rst.y[S_WX]+rst.y[S_WY]*rst.y[S_WY]+rst.y[S_WZ]*rst.y[S_WZ];
         double tilt = mr_state_tilt(rst.y);
@@ -321,7 +326,8 @@ BL_HD static inline double mr_rollout_cost(double ignite_h, const State* st0, co
     }
 
     if(!grounded){
-        double rx=rst.y[S_RX], ry=rst.y[S_RY];
+        /* N0 target shift (§B.2): in-air terminal POSITION target-relative (ZEM inherits it); v inertial. */
+        double rx=rst.y[S_RX]-target_xy[0], ry=rst.y[S_RY]-target_xy[1];
         double vx=rst.y[S_VX], vy=rst.y[S_VY], vz=rst.y[S_VZ];
         double wmag2 = rst.y[S_WX]*rst.y[S_WX]+rst.y[S_WY]*rst.y[S_WY]+rst.y[S_WZ]*rst.y[S_WZ];
         double tilt = mr_state_tilt(rst.y);
@@ -401,6 +407,7 @@ BL_HD static inline double mr_compute_ignite_h(const State* st){
 /* mr_warm_start_nominal — VERBATIM from guidance_mppi.c warm_start_nominal. Writes ubar[H][NCH] and
  * needs ignite_h precomputed (passed in). Deterministic, no RNG. Host-side prologue for the GPU solve. */
 BL_HD static inline void mr_warm_start_nominal(double ubar[MPPI_H][MPPI_NCH], double ignite_h,
+                                               const double target_xy[2],
                                                const State* st0, const EnvCtx* env0){
     State rst = *st0;
     Actuators act; memset(&act,0,sizeof(act)); act.n_eng=1;
@@ -412,7 +419,8 @@ BL_HD static inline void mr_warm_start_nominal(double ubar[MPPI_H][MPPI_NCH], do
         double alx=0.0, aly=0.0;
         if(!grounded){
             double vdxw=0.0,vdyw=0.0,rhxw=0.0,rhyw=0.0;
-            mr_converging_vdes(rst.y[S_RX],rst.y[S_RY],rst.y[S_VX],rst.y[S_VY],&vdxw,&vdyw,&rhxw,&rhyw);
+            /* N0 target shift (directive-7 CUDA warm-start mirror); velocity-null stays inertial. */
+            mr_converging_vdes(rst.y[S_RX]-target_xy[0],rst.y[S_RY]-target_xy[1],rst.y[S_VX],rst.y[S_VY],&vdxw,&vdyw,&rhxw,&rhyw);
             alx = mr_clampd(1.0*(vdxw - rst.y[S_VX]), -MR_A_LAT_GAMUT, MR_A_LAT_GAMUT);
             aly = mr_clampd(1.0*(vdyw - rst.y[S_VY]), -MR_A_LAT_GAMUT, MR_A_LAT_GAMUT);
         }
@@ -421,7 +429,7 @@ BL_HD static inline void mr_warm_start_nominal(double ubar[MPPI_H][MPPI_NCH], do
 
         double uu[MPPI_NCH]={0.0,alx,aly};
         GuidanceCmd g; memset(&g,0,sizeof(g));
-        mr_cmd_from_u_lean(&rst, uu, h_feet, ignite_h, &g);
+        mr_cmd_from_u_lean(&rst, uu, h_feet, ignite_h, target_xy, &g);
         if(g.engine_cmd && !rst.engine_on && rst.relights_left>0){
             rst.engine_on=1; rst.ign_timer=0.0; rst.n_eng=g.n_eng; rst.relights_left--;
             if(rst.phase==PH_COAST||rst.phase==PH_AERO) rst.phase=PH_LANDING_BURN;

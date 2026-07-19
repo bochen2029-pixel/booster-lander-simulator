@@ -86,7 +86,7 @@ export function decodeEvt(buf: ArrayBuffer, byteOffset = 0): EvtFrame {
   return { code, step, t, args };
 }
 
-// --- HELLO (BlHello, 72 B) ---------------------------------------------------
+// --- HELLO (BlHello, 80 B — v4: +world_id/world_hash/np_version) -------------
 export interface HelloFrame {
   ver: number;
   t0: number;
@@ -106,9 +106,12 @@ export interface HelloFrame {
   scenario: number;
   guidanceMode: number;
   modules: number;
+  worldId: number; // v4: World id (§4.7; Earth=0)
+  worldHash: number; // v4: pinned World-parameter hash
+  npVersion: number; // v4: neural-policy version (0 = none)
 }
 
-export const HELLO_SIZE = 72;
+export const HELLO_SIZE = 80; // v4: was 72
 
 export function decodeHello(buf: ArrayBuffer, byteOffset = 0): HelloFrame {
   const dv = new DataView(buf, byteOffset);
@@ -132,6 +135,9 @@ export function decodeHello(buf: ArrayBuffer, byteOffset = 0): HelloFrame {
     scenario: dv.getUint8(68),
     guidanceMode: dv.getUint8(69),
     modules: dv.getUint8(70),
+    worldId: dv.getUint8(71), // v4
+    worldHash: dv.getUint32(72, LE), // v4
+    npVersion: dv.getUint16(76, LE), // v4
   };
 }
 

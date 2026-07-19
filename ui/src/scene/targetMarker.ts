@@ -13,8 +13,8 @@
 //
 // THE FRAME-FIELD CONTRACT (the v4 decoder must surface exactly these names on
 // the TLM frame object — integration checklist for the N0 fold-in):
-//   targetEstXY:  [number, number]        world XY of the estimated target [m]
-//   targetEstVXY: [number, number]        estimated target velocity [m/s]
+//   targetEstXy:  [number, number]        world XY of the estimated target [m]
+//   targetEstVxy: [number, number]        estimated target velocity [m/s]
 //   targetCov:    [number, number, number] packed 2x2 covariance (xx, yy, xy) [m²]
 //   targetSrc:    number                  0 FIXED | 1 SEEDED | 2 BEACON | 3 PERCEIVED | 4 DRAG
 //   targetAge:    number                  seconds since last acquisition/update
@@ -123,7 +123,7 @@ function isPair(v: unknown): v is readonly [number, number] {
 export function readTargetEst(frame: unknown): TargetEstInput | null {
   if (typeof frame !== "object" || frame === null) return null;
   const f = frame as Record<string, unknown>;
-  const xy = f["targetEstXY"];
+  const xy = f["targetEstXy"];
   const cov = f["targetCov"];
   if (!isPair(xy)) return null;
   if (
@@ -133,7 +133,7 @@ export function readTargetEst(frame: unknown): TargetEstInput | null {
   ) {
     return null;
   }
-  const vxyRaw = f["targetEstVXY"];
+  const vxyRaw = f["targetEstVxy"];
   const vxy: readonly [number, number] = isPair(vxyRaw) ? vxyRaw : [0, 0];
   const src = typeof f["targetSrc"] === "number" ? (f["targetSrc"] as number) : 0;
   const age = typeof f["targetAge"] === "number" && Number.isFinite(f["targetAge"] as number)

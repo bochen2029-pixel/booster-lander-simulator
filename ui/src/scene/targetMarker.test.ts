@@ -77,14 +77,14 @@ describe("readTargetEst (the v3-safe optional reader)", () => {
   });
 
   it("returns null on malformed estimate fields", () => {
-    expect(readTargetEst({ targetEstXY: [1], targetCov: [1, 1, 0] })).toBeNull();
-    expect(readTargetEst({ targetEstXY: [1, NaN], targetCov: [1, 1, 0] })).toBeNull();
-    expect(readTargetEst({ targetEstXY: [1, 2], targetCov: [1, 1] })).toBeNull();
+    expect(readTargetEst({ targetEstXy: [1], targetCov: [1, 1, 0] })).toBeNull();
+    expect(readTargetEst({ targetEstXy: [1, NaN], targetCov: [1, 1, 0] })).toBeNull();
+    expect(readTargetEst({ targetEstXy: [1, 2], targetCov: [1, 1] })).toBeNull();
   });
 
   it("parses a well-formed v4 frame, defaulting the optional fields", () => {
     const est = readTargetEst({
-      targetEstXY: [12.5, -3.25],
+      targetEstXy: [12.5, -3.25],
       targetCov: [4, 1, 0.5],
     });
     expect(est).not.toBeNull();
@@ -98,8 +98,8 @@ describe("readTargetEst (the v3-safe optional reader)", () => {
 
   it("carries velocity / src / age / valid through when present", () => {
     const est = readTargetEst({
-      targetEstXY: [0, 0],
-      targetEstVXY: [1.5, -0.5],
+      targetEstXy: [0, 0],
+      targetEstVxy: [1.5, -0.5],
       targetCov: [1, 1, 0],
       targetSrc: TargetSrc.Perceived,
       targetAge: 3.5,

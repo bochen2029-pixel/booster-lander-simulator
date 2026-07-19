@@ -18,12 +18,25 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
-**N0 BUILD IN FLIGHT** (worktree `_n0_wt`, background build agent): widen-once — NavState
-TargetEstimate+EngineHealth at nominal, the `null(r_xy − target)` substitution (hoverslam +
-MPPI mirror, directive-7), protocol v4 as one validated unit, engine-out + seeded moving
-target built DIALED-OFF. Gate: byte-equality vs EVERY golden at nominal/off (TERMINAL 194,
-ENTRY --mppi 95, AERO --mppi 44/60, AERO t0 220/300, MPPI run-1 2.63/10.48) + determinism
-pairs + vitest/typecheck + v4 protocol goldens. Integration + D-020 on green.
+**★★★★★ D-020 — N0 GREEN (2026-07-19, integrated this tree): the wide socket + protocol v4
++ engine-out/movable-target BUILT-DIALED-OFF; byte-equality held EVERYWHERE.** NavState
+carries TargetEstimate+EngineHealth at nominal (truth pass-through on `nav_measure`'s
+memcpy); hoverslam + MPPI (+CUDA threading) null `(r − target)` (directive-7 mirror at
+every position read, velocity stays inertial); protocol v4 shipped as ONE unit (TLM 328 /
+HELLO 80 with the Earth world-hash pin / EVT 48; TS mirrors + goldens re-frozen; vitest
+14 files/163). Engine-out (survivor-centroid torque on the existing arm_thr lever,
+multi-engine-burn guard, §4.3-legal eng_health, EVT FAULT) + seeded movable target
+(closed-form `target_sample`, seeded/circle/line) both default-off ⇒ TERMINAL 194/200 ·
+AERO t0 220/300 · AERO --mppi 44/60 · ENTRY --mppi 95/100 · MPPI run-1 2.63/10.48 ·
+selftest ALL BYTE-IDENTICAL (measured in `_n0_wt` AND re-measured in this tree). CUDA
+parity 5.0e-12 / rank 100% / bit-stable. Five on-state determinism pairs bit-identical;
+chase proven (reactive lands at a 30 m parked target from both bearings; MPPI chases a
+100 m divert to 99.75). `cmd_serve` now parses+arms gust/engine-out/target (the play menu
+BINDS — the pre-existing serve drop fixed); cockpit `readTargetEst` retargeted to the
+decoder's real camelization (`targetEstXy`). Known Stage-1 gap: verdict/td_lat score the
+ORIGIN, not the armed target (target_sandbox_design §A.3 — armed runs that land ON the
+target grade off-pad until Stage 1). Full record: DECISIONS **D-020**; artifacts
+`_n0_wt/runs/n0_*` + `runs/n0main_*`. **N-track next: N1 (distill → GM_NEURAL).**
 
 **★★★★ D-012 STATE-ADAPTIVE DIVERT GAIN (night session; the current tree + goldens): ENTRY
 88/100 s42 (79 s7 / 78 s99 — every seed +2-3; op 5, th 5, fuel 2) · AERO tier-0 73.3% s42

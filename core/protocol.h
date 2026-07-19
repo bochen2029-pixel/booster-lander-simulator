@@ -41,8 +41,16 @@
  * v3 (D-010 item 1 / D-011 addendum "DO NOT DEFER THE TELEMETRY SCHEMA"): added
  * the guidance-derived pred_impact[2] + ignite_h fields to BlTlmFixed (the diegetic
  * predicted-impact marker + landing-burn ignition altitude). TS mirror + hex
- * goldens re-frozen as one unit (re-baseline pre-authorized by both ADRs). */
-#define BL_PROTO_VERSION   3u
+ * goldens re-frozen as one unit (re-baseline pre-authorized by both ADRs).
+ * v4 (N0, D-019, §10.9 — THE WIDE SOCKET, executed as ONE validated unit, the D-013 ceremony):
+ * BlTlmFixed += the §8.1 TargetEstimate view (target_est_xy[2], target_est_vxy[2], target_cov[3],
+ * target_src, target_valid, target_age) + EngineHealth (eng_health bitmask, eng_n) + guidance_np_ver,
+ * placed after the guidance-derived group (ignite_h); every downstream offset shifts +40;
+ * sizeof 288 -> 328. BlHello += module-mask bits (TARGET/ENGINE_OUT/NEURAL), world_id + world_hash,
+ * np_version; sizeof 72 -> 80. The renderer draws the ESTIMATE marker (with uncertainty ellipse)
+ * distinct from truth — "what the rocket believes", directive-8-honest. TS mirror + hex goldens
+ * re-frozen as one unit (re-baseline pre-authorized by D-019). */
+#define BL_PROTO_VERSION   4u
 
 /* Packet magic tags (first 4 bytes of every frame — lets the decoder switch on
  * packet kind and reject garbage). ASCII, read as LE u32. */
@@ -52,9 +60,29 @@
 #define BL_MAGIC_STATS  0x30545453u /* 'STT0' */
 
 /* TLM.flags bitfield */
-#define BL_TLM_FLAG_SEA_ACTIVE  (1u << 0) /* deck_z/deck_quat valid          */
-#define BL_TLM_FLAG_RAW_MODE    (1u << 1) /* guidance RAW parameterization    */
-#define BL_TLM_FLAG_NAV_NOISY   (1u << 2) /* nav in NOISY mode                */
+#define BL_TLM_FLAG_SEA_ACTIVE     (1u << 0) /* deck_z/deck_quat valid                       */
+#define BL_TLM_FLAG_RAW_MODE       (1u << 1) /* guidance RAW parameterization                 */
+#define BL_TLM_FLAG_NAV_NOISY      (1u << 2) /* nav in NOISY mode                             */
+#define BL_TLM_FLAG_TARGET_MOVABLE (1u << 3) /* v4: target not pinned at origin — read target_est_xy */
+#define BL_TLM_FLAG_ENGINE_OUT     (1u << 4) /* v4: an engine has failed this run (eng_health has a 0) */
+
+/* v4 target_src provenance tag (mirrors state.h TGT_*; on the wire in BlTlmFixed.target_src). */
+#define BL_TGT_SRC_FIXED     0u
+#define BL_TGT_SRC_SEEDED    1u
+#define BL_TGT_SRC_BEACON    2u
+#define BL_TGT_SRC_PERCEIVED 3u
+#define BL_TGT_SRC_DRAG      4u
+
+/* v4 HELLO module-mask bits (mirror state.h MOD_*; the renderer learns which capabilities are armed). */
+#define BL_MOD_SLOSH       (1u << 0)
+#define BL_MOD_SEA         (1u << 1)
+#define BL_MOD_NAV_NOISY   (1u << 2)
+#define BL_MOD_FINS        (1u << 3)
+#define BL_MOD_TURB        (1u << 4)
+#define BL_MOD_INJECT      (1u << 5)
+#define BL_MOD_TARGET      (1u << 6)  /* v4 movable target (§4.5) armed */
+#define BL_MOD_ENGINE_OUT  (1u << 7)  /* v4 engine-out (§4.6) armed     */
+/* MOD_NEURAL reserved for N1 (GM_NEURAL); the mask is u8 today — widen with the enum when N1 lands. */
 
 /* Tail element caps (canon §10.3). The decoder bounds-checks against these. */
 #define BL_PLAN_MAX   64u   /* ghost-line knots per guidance tick            */
@@ -115,18 +143,32 @@ typedef struct BlTlmFixed {
     float dist_pad;        /* 216 slant distance to pad [m]                  */
     float pred_impact[2];  /* 220 predicted impact point, world XY [m] *v3*  */
     float ignite_h;        /* 228 landing-burn ignition altitude [m]   *v3*  */
-    /* --- legs (232) --- */
-    float deploy_frac;     /* 232 0..1 leg deploy fraction                   */
-    float stroke[4];       /* 236 per-leg crush stroke [m]                   */
-    /* --- aero force for HUD/VFX (252) --- */
-    float f_aero[3];       /* 252 aero force [N] (world)                     */
-    /* --- ASDS deck pose (264), valid iff flags & SEA_ACTIVE --- */
-    float deck_z;          /* 264 deck heave [m]                             */
-    float deck_quat[4];    /* 268 deck attitude, xyzw                        */
-    /* --- tail counts (284) --- */
-    uint16_t plan_n;       /* 284 count of plan knots (<= BL_PLAN_MAX)       */
-    uint16_t cloud_n;      /* 286 count of cloud samples (<= BL_CLOUD_MAX)   */
-    /* total fixed size = 288                                                */
+    /* --- v4 THE WIDE SOCKET (§8.1/§10.9): the TargetEstimate view + EngineHealth. The renderer
+     *     draws the ESTIMATE marker (uncertainty ellipse from target_cov) distinct from the truth
+     *     deck — "what the rocket believes" (directive-8-honest). Nominal at N0 (origin/FIXED/valid,
+     *     all engines healthy) but wired now so the schema never re-bumps for the policy stack. --- */
+    float target_est_xy[2]; /* 232 estimated target position, world XY [m]  *v4* */
+    float target_est_vxy[2];/* 240 estimated target velocity, world XY [m/s]*v4* */
+    float target_cov[3];    /* 248 2x2 covariance packed xx,yy,xy [m^2]     *v4* */
+    uint8_t target_src;     /* 260 BL_TGT_SRC_* provenance                  *v4* */
+    uint8_t target_valid;   /* 261 0 before first acquisition               *v4* */
+    uint16_t _pad1;         /* 262 -> realign target_age to 4               *v4* */
+    float target_age;       /* 264 s since last target update (staleness)   *v4* */
+    uint8_t eng_health;     /* 268 per-engine health BITMASK (bit i = engine i healthy) *v4* */
+    uint8_t eng_n;          /* 269 engines currently firing/available (EngineHealth.n_eng) *v4* */
+    uint16_t guidance_np_ver;/*270 neural-policy version (0 = none/GM!=NEURAL)*v4* */
+    /* --- legs (272) --- */
+    float deploy_frac;     /* 272 0..1 leg deploy fraction                   */
+    float stroke[4];       /* 276 per-leg crush stroke [m]                   */
+    /* --- aero force for HUD/VFX (292) --- */
+    float f_aero[3];       /* 292 aero force [N] (world)                     */
+    /* --- ASDS deck pose (304), valid iff flags & SEA_ACTIVE --- */
+    float deck_z;          /* 304 deck heave [m]                             */
+    float deck_quat[4];    /* 308 deck attitude, xyzw                        */
+    /* --- tail counts (324) --- */
+    uint16_t plan_n;       /* 324 count of plan knots (<= BL_PLAN_MAX)       */
+    uint16_t cloud_n;      /* 326 count of cloud samples (<= BL_CLOUD_MAX)   */
+    /* total fixed size = 328 (v3 was 288; +40 for the wide socket)          */
 } BlTlmFixed;
 
 /* Tail element structs (appended immediately after BlTlmFixed, tightly packed) */
@@ -180,10 +222,14 @@ typedef struct BlHello {
     uint16_t plan_max;     /* 64  BL_PLAN_MAX                                */
     uint16_t cloud_max;    /* 66  BL_CLOUD_MAX                               */
     uint8_t  scenario;     /* 68  scenario enum                              */
-    uint8_t  guidance_mode;/* 69  0 none / 1 hoverslam / 2 mppi              */
-    uint8_t  modules;      /* 70  module mask (MOD_*)                        */
-    uint8_t  _pad0;        /* 71                                             */
-    /* total 72                                                              */
+    uint8_t  guidance_mode;/* 69  0 none / 1 hoverslam / 2 mppi / 3 neural   */
+    uint8_t  modules;      /* 70  module mask (BL_MOD_*)                     */
+    uint8_t  world_id;     /* 71  v4: World id (§4.7; Earth=0)               */
+    /* --- v4 world + policy provenance (72) --- */
+    uint32_t world_hash;   /* 72  v4: pinned World-parameter hash (Earth pin)*/
+    uint16_t np_version;   /* 76  v4: neural-policy version (0 = none)       */
+    uint16_t _pad1;        /* 78  -> pad to 80                              */
+    /* total 80 (v3 was 72; +8 for world id/hash + np_version)               */
 } BlHello;
 
 /* ---- STATS @~10 Hz — lightweight session/run scalars for the HUD ribbon ------
@@ -228,11 +274,11 @@ typedef enum BlEvtCode {
 } BlEvtCode;
 
 /* ---- size + offset contract (frozen; goldens/protocol/tlm_layout.txt) ---- */
-BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 288, "TLM fixed head must be 288 bytes");
+BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 328, "TLM fixed head must be 328 bytes (v4: +40 wide socket)");
 BL_STATIC_ASSERT(sizeof(BlPlanKnot)   == 16,  "plan knot must be 16 bytes");
 BL_STATIC_ASSERT(sizeof(BlCloudSample)== 12,  "cloud sample must be 12 bytes");
 BL_STATIC_ASSERT(sizeof(BlEvt)        == 48,  "EVT must be 48 bytes");
-BL_STATIC_ASSERT(sizeof(BlHello)      == 72,  "HELLO must be 72 bytes");
+BL_STATIC_ASSERT(sizeof(BlHello)      == 80,  "HELLO must be 80 bytes (v4: +world+np)");
 BL_STATIC_ASSERT(sizeof(BlStats)      == 48,  "STATS must be 48 bytes");
 
 /* offsetof pins — these are what the TS decoder mirrors; a change here is an ADR */
@@ -246,16 +292,29 @@ BL_STATIC_ASSERT(offsetof(BlTlmFixed, throttle_cmd)== 112,"throttle_cmd@112");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, rcs_mask)   == 152, "rcs_mask@152");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, mach)       == 160, "mach@160");
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, p_chamber)  == 176, "p_chamber@176");
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, pred_impact)== 220, "pred_impact@220"); /* v3 */
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, ignite_h)   == 228, "ignite_h@228");    /* v3 */
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, deck_z)     == 264, "deck_z@264");
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 284, "plan_n@284");
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, pred_impact)== 220, "pred_impact@220"); /* v3 (unchanged) */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, ignite_h)   == 228, "ignite_h@228");    /* v3 (unchanged) */
+/* v4 wide-socket pins (new group @232) */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, target_est_xy) == 232, "target_est_xy@232");   /* v4 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, target_est_vxy)== 240, "target_est_vxy@240");  /* v4 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, target_cov) == 248, "target_cov@248");         /* v4 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, target_src) == 260, "target_src@260");         /* v4 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, target_age) == 264, "target_age@264");         /* v4 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, eng_health) == 268, "eng_health@268");         /* v4 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, guidance_np_ver) == 270, "guidance_np_ver@270");/* v4 */
+/* v4-shifted tail pins (+40) */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, deploy_frac)== 272, "deploy_frac@272");  /* was 232 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, deck_z)     == 304, "deck_z@304");       /* was 264 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 324, "plan_n@324");       /* was 284 */
 /* HELLO pins */
 BL_STATIC_ASSERT(offsetof(BlHello, t0)            == 8,   "hello.t0@8");
 BL_STATIC_ASSERT(offsetof(BlHello, seed)          == 16,  "hello.seed@16");
 BL_STATIC_ASSERT(offsetof(BlHello, dt)            == 24,  "hello.dt@24");
 BL_STATIC_ASSERT(offsetof(BlHello, veh_len)       == 40,  "hello.veh_len@40");
 BL_STATIC_ASSERT(offsetof(BlHello, plan_max)      == 64,  "hello.plan_max@64");
+BL_STATIC_ASSERT(offsetof(BlHello, world_id)      == 71,  "hello.world_id@71");   /* v4 */
+BL_STATIC_ASSERT(offsetof(BlHello, world_hash)    == 72,  "hello.world_hash@72"); /* v4 */
+BL_STATIC_ASSERT(offsetof(BlHello, np_version)    == 76,  "hello.np_version@76"); /* v4 */
 /* STATS pins */
 BL_STATIC_ASSERT(offsetof(BlStats, step)          == 8,   "stats.step@8");
 BL_STATIC_ASSERT(offsetof(BlStats, t)             == 16,  "stats.t@16");

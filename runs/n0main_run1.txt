@@ -1,0 +1,2 @@
+scenario=aero_offset seed=42 run=1  h0=12316 m  vz0=-329.9 m/s
+RESULT: HARD  fault=none  td_v=2.63 m/s  lat=10.48 m  tilt=0.23 deg  fuel=4444 kg  t=58.6 s  maxq=35438 Pa

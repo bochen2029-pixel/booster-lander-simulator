@@ -2,15 +2,15 @@
 //
 // The supervisor guarantees the PORT is one WE spawned, but the frontend still
 // performs an independent IDENTITY GATE on the wire before trusting the stream:
-// the first frame must be a HELLO with magic 'HLL0' and ver == PROTO_VERSION (3).
+// the first frame must be a HELLO with magic 'HLL0' and ver == PROTO_VERSION (4).
 // This is the exact analog of understory's "don't attach to whatever is squatting
 // on the port" — if some other producer answers, its bytes won't pass this gate.
 //
-// Byte layout (verified against goldens/protocol/hello.hex, decoded 2026-07-18):
+// Byte layout (verified against goldens/protocol/hello.hex, v4 N0):
 //   [0..4)  u32  magic = 0x304c4c48  ('HLL0', little-endian on the wire)
-//   [4..6)  u16  ver                 (== 3 today)
-//   ... geometry block follows (scalar pad/vehicle params); S1 will decode it.
-// The measured HELLO frame is 72 bytes total.
+//   [4..6)  u16  ver                 (== 4 today; v4 added world id/hash + np_version)
+//   ... geometry block + world/policy provenance follows.
+// The HELLO frame is 80 bytes total (v4; v3 was 72).
 
 import { HELLO_MAGIC, PROTO_VERSION } from "../net/decode";
 

@@ -216,10 +216,103 @@ static int parse_gust_flag(const char* arg, const char* val, double* peak, doubl
     return 1;
 }
 
+/* N0 ENGINE-OUT CLI parse (engineout_design §E.1). Grammar:
+ *   --engine-out <k>@<t>    k = 0 center / 1,2 sides;  t = sim-time of failure [s]  (e.g. 1@40)
+ *   --engine-out random     seed a (side k, t) from the run's key (deterministic per seed)
+ * Writes *eng (<0 disarmed on error) and *tsec. Returns 1 on a valid arm. `rnd` set for the seeded form
+ * (the caller seeds it once sim_init has the seed/run). A malformed spec disarms (byte-identical run). */
+static int parse_engine_out(const char* val, int* eng, double* tsec, int* rnd){
+    *eng=-1; *tsec=0.0; *rnd=0;
+    if(!val){ return 0; }
+    if(!strcmp(val,"random")){ *rnd=1; *eng=1; *tsec=0.0; return 1; }
+    const char* at=strchr(val,'@');
+    if(!at){ fprintf(stderr,"error: --engine-out: expected <k>@<t> or 'random' (got '%s')\n",val); return 0; }
+    int k=(int)strtol(val,0,10);
+    double t=strtod(at+1,0);
+    if(k<0||k>2){ fprintf(stderr,"error: --engine-out: engine k must be 0(center)/1/2(side) (got %d)\n",k); return 0; }
+    *eng=k; *tsec=t; return 1;
+}
+
+/* N0 SEEDED TARGET CLI parse (target_sandbox_design §A). Grammar:
+ *   --target seeded                      canonical seeded circular drift (amp/period from the run key)
+ *   --target circle:<amp_m>:<period_s>   explicit circular drift
+ *   --target line:<reach_m>:<dur_s>:<deg> explicit linear ramp along a bearing
+ * Writes *mode (0 disarmed on error), *amp, *period, *bearing_deg. Returns 1 on a valid arm. */
+static int parse_target(const char* val, int* mode, double* amp, double* period, double* bearing){
+    *mode=0; *amp=0; *period=0; *bearing=0;
+    if(!val){ return 0; }
+    if(!strcmp(val,"seeded")){ *mode=1; *amp=0.0; *period=0.0; return 1; }  /* amp/period seeded in sim */
+    if(!strncmp(val,"circle:",7)){
+        const char* p=val+7; *amp=strtod(p,0);
+        const char* c=strchr(p,':'); if(c) *period=strtod(c+1,0);
+        if(!(*amp>0.0)||!(*period>0.0)){ fprintf(stderr,"error: --target circle: amp and period must be > 0\n"); *mode=0; return 0; }
+        *mode=1; return 1;
+    }
+    if(!strncmp(val,"line:",5)){
+        const char* p=val+5; *amp=strtod(p,0);   /* reach */
+        const char* c1=strchr(p,':'); if(c1){ *period=strtod(c1+1,0);  /* duration */
+            const char* c2=strchr(c1+1,':'); if(c2) *bearing=strtod(c2+1,0); }
+        if(!(*amp>0.0)||!(*period>0.0)){ fprintf(stderr,"error: --target line: reach and duration must be > 0\n"); *mode=0; return 0; }
+        *mode=2; return 1;
+    }
+    fprintf(stderr,"error: --target: expected 'seeded' | 'circle:<amp>:<period>' | 'line:<reach>:<dur>:<deg>' (got '%s')\n",val);
+    return 0;
+}
+
+/* N0: arm the seeded target on a Sim after sim_init (mirrors sim_set_gust). mode 1=circle,2=line. For
+ * the 'seeded' form (amp==0), draw amp/period/phase from the `target` Philox key so different seeds move
+ * differently and a run replays bit-exact. amp<=0 non-seeded disarms (byte-identical). */
+static void sim_arm_target(Sim* s, int mode, double amp, double period, double bearing_deg){
+    if(mode<=0){ s->tgt_mode=0; return; }
+    s->tgt_mode=mode;
+    if(mode==1){
+        if(amp<=0.0){   /* seeded canonical: amp ~ [8,20] m, period ~ [40,80] s, random phases */
+            double u1=rng_u01((uint32_t)(s->tgt_seed + s->tgt_run*2654435761u + 707u));
+            double u2=rng_u01((uint32_t)(s->tgt_seed + s->tgt_run*2654435761u + 808u));
+            double u3=rng_u01((uint32_t)(s->tgt_seed + s->tgt_run*2654435761u + 909u));
+            double u4=rng_u01((uint32_t)(s->tgt_seed + s->tgt_run*2654435761u + 111u));
+            amp    = 8.0 + 12.0*u1;
+            period = 40.0 + 40.0*u2;
+            s->tgt_phase[0]=6.2831853071795864*u3;
+            s->tgt_phase[1]=6.2831853071795864*u4;
+        } else {
+            s->tgt_phase[0]=0.0; s->tgt_phase[1]=0.0;
+        }
+        s->tgt_amp=amp;
+        s->tgt_omega=(period>0.0)?(6.2831853071795864/period):0.0;
+    } else { /* mode 2 linear ramp: amp=reach, period=duration, bearing */
+        s->tgt_amp=amp;
+        s->tgt_omega=(period>0.0)?(1.0/period):0.0;   /* ramp fraction rate [1/s] */
+        s->tgt_phase[0]=bearing_deg*DEG2RAD;
+        s->tgt_phase[1]=0.0;
+    }
+}
+
+/* N0: arm the engine-out event on a Sim after sim_init (engineout_design §E.3). For the seeded
+ * 'random' form (rnd), draw (side k, t-in-entry-burn-window) from the run key so it replays bit-exact
+ * and different seeds fail differently. eng<0 disarms (byte-identical). */
+static void arm_engine_out(Sim* s, int eng, double tsec, int rnd, uint32_t seed, uint32_t run){
+    if(eng<0){ s->eo_engine=-1; return; }
+    if(rnd){
+        double u1=rng_u01((uint32_t)(seed + run*2654435761u + 404u));   /* which side engine */
+        double u2=rng_u01((uint32_t)(seed + run*2654435761u + 505u));   /* time within the entry-burn window */
+        s->eo_engine = (u1<0.5)?1:2;                 /* a SIDE engine (the dramatic case) */
+        /* The 3-engine ENTRY burn runs ~t=0.5..25 s (measured: ph=2 from ignition to the qbar cut).
+         * Seed the failure into [4,18] s — mid-burn, three engines firing, so the induced torque has
+         * a real fight and the "burn longer" make-up is exercised (engineout_design §F cadence). */
+        s->eo_time   = 4.0 + u2*14.0;                /* seeded within the entry-burn window [4,18] s */
+    } else {
+        s->eo_engine=eng; s->eo_time=tsec;
+    }
+    s->eo_fired=0;
+}
+
 static int cmd_run(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=0; int verbose=0; int gmode=GM_HOVERSLAM;
     int modules=MOD_TURB;
     double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
+    int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
+    int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
@@ -231,6 +324,8 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
+        else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
+        else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
@@ -238,10 +333,14 @@ static int cmd_run(int argc, char** argv){
 #endif
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
+    if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
+    if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
     if(s.gust.peak!=0.0) printf("  GUST: peak=%.1f m/s @ alt=%.0f m  hw=%.0f m (band %.0f..%.0f)  dir=%.0f deg (%.2f,%.2f)\n",
         s.gust.peak, s.gust.alt, s.gust.hw, s.gust.alt-s.gust.hw, s.gust.alt+s.gust.hw, g_dir, s.gust.dirx, s.gust.diry);
+    if(modules&MOD_ENGINE_OUT) printf("  ENGINE-OUT: engine k=%d fails at t=%.2f s%s\n", s.eo_engine, s.eo_time, eo_rnd?" (seeded)":"");
+    if(modules&MOD_TARGET) printf("  TARGET: SEEDED mode=%d amp=%.1f m omega=%.4f rad/s (drift)\n", s.tgt_mode, s.tgt_amp, s.tgt_omega);
     long n=0;
     while(sim_step(&s)){
         n++;
@@ -271,6 +370,8 @@ static int cmd_run(int argc, char** argv){
 static int cmd_headless(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42; long runs=1000; const char* out=0; int modules=MOD_TURB; int gmode=GM_HOVERSLAM;
     double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
+    int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
+    int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
@@ -283,6 +384,8 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
+        else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
+        else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
@@ -312,6 +415,8 @@ static int cmd_headless(int argc, char** argv){
     for(long r=0;r<runs;r++){
         Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,gmode);
         sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
+        if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, (uint32_t)(r+1)); }
+        if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
         sim_run(&s,&res,300.0);
         cnt[res.verdict<6?res.verdict:5]++; fault[res.fault<6?res.fault:0]++;
         if(res.verdict==V_CRASHED||res.verdict==V_TIPPED){
@@ -440,6 +545,30 @@ static void fill_tlm(const Sim* s, BlTlmFixed* p, uint32_t seq){
      * trigger implies. Computed fresh from the live state each frame via the shared predictor. */
     p->ignite_h = (float)bl_predict_ignite_h(st);
 
+    /* v4 THE WIDE SOCKET (§8.1/§10.9): the TargetEstimate view + EngineHealth, pure reads of the
+     * plant-filled truth (directive 2/5 clean — no feedback path). Nominal at N0 (origin/FIXED/valid,
+     * all engines healthy) so v3 clients... would reject v4 loudly, intended. The renderer draws the
+     * estimate marker + uncertainty ellipse distinct from the truth deck. */
+    p->target_est_xy[0]  = (float)st->tgt.target_xy[0];
+    p->target_est_xy[1]  = (float)st->tgt.target_xy[1];
+    p->target_est_vxy[0] = (float)st->tgt.target_vxy[0];
+    p->target_est_vxy[1] = (float)st->tgt.target_vxy[1];
+    p->target_cov[0] = (float)st->tgt.target_cov[0];
+    p->target_cov[1] = (float)st->tgt.target_cov[1];
+    p->target_cov[2] = (float)st->tgt.target_cov[2];
+    p->target_src    = st->tgt.target_src;
+    p->target_valid  = st->tgt.target_valid;
+    p->_pad1         = 0;
+    p->target_age    = (float)st->tgt.target_age;
+    /* engine-health BITMASK: bit i set iff engine i healthy; eng_n = engines available this run. */
+    { uint8_t hb=0; int nh=0; for(int i=0;i<3;i++){ if(st->eng_health[i]){ hb|=(uint8_t)(1u<<i); nh++; } }
+      p->eng_health = hb; p->eng_n = (uint8_t)st->n_eng; (void)nh; }
+    p->guidance_np_ver = 0;   /* N1 GM_NEURAL sets this; 0 = none */
+    /* v4 flags: target-movable / engine-out visibility for the client (nominal => neither set). */
+    if(s->modules & MOD_TARGET)     p->flags |= BL_TLM_FLAG_TARGET_MOVABLE;
+    if((s->modules & MOD_ENGINE_OUT) && (st->eng_health[0]==0||st->eng_health[1]==0||st->eng_health[2]==0))
+        p->flags |= BL_TLM_FLAG_ENGINE_OUT;
+
     /* legs */
     p->deploy_frac = (float)st->deploy_frac;
     for(int i=0;i<4;i++) p->stroke[i]=(float)st->crush[i];
@@ -476,7 +605,13 @@ static void fill_hello(const Sim* s, uint32_t seed, uint32_t run_idx, BlHello* h
     h->cloud_max= (uint16_t)BL_CLOUD_MAX;
     h->scenario = (uint8_t)s->scenario;
     h->guidance_mode = (uint8_t)s->guidance_mode;
-    h->modules = (uint8_t)s->modules;
+    h->modules = (uint8_t)s->modules;   /* module mask (BL_MOD_* incl. v4 TARGET/ENGINE_OUT) */
+    /* v4 (§4.7/§10.9): World id+hash (Earth=World #0, pinned) + neural-policy version (0 at N0). A
+     * replay is thereby attributable to the exact world and frozen policy that flew it. */
+    h->world_id   = (uint8_t)WORLD_EARTH_ID;
+    h->world_hash = (uint32_t)WORLD_EARTH_HASH;
+    h->np_version = 0;
+    h->_pad1      = 0;
 }
 
 static void emit_evt(const Sim* s, uint16_t code, float a0, float a1){
@@ -489,17 +624,36 @@ static void emit_evt(const Sim* s, uint16_t code, float a0, float a1){
 static int cmd_serve(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=1; unsigned short port=8080;
     int modules=MOD_TURB;
+    /* N0: the play-menu contract (D-017/D-019, supervisor.rs Launch). The shell passes the
+     * disturbance specs to --serve VERBATIM; pre-N0 cmd_serve silently DROPPED them (unknown-arg
+     * skip) — the picker clicked into a void. Serve now parses + arms EXACTLY like cmd_run:
+     * absent => modules unchanged => sim_init identical => stream byte-identical (off-gate).
+     * Malformed specs disarm-with-stderr (the shell's stderr panel shows why), run continues
+     * nominal — a cockpit misclick never wedges the stream. */
+    double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
+    int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
+    int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--run")&&i+1<argc)  run=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--port")&&i+1<argc) port=(unsigned short)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
+        else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
+        else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
+        else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
     }
 
     /* Same sim config as --run: turbulence module + hoverslam guidance. This does
      * NOT change determinism — identical seed/run reproduces the headless path. */
     Sim s; sim_init(&s, scen, seed, run, modules, GM_HOVERSLAM);
+    sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
+    if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
+    if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
+    if(g_peak!=0.0) fprintf(stderr,"serve: GUST armed peak=%.1f m/s @ %.0f m hw=%.0f dir=%.0f deg\n", g_peak, g_alt, g_hw, g_dir);
+    if(modules&MOD_ENGINE_OUT) fprintf(stderr,"serve: ENGINE-OUT armed k=%d t=%.2f s%s\n", s.eo_engine, s.eo_time, eo_rnd?" (seeded)":"");
+    if(modules&MOD_TARGET) fprintf(stderr,"serve: TARGET armed mode=%d amp=%.1f m omega=%.4f rad/s\n", s.tgt_mode, s.tgt_amp, s.tgt_omega);
 
     if(ws_serve_init(port)!=0){ fprintf(stderr,"serve: could not start WS server on port %u\n", port); return 4; }
 
@@ -516,6 +670,7 @@ static int cmd_serve(int argc, char** argv){
     /* phase/verdict edge tracking for events */
     int last_phase=s.st.phase, last_verdict=s.st.verdict;
     int engine_was_on=0, green_flashed=0, legs_deployed_evt=0, touched_evt=0, mach1_evt=0;
+    int eo_evt=0;   /* N0: engine-out FAULT emitted? (edge on s.eo_fired) */
 
     uint32_t seq=0; uint32_t emitted=0;
     int running=1;
@@ -536,6 +691,9 @@ static int cmd_serve(int argc, char** argv){
         if(eng_now && !engine_was_on && s.st.ign_timer>=0.0){ emit_evt(&s, BL_EVT_ENGINE_START, (float)s.st.n_eng, 0.0f); }
         if(!eng_now && engine_was_on){ emit_evt(&s, BL_EVT_ENGINE_SHUTDOWN, 0.0f, 0.0f); }
         engine_was_on = eng_now;
+        /* N0 ENGINE-OUT (§4.6/§10.4): the failure announces on the reliable EVT channel as
+         * FAULT(type=ENGINE_OUT, args=k) — a read-only notification (directive 5). */
+        if(!eo_evt && s.eo_fired){ emit_evt(&s, BL_EVT_FAULT, (float)MOD_ENGINE_OUT, (float)s.eo_engine); eo_evt=1; }
         if(!mach1_evt && s.diag.mach>=1.0 && s.diag.mach<50.0){
             emit_evt(&s, BL_EVT_MACH1_CROSS, (float)s.st.y[S_RX], (float)s.st.y[S_RY]);
             mach1_evt=1;
@@ -682,7 +840,7 @@ static int cmd_mppi_cuda_verify(int argc, char** argv){
         st = s.st; env = s.env; replan = s.mppi.replan;
         MassProps mp; mass_props(st.y[S_MLOX],st.y[S_MRP1],0,0,&mp); m0=mp.m;
         ignite_h = mppi_cuda_compute_ignite_h(&st);
-        mppi_cuda_warm_start(ubar, ignite_h, &st, &env);
+        mppi_cuda_warm_start(ubar, ignite_h, NULL, &st, &env);   /* N0: NULL target => origin (nominal parity) */
         double lat=sqrt(st.y[S_RX]*st.y[S_RX]+st.y[S_RY]*st.y[S_RY]);
         printf("captured @step %ld (alive=%d): h=%.1f m  vz=%.1f  lat=%.1f m  ignite_h=%.1f  replan=%u  m0=%.0f kg\n",
                n, alive, st.y[S_RZ]-mp.com, st.y[S_VZ], lat, ignite_h, replan, m0);
@@ -690,9 +848,9 @@ static int cmd_mppi_cuda_verify(int argc, char** argv){
 
     double gamma=1.0;   /* GAMMA_IS */
     static double cpuC[MPPI_K], gpuC[MPPI_K], gpuC2[MPPI_K];
-    mppi_cpuref_rollout_costs(seed, replan, ignite_h, gamma, m0, &st, &env, ubar, cpuC, MPPI_K);
-    mppi_cuda_rollout_costs  (seed, replan, ignite_h, gamma, m0, &st, &env, ubar, gpuC, MPPI_K);
-    mppi_cuda_rollout_costs  (seed, replan, ignite_h, gamma, m0, &st, &env, ubar, gpuC2, MPPI_K);
+    mppi_cpuref_rollout_costs(seed, replan, ignite_h, gamma, m0, &st, &env, ubar, NULL, cpuC, MPPI_K);
+    mppi_cuda_rollout_costs  (seed, replan, ignite_h, gamma, m0, &st, &env, ubar, NULL, gpuC, MPPI_K);
+    mppi_cuda_rollout_costs  (seed, replan, ignite_h, gamma, m0, &st, &env, ubar, NULL, gpuC2, MPPI_K);
 
     /* --- CPU<->GPU cost parity (design §9.5 tolerance) --- */
     double maxad=0, maxrel=0, sumabs=0; int nfin=0;
@@ -730,12 +888,12 @@ static int cmd_mppi_cuda_verify(int argc, char** argv){
         int iters=60; double* ms=(double*)malloc(sizeof(double)*iters);
         double lo,eo,bo;
         /* 3 warmup */
-        for(int w=0; w<3; w++) mppi_cuda_solve(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,30.0,&lo,&eo,&bo,K);
+        for(int w=0; w<3; w++) mppi_cuda_solve(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,30.0,NULL,&lo,&eo,&bo,K);
         for(int it=0; it<iters; it++){
             /* NOTE: solve mutates ubar (warm-start += correction), but the latency is K-dominated
              * (rollout + reduction), not ubar-value-dependent, so we time the steady-state solve. */
             LARGE_INTEGER t0,t1; QueryPerformanceCounter(&t0);
-            mppi_cuda_solve(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,30.0,&lo,&eo,&bo,K);
+            mppi_cuda_solve(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,30.0,NULL,&lo,&eo,&bo,K);
             QueryPerformanceCounter(&t1);
             ms[it]=1000.0*(double)(t1.QuadPart-t0.QuadPart)/(double)fq.QuadPart;
         }
@@ -774,7 +932,7 @@ static int cmd_mppi_cuda_bench(int argc, char** argv){
         st=s.st; env=s.env; replan=s.mppi.replan;
         MassProps mp; mass_props(st.y[S_MLOX],st.y[S_MRP1],0,0,&mp); m0=mp.m;
         ignite_h=mppi_cuda_compute_ignite_h(&st);
-        mppi_cuda_warm_start(ubar, ignite_h, &st, &env);
+        mppi_cuda_warm_start(ubar, ignite_h, NULL, &st, &env);   /* N0: NULL target => origin (perf bench) */
     }
     double gamma=1.0;
     printf("GPU-only device time (cudaEvent; excludes host ESS-servo + CPU contention). ms:\n");
@@ -811,7 +969,9 @@ int main(int argc, char** argv){
     if(!strcmp(mode,"--golden")) return cmd_golden(argc,argv);
     if(!strcmp(mode,"--mppi-cuda-verify")) return cmd_mppi_cuda_verify(argc,argv);  /* M5 (CUDA build) */
     if(!strcmp(mode,"--mppi-cuda-bench")) return cmd_mppi_cuda_bench(argc,argv);    /* M5 (CUDA build) */
-    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --serve [--scenario S --seed N --run N --port P --nav-noisy] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
+    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --serve [--scenario S --seed N --run N --port P --nav-noisy --gust P@A[:HW] --gust-dir DEG --engine-out K@T|random --target SPEC] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
     printf("  --gust <peak_mps>@<alt_m>[:<halfwidth_m>]  DIAL-A-GUST: deterministic 1-cosine wind-shear pulse (canon 4.3/10.6), default hw=300 m, default dir +x; --gust-dir sets the bearing in deg. Default OFF => byte-identical.\n");
+    printf("  --engine-out <k>@<t> | random  N0 ENGINE-OUT (canon 4.6): seeded engine failure during a multi-engine burn (k=0 center/1,2 side, t=sim-time s). Default OFF => byte-identical.\n");
+    printf("  --target seeded | circle:<amp_m>:<period_s> | line:<reach_m>:<dur_s>:<deg>  N0 MOVABLE TARGET (canon 4.5): seeded closed-form target drift the guidance chases. Default OFF (FIXED origin) => byte-identical.\n");
     return 2;
 }

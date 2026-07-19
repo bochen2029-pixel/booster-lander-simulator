@@ -79,6 +79,7 @@ struct MppiCudaCfg {
     double   gamma;
     double   m0;
     double   drive[MPPI_NCH];
+    double   target_xy[2];   /* N0 movable target (§4.5): rollout nulls (r − target_xy). 0 => byte-identical. */
 };
 
 /* ============================ K1: rollout cost ============================
@@ -101,7 +102,7 @@ __global__ void rollout_kernel(const State* __restrict__ d_st0, const EnvCtx* __
     /* ubar as [H][NCH] view */
     const double (*ubar)[MPPI_NCH] = (const double(*)[MPPI_NCH])d_ubar;
 
-    double Ck = mr_rollout_cost(cfg.ignite_h, d_st0, d_env, ubar, eps, cfg.gamma, cfg.m0);
+    double Ck = mr_rollout_cost(cfg.ignite_h, cfg.target_xy, d_st0, d_env, ubar, eps, cfg.gamma, cfg.m0);
     if(!isfinite(Ck)) Ck = MR_COST_CLIP;   /* CPU-parity hardening (D-009) */
     d_C[k] = Ck;
 }
@@ -201,9 +202,11 @@ extern "C" int mppi_cuda_rollout_costs(uint32_t seed, uint32_t replan, double ig
                                        double gamma, double m0,
                                        const State* st, const EnvCtx* env,
                                        const double ubar[MPPI_H][MPPI_NCH],
+                                       const double target_xy[2],
                                        double* outC, int K){
     if(mppi_cuda_init(K)!=0) return -1;
     MppiCudaCfg cfg; cfg.seed=seed; cfg.replan=replan; cfg.ignite_h=ignite_h; cfg.gamma=gamma; cfg.m0=m0;
+    cfg.target_xy[0]=target_xy?target_xy[0]:0.0; cfg.target_xy[1]=target_xy?target_xy[1]:0.0;
     for(int c=0;c<MPPI_NCH;c++){
         double sig = (c==0)?MR_SIG_THR:MR_SIG_ALAT;
         cfg.drive[c] = sig*sqrt(2.0*MR_OU_THETA - MR_OU_THETA*MR_OU_THETA);
@@ -226,9 +229,11 @@ extern "C" int mppi_cuda_rollout_costs(uint32_t seed, uint32_t replan, double ig
 extern "C" int mppi_cuda_solve(uint32_t seed, uint32_t replan, double ignite_h, double gamma,
                                double m0, const State* st, const EnvCtx* env,
                                double ubar[MPPI_H][MPPI_NCH], double lambda_in,
+                               const double target_xy[2],
                                double* lambda_out, double* ess_out, double* beta_out, int K){
     if(mppi_cuda_init(K)!=0) return -1;
     MppiCudaCfg cfg; cfg.seed=seed; cfg.replan=replan; cfg.ignite_h=ignite_h; cfg.gamma=gamma; cfg.m0=m0;
+    cfg.target_xy[0]=target_xy?target_xy[0]:0.0; cfg.target_xy[1]=target_xy?target_xy[1]:0.0;
     for(int c=0;c<MPPI_NCH;c++){
         double sig=(c==0)?MR_SIG_THR:MR_SIG_ALAT;
         cfg.drive[c]=sig*sqrt(2.0*MR_OU_THETA - MR_OU_THETA*MR_OU_THETA);
@@ -315,6 +320,7 @@ extern "C" int mppi_cuda_bench_kernel(uint32_t seed, uint32_t replan, double ign
                                       double* roll_ms, double* num_ms, double* tot_ms){
     if(mppi_cuda_init(K)!=0) return -1;
     MppiCudaCfg cfg; cfg.seed=seed; cfg.replan=replan; cfg.ignite_h=ignite_h; cfg.gamma=gamma; cfg.m0=m0;
+    cfg.target_xy[0]=cfg.target_xy[1]=0.0;   /* perf bench: nominal target (latency is K-bound, not target-dependent) */
     for(int c=0;c<MPPI_NCH;c++){ double sig=(c==0)?MR_SIG_THR:MR_SIG_ALAT;
         cfg.drive[c]=sig*sqrt(2.0*MR_OU_THETA - MR_OU_THETA*MR_OU_THETA); }
     CUDA_OK(cudaMemcpy(d_st0, st, sizeof(State), cudaMemcpyHostToDevice));
@@ -359,7 +365,9 @@ extern "C" int mppi_cpuref_rollout_costs(uint32_t seed, uint32_t replan, double 
                                          double gamma, double m0,
                                          const State* st, const EnvCtx* env,
                                          const double ubar[MPPI_H][MPPI_NCH],
+                                         const double target_xy[2],
                                          double* outC, int K){
+    double tgt[2]={ target_xy?target_xy[0]:0.0, target_xy?target_xy[1]:0.0 };
     double drive[MPPI_NCH];
     for(int c=0;c<MPPI_NCH;c++){
         double sig=(c==0)?MR_SIG_THR:MR_SIG_ALAT;
@@ -372,7 +380,7 @@ extern "C" int mppi_cpuref_rollout_costs(uint32_t seed, uint32_t replan, double 
             mr_ou_channel(seed, replan, (uint32_t)k, c, drive[c], col);
             for(int t=0;t<MPPI_H;t++) eps[t][c]=col[t];
         }
-        double Ck = mr_rollout_cost(ignite_h, st, env, ubar, eps, gamma, m0);
+        double Ck = mr_rollout_cost(ignite_h, tgt, st, env, ubar, eps, gamma, m0);
         if(!isfinite(Ck)) Ck=MR_COST_CLIP;
         outC[k]=Ck;
     }
@@ -383,8 +391,10 @@ extern "C" int mppi_cpuref_rollout_costs(uint32_t seed, uint32_t replan, double 
  * (mr_* live in the .cuh, unreachable from C). Used by the --mppi-cuda-verify capture in main.c. */
 extern "C" double mppi_cuda_compute_ignite_h(const State* st){ return mr_compute_ignite_h(st); }
 extern "C" void   mppi_cuda_warm_start(double ubar[MPPI_H][MPPI_NCH], double ignite_h,
+                                       const double target_xy[2],
                                        const State* st, const EnvCtx* env){
-    mr_warm_start_nominal(ubar, ignite_h, st, env);
+    double tgt[2]={ target_xy?target_xy[0]:0.0, target_xy?target_xy[1]:0.0 };
+    mr_warm_start_nominal(ubar, ignite_h, tgt, st, env);
 }
 
 /* ============================ mppi_step_cuda — drop-in for mppi_step ============================
@@ -400,16 +410,22 @@ extern "C" void mppi_step_cuda(MppiState* M, const State* st, const EnvCtx* env,
     MassProps mp0; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp0);
     double m0 = mp0.m;
 
+    /* N0 movable target: latch the target pose sim.c filled into g->target_xy (directive-7 mirror,
+     * parity with the CPU mppi_step). Threaded to the warm-start + the device rollout cfg; the
+     * mppi_execute blend below goes through hoverslam_step(st,g) (reads g->target_xy directly).
+     * Zero by default => byte-identical to the pre-N0 CUDA path AND to the CPU --mppi path. */
+    M->target_xy[0]=g->target_xy[0]; M->target_xy[1]=g->target_xy[1];
+
     /* ignition altitude (once per replan) — verbatim compute_ignite_h */
     M->ignite_h = mr_compute_ignite_h(st);
 
     /* warm-start the mean (verbatim warm_start_nominal) */
-    mr_warm_start_nominal(M->ubar, M->ignite_h, st, env);
+    mr_warm_start_nominal(M->ubar, M->ignite_h, M->target_xy, st, env);
 
     double gamma = MR_GAMMA_IS;
     double lam_out=M->lambda, ess_out=0.0, beta_out=0.0;
     int rc = mppi_cuda_solve(M->seed, M->replan, M->ignite_h, gamma, m0, st, env,
-                             M->ubar, M->lambda, &lam_out, &ess_out, &beta_out, MPPI_K);
+                             M->ubar, M->lambda, M->target_xy, &lam_out, &ess_out, &beta_out, MPPI_K);
     if(rc!=0){
         /* CUDA failed mid-run: fall back to the CPU replan so the sim still completes honestly. */
         fprintf(stderr,"[mppi-cuda] solve failed (rc=%d) at replan %u — falling back to CPU mppi_step\n",

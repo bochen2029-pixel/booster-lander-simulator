@@ -46,6 +46,22 @@ typedef struct {
     MppiState mppi;   /* HIER MPPI planner state (GM_MPPI only, track 4-B) */
     double lat_eint[2];   /* D-009 wind-rejection integral trim (fins-deployed LANDING burn only) */
     NavState nav;     /* D-010 §8.1 measurement layer (NAV_TRUTH pass-through / NAV_NOISY) */
+    /* ---- N0 ENGINE-OUT (§4.6, engineout_design). Armed by --engine-out k@t (MOD_ENGINE_OUT).
+     * A seeded, time-triggered failure during a multi-engine burn: decrement n_eng + set the
+     * survivor-centroid thrust_offset (induced torque via the existing arm_thr lever) + flag the
+     * chamber-P health. Default OFF (eo_engine<0) => never fires => byte-identical. */
+    int    eo_engine;     /* which engine fails: 0=center,1/2=sides; <0 => disarmed */
+    double eo_time;       /* sim-time of failure [s] */
+    int    eo_fired;      /* latched once fired (a permanent loss for the burn) */
+    /* ---- N0 SEEDED MOVABLE TARGET (§4.5, target_sandbox_design). Armed by --target (MOD_TARGET).
+     * A deterministic closed-form horizontal drift (the SEEDED source): target_xy(t) written each
+     * guidance tick, read by guidance as the offset target + streamed as the nav TargetEstimate.
+     * Default OFF (tgt_mode==0) => FIXED origin => byte-identical. */
+    int    tgt_mode;      /* 0 FIXED/off, 1 seeded circular drift, 2 seeded linear ramp */
+    uint32_t tgt_seed, tgt_run;  /* the `target` Philox key (seed,run) */
+    double tgt_amp;       /* drift amplitude [m] */
+    double tgt_omega;     /* drift angular rate [rad/s] */
+    double tgt_phase[2];  /* seeded phase / direction */
 } Sim;
 
 typedef struct {

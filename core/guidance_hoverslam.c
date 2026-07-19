@@ -81,7 +81,15 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     double m=mp.m;
     double h_base = y[S_RZ]-mp.com;
     double vz = y[S_VZ];
-    double r_xy[2]={y[S_RX],y[S_RY]};
+    /* N0 MOVABLE TARGET (§4.5, target_sandbox_design §B.1): null the offset to the TARGET, not the
+     * world origin. r_xy becomes (r − target_xy); the ENTIRE downstream reactive law — r_mag, v_rad,
+     * r_pred, vdes_mag, the D-012 overspeed brake, vdes, a_lat — inherits the shift with NO other
+     * edit (the complete static trace, §B.1 Appendix A). BIT-SAFETY: at nominal target_xy=(0,0)
+     * every subtraction is x−0.0 (bit-exact for finite doubles), so TERMINAL/AERO/ENTRY reproduce
+     * BYTE-EXACTLY (verified by measurement). The velocity-null term below keeps v_xy INERTIAL
+     * (correct for the slow/static N0 target: arriving with zero inertial v == matching the ~0 deck
+     * velocity); target_vxy leading is a fast-target extension deferred past N0. */
+    double r_xy[2]={ y[S_RX]-g->target_xy[0], y[S_RY]-g->target_xy[1] };
     double v_xy[2]={y[S_VX],y[S_VY]};
 
     g->mode=GM_HOVERSLAM; g->n_eng=1; g->solver_flags=0;

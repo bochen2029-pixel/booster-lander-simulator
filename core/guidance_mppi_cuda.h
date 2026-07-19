@@ -20,33 +20,41 @@ void mppi_cuda_shutdown(void);
 
 /* PARITY PRIMITIVE: compute all K rollout costs on the GPU into outC[K]. Uploads st/env/ubar.
  * warm-started ubar[H][NCH] and ignite_h come from the caller (identical to the CPU replan). */
+/* N0: target_xy[2] (may be NULL => treated as origin) threads the movable-target offset into the
+ * rollout so the GPU path mirrors the CPU substitution (directive 7). 0/NULL => byte-identical. */
 int  mppi_cuda_rollout_costs(uint32_t seed, uint32_t replan, double ignite_h,
                              double gamma, double m0,
                              const State* st, const EnvCtx* env,
                              const double ubar[MPPI_H][MPPI_NCH],
+                             const double target_xy[2],
                              double* outC, int K);
 
 /* FULL GPU SOLVE: K-loop + numerator reduction on the device; beta/lambda/weights/update on host
- * (byte-identical to mppi_step). In/out ubar is updated in place. Returns 0 on success. */
+ * (byte-identical to mppi_step). In/out ubar is updated in place. Returns 0 on success.
+ * N0: target_xy[2] (NULL => origin) is the movable-target offset threaded to the device rollout. */
 int  mppi_cuda_solve(uint32_t seed, uint32_t replan, double ignite_h, double gamma,
                      double m0, const State* st, const EnvCtx* env,
                      double ubar[MPPI_H][MPPI_NCH], double lambda_in,
+                     const double target_xy[2],
                      double* lambda_out, double* ess_out, double* beta_out, int K);
 
 /* Drop-in replacement for mppi_step (sim.c routes here under --mppi-cuda). Runs the warm-start on
  * the host (same as CPU), solves on the GPU, then calls mppi_execute (CPU, unchanged). */
 void mppi_step_cuda(MppiState* M, const State* st, const EnvCtx* env, GuidanceCmd* g);
 
-/* CPU-REFERENCE rollout costs (host compilation of the shared rollout source; parity oracle §9.5). */
+/* CPU-REFERENCE rollout costs (host compilation of the shared rollout source; parity oracle §9.5).
+ * N0: target_xy[2] (NULL => origin) mirrors the movable-target offset. */
 int  mppi_cpuref_rollout_costs(uint32_t seed, uint32_t replan, double ignite_h,
                                double gamma, double m0,
                                const State* st, const EnvCtx* env,
                                const double ubar[MPPI_H][MPPI_NCH],
+                               const double target_xy[2],
                                double* outC, int K);
 
 /* Shims exposing the shared warm-start math to C (the mr_* live in the .cuh). */
 double mppi_cuda_compute_ignite_h(const State* st);
 void   mppi_cuda_warm_start(double ubar[MPPI_H][MPPI_NCH], double ignite_h,
+                            const double target_xy[2],
                             const State* st, const EnvCtx* env);
 
 /* GPU-EVENT kernel-only benchmark: cudaEvent-timed device cost (rollout / reduction / total) over

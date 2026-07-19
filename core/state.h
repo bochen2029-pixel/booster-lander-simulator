@@ -22,6 +22,32 @@ enum {
     NSTATE
 };
 
+/* ---- N0 §8.1 THE WIDE SOCKET (v2, D-019) ------------------------------------------------
+ * TargetEstimate + EngineHealth: the perception-to-policy interface, built WIDE now with every
+ * field at a NOMINAL constant so v1 reproduces byte-exactly (the N0 leak gate), then filled by the
+ * seeded target / engine-out capabilities when they are armed. ONE schema for every §4.5 target
+ * source — guidance/policy cannot tell FIXED/SEEDED/BEACON/PERCEIVED/DRAG apart (source-blindness,
+ * §8.4). These ride the State (the nav view is a State copy); the PLANT fills them on truth and
+ * nav_measure passes them through (truth bookkeeping, exactly like n_eng — NAV_NOISY adds NO target
+ * noise at N0; beacon/VLM noise arrives with those sources). Guidance reads them off the nav view. */
+enum { TGT_FIXED=0, TGT_SEEDED=1, TGT_BEACON=2, TGT_PERCEIVED=3, TGT_DRAG=4 };  /* target_src (§4.5) */
+
+typedef struct {
+    double target_xy[2];     /* estimated target position, world XY [m] (origin for FIXED) */
+    double target_vxy[2];    /* estimated target velocity, world XY [m/s] (0 for FIXED) */
+    double target_cov[3];    /* 2x2 covariance packed (xx, yy, xy) — σ_target [m^2] */
+    double deck_z;           /* estimated deck height [m] (0 flat pad) */
+    double target_age;       /* s since last acquisition/update (staleness; 0 nominal) */
+    uint8_t target_src;      /* TGT_* provenance tag */
+    uint8_t target_valid;    /* 0 before first acquisition — handle gracefully (1 nominal) */
+} TargetEstimate;
+
+typedef struct {
+    uint8_t eng_health[3];   /* per-engine chamber-pressure flag: 1=firing/healthy, 0=failed (§4.6 LEGAL) */
+    uint8_t n_eng;           /* engines this burn (mirrors State.n_eng, u8 for the wire) */
+    uint8_t relights_left;   /* mirrors State.relights_left */
+} EngineHealth;
+
 /* Hybrid / event state kept outside the RK4 vector. */
 typedef struct {
     double y[NSTATE];        /* continuous block */
@@ -46,6 +72,10 @@ typedef struct {
     int    verdict;          /* grade code, set at settle */
     int    fault;            /* fault code if any */
     int    fins_deployed;    /* grid fins out (aero active) */
+    /* ---- N0 wide socket (§8.1): part of the nav view (truth pass-through). Default-nominal
+     * (target=origin, cov tiny, valid=1, src=FIXED, all engines healthy) => v1 byte-identical. */
+    TargetEstimate tgt;      /* §4.5 target estimate (nominal: origin/FIXED/valid) */
+    uint8_t eng_health[3];   /* §4.6 per-engine health (nominal: all 1) — the LEGAL chamber-P flag */
 } State;
 
 /* Actuator command intents from control layer (held constant across a physics step). */
@@ -61,8 +91,9 @@ typedef struct {
     int    deploy_cmd;
 } Actuators;
 
-/* Module mask bits. */
-enum { MOD_SLOSH=1, MOD_SEA=2, MOD_NAV_NOISY=4, MOD_FINS=8, MOD_TURB=16, MOD_INJECT=32 };
+/* Module mask bits. (N0: MOD_TARGET/MOD_ENGINE_OUT added, default-off => byte-identical.) */
+enum { MOD_SLOSH=1, MOD_SEA=2, MOD_NAV_NOISY=4, MOD_FINS=8, MOD_TURB=16, MOD_INJECT=32,
+       MOD_TARGET=64, MOD_ENGINE_OUT=128 };
 
 /* Phases (§6.8). */
 enum { PH_INIT,PH_COAST,PH_ENTRY_BURN,PH_AERO,PH_LANDING_BURN,PH_TOUCHDOWN,PH_SETTLING,
