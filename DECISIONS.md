@@ -1338,3 +1338,44 @@ serve-smoke script) + `runs/n0main_*` (this tree's re-verification). **Next per 
 (distill → `GM_NEURAL` ships) or target Stage-1 (SEA deck + §A.3 + `asds_night`); M4's
 designated vehicle remains N3.
 
+## D-021 — N1-S0 scaffold: the teacher tap + trainer + GM_NEURAL skeleton, byte-clean (2026-07-19)
+
+The S0 distillation tooling (canon §9.8/§13.6/§19; neural_policy_design §C/§E/§F), built by
+agent N1SCAFFOLD in `_n1_wt/` and integrated here with the full re-gate ceremony. Three
+pieces, all default-off, the tree byte-identical to D-020 when none is selected:
+
+- **The teacher tap `--policy-log <path>`** (`core/policy_tap.h` + the SHARED observation
+  builder `core/policy_obs.h`): one 288-byte binary row (36 f64 cols) per GM_MPPI guidance
+  tick — [t, seed, run, the App-G LEGAL observation ingredients (target-relative r, h above
+  deck, v, zb2w, ω, prop, mach, qbar, fins/engine/ign, eng_health[3], relights, ignite-h
+  margin, target est vxy/cov/age/valid), the EXECUTED post-blend command (a_lat[2],
+  throttle)]. Provenance rule absolute (never wind_world/wind_filt/truth-target). Pure
+  observation: sim outputs byte-identical with the tap ON; same command twice ⇒ identical
+  file SHA256 (4445F998… — the SAME hash in the worktree and this tree: cross-tree
+  bit-identical logging).
+- **`trainer/`** (the §2-sanctioned offline precompute; torch 2.9.1+cu128): rowformat.py /
+  train_s0.py (MLP 30→128³→3 tanh, per-channel weighted MSE, split BY RUN, CUDA; **the
+  held-out law enforced in code — gate-seed files 42/7/99 hard-error**) / export_weights.py
+  (§F.1 fp64 header, %.17g, generation stamp) / README. Gitignored per canon §3 except the
+  exported header. Pipeline proven end-to-end on a legal seed-1000 smoke set.
+- **`GM_NEURAL=3` skeleton** (`core/guidance_neural.{h,c}` + placeholder
+  `core/neural_policy_weights.h` NP_VERSION 0): §F.2-verbatim fixed j-outer/i-inner scalar
+  fp64 forward pass sharing `policy_obs.h` (tap and inference CANNOT skew), isfinite-guarded;
+  sim.c block mirrors GM_MPPI (E3 supervisor above, same ignition latch + ada freeze, Tier-A
+  analytic triggers); `--neural` flag; a selftest NP KAT oracle (placeholder expectation
+  {0,0,0.70} bit-exact). Throttle de-norm is the LINEAR [ENG_THR_MIN,1] map in BOTH trainer
+  and C (deliberate, matched; differs from the design snippet's clamp form). The KAT
+  expectation + NP_VERSION regenerate with every real export — each export is an ADR event.
+
+**Re-gate on this tree (the D-013/N0 ceremony):** clean rebuild + relink confirmed; selftest
+PASS incl. the KAT; TERMINAL s42 ×200 == 194/200 byte-exact; AERO `--mppi` ×60 == 44/60
+byte-exact; run-1 == HARD 2.63/10.48; tap pair SHA-identical + rowformat round-trip (2933
+rows × 36 cols); `--neural` ×5 pair bit-identical, honest finite 0/5 crash on zero weights
+(×5 wall 3.7 s vs MPPI's ~45-75 s — the speedup visible even before training). Also:
+runs/ws_probe.mjs bumped v3→v4 (HELLO 80/world_hash, target_est@232, n_eng@269, tails@324).
+
+**Next:** the S0 farm (runs/s0_farm.ps1, train seeds 1000+, never 42/7/99) → train → export
+(NP_VERSION 1 + KAT regen + re-golden = the next ADR) → the first `--neural` parity batch
+(S0 gate ≥42/60; a round-0 BC shortfall is the EXPECTED honest outcome — DAgger is the
+designed fix, per neural_policy_design §B.1).
+

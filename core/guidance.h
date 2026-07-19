@@ -9,7 +9,7 @@ typedef struct {
     int    engine_cmd;    /* request engine firing */
     int    n_eng;         /* engines to use */
     int    deploy_cmd;    /* legs */
-    int    mode;          /* 0 none 1 hoverslam 2 mppi */
+    int    mode;          /* 0 none 1 hoverslam 2 mppi 3 neural */
     int    solver_flags;  /* diagnostics */
     double t_go;          /* estimated time to touchdown s */
     /* N0 movable target (§4.5, target_sandbox_design §B.3): the target's CURRENT pose, the
@@ -21,7 +21,7 @@ typedef struct {
     /* plan tail for telemetry (filled by mppi later) */
 } GuidanceCmd;
 
-enum { GM_NONE=0, GM_HOVERSLAM=1, GM_MPPI=2 };
+enum { GM_NONE=0, GM_HOVERSLAM=1, GM_MPPI=2, GM_NEURAL=3 };  /* N1 §9.8: tier-3 learned policy */
 enum { SF_DEGRADED=1, SF_NO_ROOT=2, SF_TERMINAL=4 };
 
 #endif

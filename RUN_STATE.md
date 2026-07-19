@@ -18,6 +18,20 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**D-021 — N1-S0 SCAFFOLD INTEGRATED (2026-07-19 morning): the teacher tap + trainer +
+GM_NEURAL skeleton, all default-off byte-clean.** `--policy-log` logs one 36-col f64 row per
+GM_MPPI tick (App-G legal observation + the EXECUTED command; pure observation — sim
+byte-identical tap-on; SHA-deterministic, cross-tree bit-identical). `trainer/`
+(torch 2.9.1+cu128; held-out law ENFORCED IN CODE — gate seeds 42/7/99 hard-error) trains
+the §B.4 MLP and exports the §F.1 fp64 header. `GM_NEURAL=3` + `--neural` fly the §F.2
+fixed-order forward pass off `neural_policy_weights.h` (placeholder NP_VERSION 0; NP KAT in
+selftest; honest finite crash pre-training, ×5 wall 3.7 s vs MPPI ~45-75 s). Re-gates:
+selftest PASS · TERMINAL 194/200 byte · AERO --mppi 44/60 byte · run-1 2.63/10.48 · pairs
+bit-identical. ws_probe bumped to v4. **S0 sequence next: farm (runs/s0_farm.ps1, seeds
+1000+) → train → export (NP_VERSION 1 = ADR + KAT regen) → first `--neural` parity batch
+(gate ≥42/60; round-0 shortfall expected+honest, DAgger is the fix).** Full record:
+DECISIONS **D-021**.
+
 **★★★★★ D-020 — N0 GREEN (2026-07-19, integrated this tree): the wide socket + protocol v4
 + engine-out/movable-target BUILT-DIALED-OFF; byte-equality held EVERYWHERE.** NavState
 carries TargetEstimate+EngineHealth at nominal (truth pass-through on `nav_measure`'s

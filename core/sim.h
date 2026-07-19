@@ -7,6 +7,7 @@
 #include "scenario.h"
 #include "guidance_mppi.h"
 #include "nav.h"
+#include "policy_tap.h"   /* N1 S0: the teacher (o,a) logging tap (--policy-log; GM_MPPI only) */
 
 /* DIAL-A-GUST (canon §10.6 INJECT_DISTURBANCE type=gust; §4.3 layer-3 discrete 1-cosine).
  * A deterministic discrete wind-shear EVENT: a horizontal wind pulse the vehicle penetrates as it
@@ -62,6 +63,13 @@ typedef struct {
     double tgt_amp;       /* drift amplitude [m] */
     double tgt_omega;     /* drift angular rate [rad/s] */
     double tgt_phase[2];  /* seeded phase / direction */
+    /* ---- N1 S0 TEACHER TAP (--policy-log; GM_MPPI only). READ-ONLY (o,a) logging for the offline
+     * distillation trainer. Disarmed by default (tap.f==NULL, memset in sim_init) => byte-identical.
+     * Attached post-sim_init by the CLI handler (the FILE* is opened ONCE per process, shared across
+     * headless runs; seed/run identify each run's rows). Fires in the GM_MPPI gtick path after the
+     * command is resolved (policy_tap.h). No RNG, no state writes — the D-014 instrument-without-
+     * touching discipline; the byte-equality gate proves it. */
+    PolicyTap tap;
 } Sim;
 
 typedef struct {

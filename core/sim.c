@@ -5,6 +5,7 @@
 #include "control.h"
 #include "guidance_hoverslam.h"
 #include "guidance_mppi.h"
+#include "guidance_neural.h"   /* N1 §9.8: tier-3 GM_NEURAL learned policy (default OFF => dead code) */
 #ifdef BL_HAVE_CUDA
 #include "guidance_mppi_cuda.h"   /* M5: --mppi-cuda routes the full-solve to the GPU (CUDA build only) */
 #endif
@@ -405,6 +406,51 @@ int sim_step(Sim* s){
             else mppi_execute(&s->mppi, &nav, &s->gcmd);   /* emit next warm-start knot + shift (cheap) */
         }
         s->mppi.gtick++;
+        if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
+            st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
+            if(st->phase==PH_ENTRY_BURN){ /* entry burn = retrograde; no ada freeze */ }
+            else {
+                if(st->phase==PH_COAST||st->phase==PH_AERO) st->phase=PH_LANDING_BURN;
+                AtmoOut atm; atmo_eval(st->y[S_RZ],&atm);
+                MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
+                double Tf = st->n_eng*engine_thrust(1.0,atm.p);
+                double amax = Tf/mp.m - G0; if(amax<1.0)amax=1.0;
+                st->ada = (st->fins_deployed?0.85:0.58)*amax;
+            }
+        }
+        st->deploy_cmd = s->gcmd.deploy_cmd;
+
+        /* ---- N1 S0 TEACHER TAP (--policy-log; policy_tap.h). Log ONE (o, a*) row for this GM_MPPI
+         * guidance tick: o = policy_build_obs(nav, gcmd) — the EXACT legal features GM_NEURAL will
+         * read (the resync'd nav view the guidance layer just consumed, pass-through fields pre-latch,
+         * i.e. what guidance saw when it produced the command); a* = the EXECUTED gcmd (a_lat[0],
+         * a_lat[1], throttle) mppi_execute/entry_divert emitted this tick. READ-ONLY: policy_tap_write
+         * does no RNG and no state write, and is a no-op when the flag is absent (tap.f==NULL) => the
+         * sim path stays byte-identical (the D-014 instrument-without-touching gate). It is placed
+         * AFTER the ignition latch so nothing downstream can still change the executed command. */
+        policy_tap_write(&s->tap, &nav, &s->gcmd);
+    }
+
+    /* ---- GM_NEURAL guidance block (N1 §9.8, tier-3 learned policy) — MIRRORS the GM_MPPI block:
+     * the E3 entry_supervisor stays ABOVE (the 3-engine entry burn), then neural_policy_step owns the
+     * aero-descent divert + landing burn (a single <10 µs forward pass EVERY gtick — no rollouts, no
+     * decimation), then the SAME ignition latch + ada freeze + leg deploy. Guarded by GM_NEURAL so
+     * GM_HOVERSLAM/GM_MPPI are byte-for-byte untouched; default OFF => this whole block is dead code
+     * (the §13.6 leak gate). neural_policy_step reads the resync'd nav view (§8.1) and is isfinite-
+     * guarded (an absurd net => honest crash, never a NaN cascade). */
+    if(is_gtick && s->guidance_mode==GM_NEURAL){
+        int entry_handled = entry_supervisor(s, &nav);   /* E3 above the policy (reads the estimate) */
+        if(!entry_handled){
+            nav_resync(st, &nav);   /* refresh pass-through fields after a possible entry-burn CUT */
+            /* Tier A (§C.2/App-G): ANALYTIC ignition + legs, LEARNED steering + throttle. Run the
+             * proven hoverslam law first to set engine_cmd / deploy_cmd / n_eng (the same aero-aware
+             * ignition trigger + LEG_DEPLOY_H gate GM_MPPI inherits via mppi_execute), THEN let the
+             * policy OVERRIDE a_lat[2] + throttle. neural_policy_step writes only a_lat/throttle/mode,
+             * so engine_cmd/deploy_cmd/n_eng from hoverslam survive — the policy owns the continuous
+             * channels, the analytic triggers own ignition/legs. */
+            hoverslam_step(&nav, &s->gcmd);
+            neural_policy_step(&nav, &s->gcmd);   /* pi_theta(legal obs) -> a_lat[2] + throttle */
+        }
         if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
             st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
             if(st->phase==PH_ENTRY_BURN){ /* entry burn = retrograde; no ada freeze */ }

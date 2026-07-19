@@ -17,6 +17,8 @@
 #include "sim.h"
 #include "protocol.h"
 #include "ws.h"
+#include "guidance_neural.h"          /* N1 §9.8: GM_NEURAL forward pass (the KAT oracle + provenance) */
+#include "neural_policy_weights.h"    /* NP_VERSION / NP_N_IN — the KAT is header-versioned */
 #include "guidance_mppi.h"        /* MPPI_K/MPPI_H/MPPI_NCH for the CUDA harness (also via sim.h) */
 #ifdef BL_HAVE_CUDA
 #include "guidance_mppi_cuda.h"   /* M5: CUDA MPPI rollout + parity/perf harness (CUDA build only) */
@@ -181,11 +183,49 @@ static void test_aero_stability(void){
     CHECK(wmax < 1.5, "fin-controlled aero-descent stays stable (no sign-error spin-up)");
 }
 
+/* N1 §9.8 / §13.5: the POLICY KAT (Known-Answer Test) — the Philox-KAT pattern applied to the net.
+ * A hardcoded observation vector -> the fixed-order fp64 forward pass reproduces a BIT-EXACT expected
+ * output. This proves the determinism export (freeze -> C-header -> fixed-order inference) is intact.
+ *
+ * REGENERATION: the expected vector below is computed FROM THE CURRENT neural_policy_weights.h. It MUST
+ * be regenerated whenever the header regenerates (a new NP_VERSION = an ADR event). With the
+ * NP_VERSION-0 PLACEHOLDER (mu=0, sd=1, all weights/biases 0): every layer accumulates 0 -> tanh(0)=0
+ * -> logits 0, so for ANY input o: a_lat=(3.2*tanh(0), 3.2*tanh(0))=(0,0) and
+ * throttle = ENG_THR_MIN + (1-ENG_THR_MIN)*0.5*(tanh(0)+1) = 0.40 + 0.60*0.5 = 0.70 exactly.
+ * When real weights are exported, recompute EXP_* (e.g. dump neural_policy_forward(KAT_OBS) once and
+ * paste, or have export_weights.py emit a KAT block) and bump NP_VERSION. bit-exact => tol 0.0. */
+static void test_neural_kat(void){
+    printf("[oracle: GM_NEURAL policy KAT] NP_VERSION=%d NP_N_IN=%d\n", NP_VERSION, NP_N_IN);
+    /* a fixed, arbitrary-but-physical observation vector (values do not matter for the placeholder,
+     * but a nonzero, varied vector proves the loops actually run over the weights when real). */
+    double o[NP_N_IN];
+    for(int i=0;i<NP_N_IN;i++) o[i] = 0.5*((double)((i*37+11)%13) - 6.0);  /* deterministic spread */
+    double a[3];
+    neural_policy_forward(o, a);
+#if (NP_VERSION == 0)
+    /* PLACEHOLDER expectation (zero-weights): a_lat=(0,0), throttle=0.70 — bit-exact. */
+    const double EXP0=0.0, EXP1=0.0, EXP2=0.70;
+    CHECKF(a[0], EXP0, 0.0, "NP KAT a_lat0 (placeholder bit-exact)");
+    CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (placeholder bit-exact)");
+    CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (placeholder bit-exact)");
+#else
+    /* REAL-WEIGHTS expectation: regenerate EXP0/EXP1/EXP2 from the exported header (see comment). */
+    (void)a;
+    printf("  WARN: NP_VERSION=%d — KAT expected vector must be regenerated for real weights.\n", NP_VERSION);
+#endif
+    /* determinism: the forward pass is a pure function — twice on the same input is bit-identical. */
+    double a2[3]; neural_policy_forward(o, a2);
+    CHECK(a[0]==a2[0] && a[1]==a2[1] && a[2]==a2[2], "NP KAT forward pass is deterministic (bit-identical)");
+    /* finiteness (the isfinite guard never emits NaN even on the zero net). */
+    CHECK(isfinite(a[0]) && isfinite(a[1]) && isfinite(a[2]), "NP KAT output is finite");
+}
+
 static int cmd_selftest(void){
     g_fail=0;
     test_atmosphere(); test_rng(); test_quat();
     test_ballistic(); test_energy_quat(); test_massprops();
     test_hover_impossible(); test_fin_damping(); test_aero_stability(); test_determinism();
+    test_neural_kat();
     if(g_fail==0){ printf("SELFTEST: PASS\n"); return 0; }
     printf("SELFTEST: FAIL (%d)\n", g_fail); return 1;
 }
@@ -313,15 +353,18 @@ static int cmd_run(int argc, char** argv){
     double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
     int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
     int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
+    const char* policy_log=0;                    /* N1 S0 teacher tap (--policy-log; NULL => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--run")&&i+1<argc) run=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--policy-log")&&i+1<argc) policy_log=argv[++i];  /* N1 S0 (o,a*) tap path */
         else if(!strcmp(argv[i],"--verbose")) verbose=1;
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
+        else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -331,10 +374,21 @@ static int cmd_run(int argc, char** argv){
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
         "(configure with -DBL_CUDA=ON and a CUDA toolkit). Use --mppi for the CPU path.\n"); return 4; }
 #endif
+    /* N1 S0 teacher tap: open the (o,a*) binary log ONCE (fail loudly — the tap is a data artifact,
+     * it must not silently vanish). Rows are written only on GM_MPPI gticks (policy_tap.h). Absent
+     * flag => tap disarmed => byte-identical. */
+    FILE* tapf=0;
+    if(policy_log){
+        tapf=fopen(policy_log,"wb");
+        if(!tapf){ int e=errno; fprintf(stderr,"error: --policy-log: cannot open '%s' for writing: %s (errno=%d)\n"
+                                              "       (the parent directory must already exist)\n", policy_log, strerror(e), e); return 3; }
+        if(gmode!=GM_MPPI) fprintf(stderr,"warning: --policy-log has no effect without --mppi (rows are logged only on GM_MPPI ticks)\n");
+    }
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
     if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
     if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
+    if(tapf){ s.tap.f=tapf; s.tap.seed=seed; s.tap.run=run; }   /* attach the tap AFTER sim_init (memset) */
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
     if(s.gust.peak!=0.0) printf("  GUST: peak=%.1f m/s @ alt=%.0f m  hw=%.0f m (band %.0f..%.0f)  dir=%.0f deg (%.2f,%.2f)\n",
@@ -363,6 +417,8 @@ static int cmd_run(int argc, char** argv){
     printf("RESULT: %s  fault=%s  td_v=%.2f m/s  lat=%.2f m  tilt=%.2f deg  fuel=%.0f kg  t=%.1f s  maxq=%.0f Pa\n",
         verdict_str(s.st.verdict), fault_str(s.st.fault), s.impact_v, s.impact_lat,
         sim_body_tilt(&s.st)*RAD2DEG, s.st.y[S_MLOX]+s.st.y[S_MRP1], s.st.t, s.max_qbar);
+    if(tapf){ s.tap.f=0; if(fclose(tapf)!=0){ int e=errno; fprintf(stderr,"error: --policy-log: failed to finalize '%s': %s (errno=%d)\n", policy_log, strerror(e), e); return 3; }
+              fprintf(stderr,"  policy-log: wrote %s (%d bytes/row)\n", policy_log, POLICY_TAP_ROW_BYTES); }
     return 0;
 }
 
@@ -372,16 +428,19 @@ static int cmd_headless(int argc, char** argv){
     double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
     int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
     int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
+    const char* policy_log=0;                    /* N1 S0 teacher tap (--policy-log; NULL => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--runs")&&i+1<argc) runs=strtol(argv[++i],0,10);
         else if(!strcmp(argv[i],"--out")&&i+1<argc) out=argv[++i];
+        else if(!strcmp(argv[i],"--policy-log")&&i+1<argc) policy_log=argv[++i];  /* N1 S0 (o,a*) tap path */
         else if(!strcmp(argv[i],"--no-turb")) modules&=~MOD_TURB;
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;   /* Tier-B plant disturbances (F4) */
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
+        else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -408,12 +467,25 @@ static int cmd_headless(int argc, char** argv){
         }
         fprintf(f,"seed,scenario,run,verdict,fault,td_v,td_lat,td_tilt,settled_tilt,fuel,max_qbar,peak_qdot,t_total,max_crush\n");
     }
+    /* N1 S0 teacher tap: open the (o,a*) binary log ONCE for the whole batch (rows from every run go
+     * to this one file, keyed by (seed,run) in cols 1,2). Fail loudly (data artifact, not optional).
+     * The per-run FILE* is re-attached inside the loop after each sim_init (which memsets the tap).
+     * Rows are written only on GM_MPPI ticks (policy_tap.h). Absent flag => byte-identical. */
+    FILE* tapf=0;
+    if(policy_log){
+        tapf=fopen(policy_log,"wb");
+        if(!tapf){ int e=errno; fprintf(stderr,"error: --policy-log: cannot open '%s' for writing: %s (errno=%d)\n"
+                                              "       (the parent directory must already exist)\n", policy_log, strerror(e), e);
+                   if(f) fclose(f); return 3; }
+        if(gmode!=GM_MPPI) fprintf(stderr,"warning: --policy-log has no effect without --mppi (rows are logged only on GM_MPPI ticks)\n");
+    }
     long cnt[6]={0}; long fault[6]={0};
     long c_offpad=0, c_hard=0, c_fuel=0, c_other=0;
     double sv=0,slat=0,stilt=0,sfuel=0; long good=0;
     double vmax=0;
     for(long r=0;r<runs;r++){
         Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,gmode);
+        if(tapf){ s.tap.f=tapf; s.tap.seed=seed; s.tap.run=(uint32_t)(r+1); }   /* attach tap after sim_init (memset) */
         sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
         if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, (uint32_t)(r+1)); }
         if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
@@ -431,6 +503,8 @@ static int cmd_headless(int argc, char** argv){
     }
     int close_err=0;
     if(f && fclose(f)!=0) close_err=errno;   /* flush/close failure => CSV may be truncated */
+    if(tapf){ if(fclose(tapf)!=0){ int e=errno; fprintf(stderr,"error: --policy-log: failed to finalize '%s': %s (errno=%d)\n", policy_log, strerror(e), e); return 3; }
+              fprintf(stderr,"  policy-log: wrote %s (%d bytes/row)\n", policy_log, POLICY_TAP_ROW_BYTES); }
     long landed=cnt[V_PERFECT]+cnt[V_GOOD]+cnt[V_HARD];
     double rate=100.0*landed/runs;
     /* Wilson 95% CI */
@@ -969,7 +1043,9 @@ int main(int argc, char** argv){
     if(!strcmp(mode,"--golden")) return cmd_golden(argc,argv);
     if(!strcmp(mode,"--mppi-cuda-verify")) return cmd_mppi_cuda_verify(argc,argv);  /* M5 (CUDA build) */
     if(!strcmp(mode,"--mppi-cuda-bench")) return cmd_mppi_cuda_bench(argc,argv);    /* M5 (CUDA build) */
-    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --serve [--scenario S --seed N --run N --port P --nav-noisy --gust P@A[:HW] --gust-dir DEG --engine-out K@T|random --target SPEC] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
+    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda|--neural --gust P@A[:HW] --gust-dir DEG --policy-log FILE] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda|--neural --gust P@A[:HW] --gust-dir DEG --policy-log FILE] | --serve [--scenario S --seed N --run N --port P --nav-noisy --gust P@A[:HW] --gust-dir DEG --engine-out K@T|random --target SPEC] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
+    printf("  --neural  N1 tier-3 GM_NEURAL learned policy (canon 9.8): frozen fp64 C forward pass (neural_policy_weights.h). Default OFF => byte-identical; ships DEAD on the NP_VERSION-0 placeholder (flies badly, honest crash).\n");
+    printf("  --policy-log <file>  N1 S0 teacher tap: with --mppi, append one binary (o,a*) row per guidance tick for the offline distillation trainer (trainer/rowformat.py). Read-only => byte-identical.\n");
     printf("  --gust <peak_mps>@<alt_m>[:<halfwidth_m>]  DIAL-A-GUST: deterministic 1-cosine wind-shear pulse (canon 4.3/10.6), default hw=300 m, default dir +x; --gust-dir sets the bearing in deg. Default OFF => byte-identical.\n");
     printf("  --engine-out <k>@<t> | random  N0 ENGINE-OUT (canon 4.6): seeded engine failure during a multi-engine burn (k=0 center/1,2 side, t=sim-time s). Default OFF => byte-identical.\n");
     printf("  --target seeded | circle:<amp_m>:<period_s> | line:<reach_m>:<dur_s>:<deg>  N0 MOVABLE TARGET (canon 4.5): seeded closed-form target drift the guidance chases. Default OFF (FIXED origin) => byte-identical.\n");
