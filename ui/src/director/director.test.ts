@@ -23,9 +23,9 @@ describe("decideAutoCut — the §11 camera grammar", () => {
   const ctxHigh = { phase: Phase.Coast, altitudeM: 40000 };
   const ctxLow = { phase: Phase.LandingBurn, altitudeM: 800 };
 
-  it("cuts WIDE (pad long lens) on the entry-burn phase change", () => {
+  it("rides CHASE through the entry burn (a pad cam at 40-62 km sees sub-pixel — first-light fix)", () => {
     const e = evt(EvtCode.PhaseChange, [Phase.EntryBurn]);
-    expect(decideAutoCut("CHASE", e, ctxHigh)).toBe("PAD_LONG_LENS");
+    expect(decideAutoCut("PAD_LONG_LENS", e, ctxHigh)).toBe("CHASE");
   });
 
   it("cuts to CHASE when aero descent begins", () => {
@@ -38,9 +38,9 @@ describe("decideAutoCut — the §11 camera grammar", () => {
     expect(decideAutoCut("CHASE", evt(EvtCode.IgnitionCmd), ctxLow)).toBe("ONBOARD_DOWN");
   });
 
-  it("stays WIDE for an entry-burn ignition high up (not the landing burn)", () => {
+  it("stays CLOSE for an entry-burn ignition high up (not the landing burn; first-light fix)", () => {
     expect(decideAutoCut("PAD_LONG_LENS", evt(EvtCode.EngineStart), ctxHigh)).toBe(
-      "PAD_LONG_LENS"
+      "CHASE"
     );
   });
 

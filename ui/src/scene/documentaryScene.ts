@@ -54,8 +54,12 @@ import { buildMarkers, type MarkersHandle } from "./markers";
 
 // dark-studio palette (Bonsai borrowed this from the booster canon; borrow back)
 const STUDIO_BG = 0x07090c;
-const STUDIO_FOG_NEAR = 400;
-const STUDIO_FOG_FAR = 6000;
+// FIRST-LIGHT FIX: the original 400/6000 m fog was Bonsai's DESK-SCALE preset pasted
+// into a 70 km scene — everything beyond 6 km fogged to background, so the entire
+// descent rendered pure black ("where is the freaking rocket"). Fog must be a subtle
+// depth cue at SCENE scale, never an occluder of the flight.
+const STUDIO_FOG_NEAR = 30_000;
+const STUDIO_FOG_FAR = 150_000;
 
 export interface DocumentaryScene {
   /** Rebased-by-floating-origin root (camera-relative content). */
@@ -111,7 +115,9 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   world.add(grid);
 
   // --- lighting rig (Bonsai dark-studio: hemisphere fill + warm key + cool rim)
-  const hemi = new HemisphereLight(0x8fa8c0, 0x05070a, 0.35);
+  // FIRST-LIGHT FIX: 0.35 was night-studio dim; floor the fill so the hull always
+  // reads. (The VISIBILITY daylight rig supersedes this with a proper sun/sky.)
+  const hemi = new HemisphereLight(0x8fa8c0, 0x0a0e14, 1.0);
   scene.add(hemi);
   const key = new DirectionalLight(0xfff2e2, 1.6);
   key.position.set(60, 120, 40);

@@ -55,7 +55,11 @@ export function decideAutoCut(
     case EvtCode.PhaseChange: {
       // new phase in args[0]
       const newPhase = Math.round(evt.args[0]) as Phase;
-      if (newPhase === Phase.EntryBurn) return "PAD_LONG_LENS"; // wide for the entry burn
+      // FIRST-LIGHT FIX: a pad camera at entry burn stares at a 3.7 m booster 40-62 km
+      // away — sub-pixel by geometry, "where is the rocket". Ride CHASE until the
+      // vehicle is near enough to subtend real pixels; the pad long-lens still owns
+      // the final approach + touchdown (where the reference-footage grammar pays).
+      if (newPhase === Phase.EntryBurn) return "CHASE";
       if (newPhase === Phase.AeroDescent) return "CHASE"; // follow the fall
       if (newPhase === Phase.LandingBurn) return "ONBOARD_DOWN"; // the leg-and-plume view
       if (
@@ -68,9 +72,10 @@ export function decideAutoCut(
     }
     case EvtCode.IgnitionCmd:
     case EvtCode.EngineStart: {
-      // ignition in the landing regime -> onboard; entry-burn ignition -> stay wide
+      // ignition in the landing regime -> onboard; entry-burn ignition -> stay close
+      // (FIRST-LIGHT FIX: was PAD_LONG_LENS — sub-pixel at entry-burn range)
       if (ctx.phase === Phase.LandingBurn || ctx.altitudeM < 4000) return "ONBOARD_DOWN";
-      return "PAD_LONG_LENS";
+      return "CHASE";
     }
     case EvtCode.LegDeploy:
       // legs come out on final -> cut to the pad long lens for the landing
@@ -160,7 +165,9 @@ export function presetPose(
  * the floating origin.
  */
 export class DirectorRig {
-  preset: CameraPreset = "PAD_LONG_LENS";
+  // FIRST-LIGHT FIX: start on CHASE — the flight begins at 62 km, where a pad camera
+  // sees empty sky. The auto-director cuts to the pad long-lens when the shot pays.
+  preset: CameraPreset = "CHASE";
   auto = true;
 
   // current (output) pose, sim-world
