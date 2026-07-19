@@ -1,0 +1,5 @@
+config,lambda_min,ou_theta,seed,runs,selftest,terminal,exe_sha,landed,off_pad,too_hard,fuel_out,other,td_v_mean,td_v_max,lat_mean,fuel_mean,wall_s_per_run,notes
+baseline,2.0,0.15,42,60,PASS,194,orphan,44,13,2,1,0,2.953,5.168,14.37,4552.5,contended,adopted-orphan-PID21780-matches-handoff-tdv2.95;crashes=13offpad+2toohard+1fuelout
+L1_lammin0.5,0.5,0.15,42,60,PASS,194,7B1A009DA43795BF,42,15,2,1,0,3.00,5.35,14.49,4559,30.82,LEVER1-lambda-floor-0.5
+L2a_outheta0.10,2,0.1,42,60,PASS,194,0D0561C2F38ED7CB,42,16,2,0,0,3.00,5.28,13.31,4546,34.11,LEVER2-OU-0.10
+L2b_outheta0.08,2.0,0.08,42,60,PASS,194,3D1AD948CFDC9AD1,41,16,2,1,0,2.91,4.22,13.53,4547,20.26,LEVER2-OU-0.08-rerun

@@ -1,0 +1,65 @@
+# Baseline (LAMBDA_MIN=2.0, OU_THETA=0.15) MPPI_DBG trace: AERO s42 run1 --mppi
+# Captured by MPPIVAR (2tmyln9a) from _mvar_wt baseline exe SHA C7690E13.
+# MPPI_DBG reads existing state only (no RNG/control-flow change; determinism preserved).
+# KEY: lambda floor is LAMBDA_MIN=2.0 but servo lambda bottoms at ~33 (rep=260/270 lam=33.1),
+#      never approaching 2.0 -> at K=256 the floor is INACTIVE (>16x headroom). ESS in-band [5.1..51.2].
+[mppi] rep=0 thr0=0.000 alat=(-3.18,-3.20) ess=11.9 lam=154.5 beta=19171.2 cspread=828.8
+[mppi] rep=10 thr0=0.000 alat=(-3.20,-3.16) ess=31.0 lam=277.1 beta=17265.6 cspread=2734.4
+[mppi] rep=20 thr0=0.000 alat=(-3.20,-3.18) ess=30.1 lam=262.4 beta=15340.1 cspread=3282.5
+[mppi] rep=30 thr0=0.000 alat=(-3.20,-3.20) ess=11.3 lam=128.6 beta=13109.9 cspread=2554.5
+[mppi] rep=40 thr0=0.000 alat=(-3.20,-0.55) ess=37.7 lam=128.6 beta=11060.5 cspread=1475.0
+[mppi] rep=50 thr0=0.000 alat=(-3.12,2.18) ess=49.1 lam=128.6 beta=9387.5 cspread=1656.3
+[mppi] rep=60 thr0=0.000 alat=(-3.20,3.08) ess=18.4 lam=127.3 beta=7744.6 cspread=1484.4
+[mppi] rep=70 thr0=0.000 alat=(-3.10,2.62) ess=10.4 lam=64.3 beta=6769.0 cspread=1464.1
+[mppi] rep=80 thr0=0.000 alat=(-3.06,3.07) ess=17.3 lam=95.2 beta=5687.9 cspread=1456.8
+[mppi] rep=90 thr0=0.000 alat=(-3.20,2.26) ess=36.1 lam=122.2 beta=4743.1 cspread=1627.3
+[mppi] rep=100 thr0=0.000 alat=(-3.20,1.18) ess=27.0 lam=62.1 beta=4037.9 cspread=1090.0
+[mppi] rep=110 thr0=0.000 alat=(-2.99,1.05) ess=13.4 lam=62.1 beta=3273.1 cspread=804.1
+[mppi] rep=120 thr0=0.000 alat=(-3.19,1.21) ess=42.7 lam=62.1 beta=2760.3 cspread=730.3
+[mppi] rep=130 thr0=0.000 alat=(-3.13,1.82) ess=40.8 lam=47.9 beta=2374.7 cspread=823.1
+[mppi] rep=140 thr0=0.000 alat=(-2.79,2.19) ess=11.0 lam=47.9 beta=2103.4 cspread=843.6
+[mppi] rep=150 thr0=0.000 alat=(-0.93,2.93) ess=13.7 lam=47.9 beta=1992.3 cspread=756.2
+[mppi] rep=160 thr0=0.000 alat=(0.36,1.77) ess=29.4 lam=71.6 beta=1931.0 cspread=941.3
+[mppi] rep=170 thr0=0.000 alat=(-0.33,-0.24) ess=19.5 lam=34.0 beta=1932.6 cspread=633.4
+[mppi] rep=180 thr0=0.000 alat=(-1.50,-1.21) ess=34.3 lam=64.5 beta=1918.6 cspread=953.2
+[mppi] rep=190 thr0=0.000 alat=(-1.72,1.30) ess=32.4 lam=64.5 beta=1956.8 cspread=796.8
+[mppi] rep=200 thr0=0.000 alat=(0.61,3.02) ess=31.6 lam=64.5 beta=1857.3 cspread=722.1
+[mppi] rep=210 thr0=0.000 alat=(3.08,3.20) ess=44.3 lam=64.5 beta=1789.1 cspread=719.9
+[mppi] rep=220 thr0=0.000 alat=(2.01,1.55) ess=18.6 lam=64.4 beta=1683.0 cspread=824.7
+[mppi] rep=230 thr0=0.000 alat=(-1.30,-1.54) ess=28.5 lam=64.3 beta=1582.0 cspread=668.9
+[mppi] rep=240 thr0=0.000 alat=(-2.68,-1.90) ess=29.2 lam=64.3 beta=1755.2 cspread=795.9
+[mppi] rep=250 thr0=0.000 alat=(-2.17,2.55) ess=33.7 lam=64.3 beta=1592.9 cspread=780.2
+[mppi] rep=260 thr0=0.000 alat=(3.19,3.12) ess=12.9 lam=33.1 beta=1515.3 cspread=753.7
+[mppi] rep=270 thr0=0.000 alat=(3.07,3.20) ess=11.8 lam=33.1 beta=1508.4 cspread=822.5
+[mppi] rep=280 thr0=0.000 alat=(3.20,1.16) ess=42.0 lam=64.2 beta=1290.6 cspread=685.1
+[mppi] rep=290 thr0=0.000 alat=(2.91,-2.08) ess=44.2 lam=64.2 beta=1100.7 cspread=747.1
+[mppi] rep=300 thr0=0.000 alat=(-2.44,-2.44) ess=25.7 lam=64.2 beta=1023.3 cspread=859.3
+[mppi] rep=310 thr0=0.000 alat=(-2.82,1.02) ess=45.5 lam=64.2 beta=997.5 cspread=766.2
+[mppi] rep=320 thr0=0.000 alat=(-1.07,2.06) ess=30.9 lam=64.2 beta=966.5 cspread=815.5
+[mppi] rep=330 thr0=0.000 alat=(3.17,3.20) ess=17.0 lam=64.2 beta=964.5 cspread=793.7
+[mppi] rep=340 thr0=0.000 alat=(2.95,3.20) ess=10.4 lam=64.2 beta=789.8 cspread=1183.4
+[mppi] rep=350 thr0=0.000 alat=(3.20,3.08) ess=14.2 lam=64.2 beta=647.3 cspread=772.9
+[mppi] rep=360 thr0=0.000 alat=(3.20,2.71) ess=20.6 lam=95.2 beta=412.4 cspread=1065.9
+[mppi] rep=370 thr0=0.000 alat=(3.15,-2.96) ess=47.2 lam=79.7 beta=417.0 cspread=962.1
+[mppi] rep=380 thr0=0.000 alat=(3.10,-3.19) ess=23.8 lam=71.9 beta=298.8 cspread=1099.7
+[mppi] rep=390 thr0=0.000 alat=(3.16,3.00) ess=40.5 lam=71.9 beta=302.6 cspread=920.8
+[mppi] rep=400 thr0=0.000 alat=(3.20,3.14) ess=46.2 lam=99.2 beta=177.6 cspread=1000.7
+[mppi] rep=410 thr0=0.000 alat=(3.20,3.20) ess=43.3 lam=81.6 beta=186.8 cspread=1191.4
+[mppi] rep=420 thr0=0.000 alat=(3.20,0.29) ess=17.5 lam=50.8 beta=153.7 cspread=773.8
+[mppi] rep=430 thr0=0.000 alat=(3.04,-3.15) ess=15.1 lam=50.8 beta=177.8 cspread=782.0
+[mppi] rep=440 thr0=0.000 alat=(-1.26,-3.14) ess=11.6 lam=50.8 beta=147.5 cspread=767.3
+[mppi] rep=450 thr0=0.000 alat=(-3.18,-2.69) ess=11.4 lam=41.9 beta=212.4 cspread=833.2
+[mppi] rep=460 thr0=0.000 alat=(-3.02,1.36) ess=23.5 lam=68.6 beta=106.2 cspread=823.0
+[mppi] rep=470 thr0=0.000 alat=(-3.09,2.91) ess=18.6 lam=34.2 beta=140.2 cspread=578.4
+[mppi] rep=480 thr0=0.000 alat=(-1.12,2.92) ess=48.2 lam=34.2 beta=105.3 cspread=515.1
+[mppi] rep=490 thr0=0.000 alat=(1.11,3.13) ess=10.1 lam=18.1 beta=25.5 cspread=551.3
+[mppi] rep=500 thr0=0.000 alat=(1.89,2.72) ess=28.0 lam=6.0 beta=29.0 cspread=129.4
+[mppi] rep=510 thr0=0.000 alat=(1.76,2.79) ess=194.9 lam=2.0 beta=39.2 cspread=6.3
+[mppi] rep=520 thr0=0.000 alat=(0.38,2.75) ess=207.3 lam=2.0 beta=34.4 cspread=8.0
+[mppi] rep=530 thr0=0.000 alat=(0.29,2.79) ess=211.9 lam=2.0 beta=28.9 cspread=6.4
+[mppi] rep=540 thr0=0.000 alat=(0.91,2.76) ess=203.0 lam=2.0 beta=27.8 cspread=6.3
+[mppi] rep=550 thr0=0.000 alat=(0.60,2.80) ess=201.5 lam=2.0 beta=24.7 cspread=9.6
+[mppi] rep=560 thr0=0.000 alat=(0.55,2.93) ess=204.2 lam=2.0 beta=24.6 cspread=6.6
+[mppi] rep=570 thr0=0.000 alat=(0.87,2.89) ess=204.4 lam=2.0 beta=24.2 cspread=6.0
+[mppi] rep=580 thr0=0.000 alat=(0.71,2.81) ess=207.2 lam=2.0 beta=24.0 cspread=6.5
+RESULT: HARD  fault=none  td_v=2.63 m/s  lat=10.48 m  tilt=0.23 deg  fuel=4444 kg  t=58.6 s  maxq=35438 Pa
