@@ -18,6 +18,19 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**D-022 — S0 ROUND-0 (2026-07-19 ~10:00): the distill pipeline PROVEN end-to-end; the
+parity gate honestly NOT MET — and the FIRST LEARNED LANDING is on the books.** Farm 36
+train seeds × 20 = 720 teacher runs / 2.08M rows / 570 MB → CUDA train 195 s (val MSE
+.068/.079/.101) → export **NP_VERSION 1** (sha b4141469…) → KAT pinned bit-exact FROM THE C
+PASS → selftest PASS → leak byte-clean (TERMINAL 194, run-1) → `--neural` AERO ×60 =
+**1/60 s42 · 1/60 s7 · 0/60 s99** vs the ≥42/60 gate: the pre-registered round-0
+covariate-shift shortfall (th 31 dominant + throttle-MSE plateau ⇒ the vertical channel is
+the weak imitation). Pair bit-identical; **52.4 s wall for ×60 vs MPPI's ~540-900 s**; the
+one s42 landing = the first learned descent ever (HARD 5.98 / 16.36, deterministic).
+**Next lever: DAgger round-1** (label the states GM_NEURAL actually visits with MPPI
+replans — needs the small tap-under-neural extension), NOT more BC epochs. Full record:
+DECISIONS **D-022**.
+
 **D-021 — N1-S0 SCAFFOLD INTEGRATED (2026-07-19 morning): the teacher tap + trainer +
 GM_NEURAL skeleton, all default-off byte-clean.** `--policy-log` logs one 36-col f64 row per
 GM_MPPI tick (App-G legal observation + the EXECUTED command; pure observation — sim

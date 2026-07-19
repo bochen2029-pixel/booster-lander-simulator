@@ -1379,3 +1379,38 @@ runs/ws_probe.mjs bumped v3→v4 (HELLO 80/world_hash, target_est@232, n_eng@269
 (S0 gate ≥42/60; a round-0 BC shortfall is the EXPECTED honest outcome — DAgger is the
 designed fix, per neural_policy_design §B.1).
 
+## D-022 — S0 round-0: the pipeline PROVEN end-to-end; the parity gate honestly NOT met (2026-07-19)
+
+**The first learned guidance policy in the project's history flew today — and the round-0
+number is recorded exactly as measured.** The full S0 loop executed: FARM (36 train seeds
+1000–1035 × 20 MPPI runs = 720 teacher descents, 2,076,527 (o,a) rows, 570 MB; the machine
+slept mid-seed-1035 — the batch froze, resumed on wake, completed validly, and the deadline
+then ended the farm gracefully) → TRAIN (torch cu128 on the RTX, 195 s, 150 epochs;
+val MSE [a_lat0, a_lat1, throttle] = [0.068, 0.079, 0.101] normalized) → EXPORT
+(`neural_policy_weights.h` **NP_VERSION 1**, weights_sha256[:16]=b4141469fb0dce15,
+generation-stamped) → **KAT pinned from the C fixed-order pass itself** at %.17g
+(2.0362957123562331, −2.5091017358926435, 0.97730989476634422; bit-exact, tol 0.0 — never
+numpy, accumulation order differs) → selftest PASS → leak re-checks byte-clean (TERMINAL
+194/200; MPPI run-1 2.63/10.48) → the parity batches.
+
+**The honest result:** `--neural` AERO ×60 = **1/60 (s42) · 1/60 (s7) · 0/60 (s99)** vs the
+S0 gate ≥42/60 — **NOT MET**, by the exact failure mode the design pre-registered
+(neural_policy_design §B.1): round-0 behavior cloning imitates on-distribution (tiny val
+MSE) and drifts off the teacher's state manifold in closed loop. Crash anatomy s42:
+off-pad 12 / **too-hard 31** / fuel-out 16 — the too-hard dominance + the throttle
+channel's plateaued val MSE (0.101 vs a_lat's 0.068/0.079) finger the VERTICAL channel as
+the weak imitation. And the flip side is real: **the s42 batch contains the first-ever
+learned landing** (HARD, td_v 5.98, lat 16.36 — deterministic, replayable), the ×60 pair
+is **bit-identical**, and the wall clock is **52.4 s for 60 runs vs MPPI's ~540–900 s**.
+
+**What S0 therefore DELIVERED vs DEFERRED:** the §H-S0 deliverable that "pays for the whole
+pipeline" — env/tap → dataset → train → freeze → fp64 export → bit-deterministic golden-able
+C inference, byte-clean when off — is DELIVERED and shipped (this commit: the NP_VERSION-1
+header + the pinned KAT). The MPPI-parity claim is DEFERRED to DAgger round-1, the designed
+fix: roll out the CURRENT policy, label the states it actually visits with MPPI replans,
+retrain (requires a small tap extension — log under GM_NEURAL flight with teacher queries —
+the §B.1 protocol). Secondary levers if needed: throttle-channel loss weighting, Tier-A
+variant with analytic vertical (hoverslam throttle + learned lateral only), more seeds.
+Per the report-the-null tradition (D-013/D-014/D-018): a measured 1/60 with the pipeline
+proven beats an unmeasured promise.
+

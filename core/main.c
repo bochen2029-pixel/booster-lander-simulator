@@ -209,9 +209,15 @@ static void test_neural_kat(void){
     CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (placeholder bit-exact)");
     CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (placeholder bit-exact)");
 #else
-    /* REAL-WEIGHTS expectation: regenerate EXP0/EXP1/EXP2 from the exported header (see comment). */
-    (void)a;
-    printf("  WARN: NP_VERSION=%d — KAT expected vector must be regenerated for real weights.\n", NP_VERSION);
+    /* REAL-WEIGHTS expectation — NP_VERSION 1 (S0 distill, weights_sha256[:16]=b4141469fb0dce15,
+     * D-022). Dumped from THIS binary's fixed-order pass at %.17g (fp64 round-trips exactly);
+     * NEVER recompute in numpy (accumulation order differs). Regenerate on every export. */
+    const double EXP0 =  2.0362957123562331;
+    const double EXP1 = -2.5091017358926435;
+    const double EXP2 =  0.97730989476634422;
+    CHECKF(a[0], EXP0, 0.0, "NP KAT a_lat0 (NP_VERSION 1 bit-exact)");
+    CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (NP_VERSION 1 bit-exact)");
+    CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (NP_VERSION 1 bit-exact)");
 #endif
     /* determinism: the forward pass is a pure function — twice on the same input is bit-identical. */
     double a2[3]; neural_policy_forward(o, a2);
