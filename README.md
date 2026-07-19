@@ -13,6 +13,28 @@ crashes.
 > what the telemetry tells it. Delete `ui/` and `shell/` and the core still runs, still lands,
 > and still prints its success rate.
 
+![LZ-COCKPIT — a real solved descent, daytime external view](docs/media/lz-cockpit-daytime.png)
+
+> *LZ-COCKPIT: the booster on a live, unscripted aero-descent — external tracking camera,
+> guidance HUD, and propagation-delayed audio, all driven by the one-way telemetry stream.*
+
+---
+
+## Run it (Windows)
+
+A one-click desktop app — its own window, no terminal, no browser. It spawns and supervises the
+simulation core itself; just launch and press **LAUNCH**.
+
+- **[Download the latest Windows release »](https://github.com/bochen2029-pixel/booster-lander-simulator/releases/latest)** — grab the **portable `.zip`** (unzip, double-click `Booster Lander.exe`) or the **`-setup.exe`** installer.
+- Controls: **drag** to orbit the external camera, **wheel** to zoom, **LAUNCH** to fly another
+  seed/scenario/run. The view stays third-person external so you always watch the booster land.
+- Unsigned build — SmartScreen may warn on first launch (*More info → Run anyway*).
+
+> **Coming soon: an Unreal Engine 5 client.** The telemetry protocol is renderer-agnostic by
+> design, so a UE 5 observer — Nanite hull, Lumen/MegaLights plume-as-light, Niagara pyro,
+> MetaSounds — is being built as *another* pure client on the exact same stream. The core never
+> changes; the WebGPU cockpit stays the fast, always-works view, and UE becomes the IMAX theater.
+
 ---
 
 ## Why it is hard to fake
