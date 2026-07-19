@@ -146,10 +146,14 @@ export function presetPose(
       break;
     }
     case "FREE_ORBIT": {
-      // Slow auto-orbit at a fixed radius around the vehicle.
+      // THE DEFAULT EXTERNAL VIEW (KSP-style): side-on at framing distance, whole
+      // vehicle + plume in frame, gentle drift (a full orbit takes ~7 min — near-
+      // static, so the shot reads as a steady external tracker, not a carousel).
+      // Slightly ABOVE center-height so the approaching ground enters frame late
+      // in the descent and the touchdown is seen side-on.
       const r = 150;
-      const a = orbitT * 0.15;
-      out.eye.set(vehPos.x + Math.cos(a) * r, vehPos.y + Math.sin(a) * r, vehPos.z + 70);
+      const a = orbitT * 0.015;
+      out.eye.set(vehPos.x + Math.cos(a) * r, vehPos.y + Math.sin(a) * r, vehPos.z + 35);
       out.fov = 45;
       break;
     }
@@ -165,10 +169,13 @@ export function presetPose(
  * the floating origin.
  */
 export class DirectorRig {
-  // FIRST-LIGHT FIX: start on CHASE — the flight begins at 62 km, where a pad camera
-  // sees empty sky. The auto-director cuts to the pad long-lens when the shot pays.
-  preset: CameraPreset = "CHASE";
-  auto = true;
+  // OPERATOR DOCTRINE (first light, verbatim: "the whole point is to see the rocket
+  // autoland, from third external perspective"): the DEFAULT is a KSP-style EXTERNAL
+  // side view that frames the whole vehicle and NEVER cuts away — FREE_ORBIT at
+  // framing distance with a near-static drift. The cinematic auto-director (pad
+  // long-lens / onboard cuts) is OPT-IN via the AUTO toggle, never the default.
+  preset: CameraPreset = "FREE_ORBIT";
+  auto = false; // cinematic cuts are opt-in; the external view never abandons the rocket
 
   // current (output) pose, sim-world
   readonly eye = new Vector3(1200, 800, 30);
