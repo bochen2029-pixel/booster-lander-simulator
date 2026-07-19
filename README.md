@@ -135,7 +135,8 @@ And the claims below no longer require trusting the author's machine: **CI re-ru
 selftest (including the bit-identical determinism `memcmp`) and a 200-run Monte-Carlo gate on a
 clean `windows-latest` runner on every push** (`.github/workflows/ci.yml`).
 
-**Done and verified (milestones M0–M2 + an independent physics audit):**
+**Done and verified (milestones M0–M3, M5, M6 + the N-track through S0; canon is
+`CLAUDE_v2.md`, adopted D-019):**
 
 - **Full C11 headless core** — builds clean under MSVC 2022 with zero external dependencies.
 - **Ten physics oracles pass** (`--selftest`): US76 atmosphere, Philox RNG determinism + normal
@@ -147,11 +148,24 @@ clean `windows-latest` runner on every push** (`.github/workflows/ci.yml`).
   tail is **lateral-coupled, not solver-quantization-limited** (measured: corr(td_lat, td_v) ≈ +0.64
   across the tail, while the ignition-timing quantization bound at the 50 Hz guidance tick is only
   ~0.2 m/s — the tail is a dispersion/steering problem, not a discretization floor).
-- **ENTRY (62 km, Mach ~5, 3 km cross-range) lands 41–50%** across seeds 42/7/99 (median miss
-  ~23 m, 99/100 within 50 m, zero structural failures) — via the predictive entry-burn supervisor,
-  a ZEM/ZEV collision-course bank during the three-engine burn, and an SRP-shielded landing burn.
-- **AERO_OFFSET (12 km, mean 500 m offset) lands 55–60%** under the reactive tier-0 law and
-  **63.3%** under the integrated lateral-only MPPI (CPU, K=256, bit-deterministic under OpenMP).
+- **ENTRY (62 km, Mach ~5, 3 km cross-range): M6 GREEN — 95/91/93 per 100 across seeds 42/7/99**
+  under closed-loop MPPI replanning (`--mppi`), and it **holds the ≥90 gate even through the noisy
+  navigation layer** (90/100 `--nav-noisy`). The reactive-law plateau (88) and every
+  estimation/tuning lever were measured-closed first (D-012…D-016).
+- **AERO_OFFSET (12 km, mean 500 m offset) lands 73.3%** (tier-0 and MPPI 44/60 alike). The
+  remaining gap to ≥90 was proven from four independent angles to be a **plant-authority ceiling**,
+  not a solver problem (the controller realizes ~0.70 of the physical 1107 m divert ceiling —
+  D-018), which redirected the effort to a learned policy.
+- **A distilled neural guidance policy (`GM_NEURAL`, `--neural`) now matches-or-beats its MPPI
+  teacher on every held-out seed: 45/47/43 per 60 vs MPPI's 44/40/42 — at ~9× the speed** (~55 s
+  per 60-run batch vs 9–15 min). Trained by DAgger against the plant (teacher labels logged at the
+  states the *policy* visits), frozen to an fp64 C header, bit-deterministic, golden-able, and
+  gated by the same byte-equality battery as everything else (D-021…D-023). The policy never
+  trained on the gate seeds — that law is enforced in the trainer itself.
+- **The play menu is live end-to-end:** deterministic wind-shear (`--gust`), engine-out
+  (`--engine-out k@t`), and a seeded moving target (`--target`) are plant modules — armable from
+  the desktop cockpit — all default-off and byte-identical when unarmed, with protocol v4
+  streaming the target estimate and engine health to the renderer.
 
 ### What the Monte-Carlo numbers mean (the dispersion envelope)
 
@@ -166,11 +180,14 @@ state feedback alone**. With `--inject`, additional parameter dispersions the gu
 thrust up to −8%, Isp up to −1%, CoM offset up to 2 cm at random azimuth (TERMINAL passes this
 Tier-B at 97.3–98.1%).
 
-**Honest scoping of what is still idealized:** guidance currently reads true state (the canon's
-`NAV_NOISY` measurement layer — position/velocity/attitude noise and gyro bias — is specified but
-not yet implemented), and the guidance's internal predictors share the plant's aero tables (thrust
-/Isp/CoM/wind mismatch is exercised via `--inject` and the blind winds; aero-coefficient scatter is
-not yet dispersed). The physics is honest; the estimation problem is the next honesty upgrade.
+**Honest scoping of what is still idealized:** the `NAV_NOISY` measurement layer IS built
+(`--nav-noisy`: position/velocity/attitude noise + gyro-bias walk; the headline gates are quoted
+under it where claimed), but the guidance's internal predictors still share the plant's aero
+tables (thrust/Isp/CoM/wind mismatch is exercised blind via `--inject`; aero-coefficient scatter
+is not yet dispersed — a future CFD-regeneration event replaces the hand-modeled tables). With a
+*moving* target armed, the verdict still scores the origin until the target-relative-verdict stage
+lands (documented in D-020). Failed experiments are recorded with numbers, not deleted
+(D-014 wind estimator, D-018 sampler branch, D-022 round-0 distillation).
 - **Plant physics independently audited** — a 5-agent, C-only audit confirmed the dynamics on three
   separate code paths and found and fixed real bugs (grid-fin allocation signs, gimbal rate-state
   windup, missing roll damping, a transonic CoP artifact).
@@ -182,14 +199,18 @@ not yet dispersed). The physics is honest; the estimation problem is the next ho
 
 **In progress / not yet done:**
 
-- **Closing ENTRY/AERO to their ≥90% gates** — the remaining tails are a 26–33 m pad-grazing band
-  and a hard-touchdown tail on uncentered arrivals (tuning, not architecture; the measured optimal-
-  divert ceiling from 12 km is ~1.1 km, so the dispersions are physically well-posed).
-- The **NAV_NOISY measurement layer** (estimation honesty) and aero-coefficient scatter.
-- **MPPI on CUDA** (`sm_89`, K=16384, p99 ≤ 6 ms gate) — the CPU MPPI is the frozen parity reference.
-- The **full cinematic renderer** — the binary-telemetry `--serve` path is live and validated
-  end-to-end; plume, dust, sky, audio propagation, HUD, and director camera are designed and
-  partially scaffolded but not yet wired live (needs a real WebGPU browser, not headless).
+- **M4 (AERO ≥90%) via the learned policy** — DAgger disturbance rounds in progress (gust, then
+  engine-out), building toward the compound-recovery showcase: engine-out × wind-shear × moving
+  target in one descent, scored against the reachable set. (MPPI on CUDA is DONE — fp64, ≤1 ULP
+  parity, bit-stable, rescoped to the honest 100 ms replan budget, D-015.)
+- **Target Stage-1** — the target-relative verdict + SEA deck heave, unlocking honest
+  moving-target scoring and the ASDS scenario.
+- **The interactive command channel** — live mid-flight gust/engine-kill/target-drag over the
+  closed upstream enum, journaled so improvised runs replay bit-exactly; then an Unreal Engine 5
+  client speaking the same telemetry + command wires.
+- The **full cinematic renderer** — the documentary WebGPU cockpit ships in the one-click app
+  (procedural booster, plume, HUD, phase ladder, propagation-honest audio sketch); the cinematic
+  maximalism (volumetrics, director, long-exposure) lands per the canon's M7/M8 ladder.
 
 See `RUN_STATE.md` for the current ledger and `DECISIONS.md` for the architecture-decision log
 (D-001 …). The canon is `CLAUDE_v2.md` (adopted D-019): it adds the perception-to-policy
