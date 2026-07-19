@@ -18,6 +18,22 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★ D-025 — ENGINE-OUT ROUNDS, the honest split verdict (2026-07-19 ~17:30): the wider
+curriculum IMPROVED the old skills; ENTRY is round-0; and THE TEACHER ITSELF COLLAPSES under
+random engine-out — the axis's real finding.** NP_VERSION 4 (7.03M rows, six datasets; sha
+cfa22fbee…): AERO clean **46/60 (teacher+2, best ever)**, gust-A held 45/60 — zero forgetting.
+ENTRY (first exposure, one EO round only): clean 0/60 BUT the near-miss anatomy (57 off-pad,
+ZERO faults, run-1 reaches 19.6 m from a 62 km start) = the exact AERO round-0 pattern that
+DAgger converted 1→4→45. **The bombshell comparator: ENTRY --engine-out random: MPPI 1/60
+(from 57/60 clean!) — the classical stack loses 56 of 57 to a random in-burn failure despite
+directive-7 rollouts seeing the dead engine.** So the student-vs-teacher engine-out question is
+MOOT until two things exist: (1) the 2-ENGINE FRONTIER ORACLE (§A.4 ceiling.c variant — are
+random draws even IN the reachable set? 1/60 may be near-physics), and (2) a better-than-MPPI
+teacher for this axis = the expert-iteration operators (cbc89fe: verdict-filtered self-imitation
++ student-warm-started refinement — engine-out IS rollout-visible). ENTRY clean DAgger rounds
+proceed meanwhile (teacher is excellent clean at 57/60). Gates all green: KAT v4 pinned,
+TERMINAL byte-clean, pairs deterministic. Full record: DECISIONS **D-025**.
+
 **★★★★★ D-024 — GUST ROUNDS (2026-07-19 ~15:00): the student is MORE SHEAR-ROBUST than its
 teacher — the N2 "recovery ≥ MPPI on ≥1 axis" gate MET by distillation alone.** NP_VERSION 3
 (5.15M-row full-curriculum retrain; sha 5fd2b9a7…): s42 ×60 clean 43 vs MPPI 44 (parity);

@@ -1501,3 +1501,47 @@ of the wider curriculum, within batch noise). Held-out law intact throughout (tr
 oracle) → pairwise → the joint compound (where MPPI weakens as a teacher and RL/N3 takes
 over). Target axis waits on target Stage-1 (the §A.3 verdict).
 
+## D-025 — Engine-out rounds: the split verdict, and THE TEACHER COLLAPSES on this axis (2026-07-19)
+
+**NP_VERSION 4** (weights_sha256[:16]=cfa22fbee79c8aa8; 7,029,353 rows / 1,620 runs across all
+six datasets — clean r0+r1, gusty ×2, engine-out teacher (12 ENTRY seeds ×15, `--engine-out
+random`) + engine-out on-policy shadow (12 ×15); 432 s CUDA; KAT re-pinned from the C pass
+(0.60011940451908519 / 1.0392702394237581 / 0.40001825395469304)). Gates green: selftest (KAT
+v4), TERMINAL ×200 byte-clean, pairs bit-identical, held-out law intact (3000s train seeds).
+
+**The results, honestly split three ways:**
+1. **The wider curriculum IMPROVED the banked skills:** AERO clean **46/60 — teacher +2, the
+   best number yet** (43→46 vs MPPI 44); gust-A held at 45/60 vs MPPI's 38. No forgetting.
+2. **ENTRY is at its round-0 equivalent:** clean 0/60 — but with the SAME near-miss anatomy
+   AERO showed pre-DAgger (57 off-pad / ZERO faults / no fuel-outs; verbose run-1 reaches
+   **19.6 m** from the pad from a 62 km, Mach-5.6 start, arriving hot at 10.05 m/s). One
+   on-policy round took AERO 1→4; Tier-A′ took it to 45. The ENTRY ladder has begun, not failed.
+3. **THE AXIS FINDING — the teacher itself collapses:** ENTRY `--engine-out random`:
+   **MPPI 1/60 = 1.7%, down from 57/60 = 95.0% clean.** The classical stack — closed-loop
+   replanning whose rollouts SEE the reduced n_eng and the induced torque (directive 7) —
+   loses 56 of 57 descents to a random in-burn engine failure. (Neural: 0/60, moot at ENTRY
+   round-0.) The H.0 working assumption "MPPI is a competent single-disturbance teacher" is
+   FALSIFIED for this axis at random draw times: most of the teacher-farm demonstrations are
+   demonstrations of FAILING.
+
+**The redirect (the D-018 pattern — a negative result that points precisely):**
+- **The 2-engine frontier oracle (§A.4) is now BLOCKING, not optional.** Until `ceiling.c` is
+  generalized (n_eng-scaled a_max + trim debit, per-failure-time), we cannot distinguish
+  "1/60 because physics forbids recovery for most random draws" (late-burn failures may be
+  out-of-frontier — an honest crash per directive 6) from "1/60 because the controller is far
+  from the frontier." Every engine-out claim waits on this number.
+- **A better teacher than MPPI is required for the in-frontier subset** — and the
+  expert-iteration design (cbc89fe, runs/expert_iteration_design.md) already prescribes it:
+  verdict-filtered self-imitation (keep only demonstrations that LANDED) + student-warm-started
+  MPPI refinement (engine-out IS rollout-visible, the axis where the composite operator is
+  valid). Distilling a 1.7% teacher would teach failure.
+- **ENTRY clean DAgger rounds proceed meanwhile** — the teacher is excellent there (57/60),
+  and ENTRY competence is a prerequisite for any engine-out recovery anyway.
+
+**Corrected expectations on record:** engineout_design §8.2 predicted the frontier SHRINKS
+under engine-out; D-020's smoke (in-burn `1@20` ⇒ CRASHED 1787 m off) hinted the shrink is
+large. Today quantified the consequence: at random failure times the surviving envelope is
+small enough to break a 95%-clean controller. That makes the eventual recovery demo MORE
+impressive, not less — and makes the frontier oracle the arbiter of what "recovery" can
+honestly mean. Artifacts: runs/eoT_*_s42x60.txt, runs/eo_clean_aero.txt, runs/eo_gustA.txt.
+
