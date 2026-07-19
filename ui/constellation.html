@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MC CONSTELLATION — Booster Lander</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; background: #0a0c10; overflow: hidden; }
+      #app { position: fixed; inset: 0; }
+      #boot-fail {
+        position: fixed; inset: 0; display: none; place-items: center;
+        color: #f88; font: 14px/1.5 ui-monospace, monospace; padding: 24px;
+        white-space: pre-wrap; background: #0a0c10; z-index: 999;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      MC CONSTELLATION — the standalone end-state population view (S2B).
+      A separate Vite page so it parallelizes with the S1 cockpit scene; it is
+      folded into the main cockpit in wave F2. No audio gesture needed (pure data
+      view), so unlike index.html there is no click-to-arm splash.
+    -->
+    <div id="app"></div>
+    <pre id="boot-fail"></pre>
+    <script type="module">
+      import { boot } from "./src/constellation/app.ts";
+      boot().catch((e) => {
+        const f = document.getElementById("boot-fail");
+        f.style.display = "grid";
+        f.textContent = "CONSTELLATION boot failed:\n" + (e?.stack ?? e);
+        console.error(e);
+      });
+    </script>
+  </body>
+</html>

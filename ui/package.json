@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "smoke": "node --experimental-transform-types scripts/smoke.mts",
     "gen:protocol": "python ../tools/gen_protocol_ts.py ../core/protocol.h src/net/protocol.generated.ts"
   },
   "dependencies": {
@@ -18,9 +19,12 @@
     "uplot": "^1.6.32"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^26.1.1",
+    "@types/three": "0.185.0",
+    "jsdom": "^29.1.1",
     "typescript": "^5.6.3",
     "vite": "^6.0.0",
-    "vitest": "^2.1.0",
-    "@types/three": "0.185.0"
+    "vitest": "^2.1.0"
   }
 }

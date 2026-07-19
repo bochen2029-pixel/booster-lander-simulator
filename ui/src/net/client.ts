@@ -16,6 +16,11 @@ export interface ClientHandlers {
   onStatsBytes?: (buf: ArrayBuffer) => void;
   onOpen?: () => void;
   onClose?: () => void;
+  // Fires for EVERY binary frame BEFORE routing/decoding (raw bytes). Used by the
+  // LZ-COCKPIT shell for the wire-log panel + HELLO identity gate + TLM liveness,
+  // without disturbing the hot decode path (canon §10.1: chrome observes, never
+  // owns truth). Optional and additive — leaving it unset is a no-op.
+  onRawFrame?: (buf: ArrayBuffer) => void;
 }
 
 export class TelemetryClient {
@@ -42,6 +47,7 @@ export class TelemetryClient {
     };
     ws.onmessage = (ev) => {
       if (!(ev.data instanceof ArrayBuffer)) return; // no JSON on the hot path
+      this.handlers.onRawFrame?.(ev.data); // shell tap (wire log / identity gate)
       this.route(ev.data);
     };
     ws.onclose = () => {

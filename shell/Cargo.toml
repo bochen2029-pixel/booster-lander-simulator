@@ -3,15 +3,20 @@ name = "booster-shell"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.96"
-description = "Tauri v2 shell: spawns core as a sidecar and supervises it (canon §11.1). Nothing else."
-
-[lib]
-name = "booster_shell_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+description = "Tauri v2 LZ-COCKPIT shell: supervises booster-core --serve with understory Tier-0 discipline (canon §11.1). Nothing else."
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
+tokio = { version = "1", features = ["process", "io-util", "macros", "rt", "time", "sync"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[target.'cfg(windows)'.dependencies]
+win32job = "2"

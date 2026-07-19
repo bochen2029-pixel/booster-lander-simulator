@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { resolve } from "node:path";
 
 // Canon §15: `pnpm -C ui dev` runs the browser dev server against `core --serve`
 // (ws://127.0.0.1:8787). `pnpm tauri dev` wraps this same server in the shell.
@@ -20,6 +21,15 @@ export default defineConfig({
   build: {
     target: "esnext", // WebGPU + top-level features; WebView2 is evergreen Chromium
     sourcemap: true,
+    // Multi-page (S2B): `constellation.html` is the standalone MC CONSTELLATION view,
+    // built alongside the main cockpit. Additive only — the default `index.html`
+    // entry is preserved. Folded into the cockpit in wave F2.
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        constellation: resolve(__dirname, "constellation.html"),
+      },
+    },
   },
   test: {
     // vitest picks up *.test.ts under src/. jsdom not needed — the conversion and
