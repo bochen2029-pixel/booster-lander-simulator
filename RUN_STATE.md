@@ -1,9 +1,29 @@
 # RUN_STATE
 
-**Canon:** `CLAUDE_v1.md` (read §0–§2 first). `CLAUDE_v0.md` is history — do not edit.
+**Canon:** `CLAUDE_v2.md` (read §0–§2 first; adopted by **D-019**, 2026-07-19). `CLAUDE_v1.md`
+and `CLAUDE_v0.md` are history — do not edit either.
 **COLD-START:** point a fresh session at **`HANDOFF_2026-07-18_NIGHT.md`** — the self-contained
 bootstrap (state + knob provenance + do-not-retry list + tool contracts + ranked roadmap). It
 supersedes `HANDOFF_2026-07-18_EVENING.md`, `HANDOFF_2026-07-18.md` and `NEXT_SESSION.md`.
+For N-track work read additionally: `runs/perception_to_policy_stack.md` (map) + the pillar
+spec for your lane (`neural_policy_design.md` §H.0 before building anything).
+
+**D-019 — CLAUDE_v2.md ADOPTED AS CANON (2026-07-19, operator-signed, all defaults): the
+perception-to-policy integration.** Full v1→v2 supersede, anchor-stable (v1 section numbers
+keep their meaning; v2 only ADDS §4.5-4.7 TARGET/ENGINE_OUT/Worlds, §8.4 perception contract,
+§9.8 GM_NEURAL + §9.9 frontier metric, §10.9 protocol-v4 plan, §13.6 N-track gates, §14
+N-track N0–N4, §18 stack, §19 training pipeline, §20 precompute-artifact registry, App-G the
+frozen 28-feature VLM-ready socket; new directive 11 = precompute-in/telemetry-out). M4's
+designated vehicle is N3 (the compound engine-out×gust×moving-target showcase + the ≥54/60
+attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
+Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
+event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**N0 BUILD IN FLIGHT** (worktree `_n0_wt`, background build agent): widen-once — NavState
+TargetEstimate+EngineHealth at nominal, the `null(r_xy − target)` substitution (hoverslam +
+MPPI mirror, directive-7), protocol v4 as one validated unit, engine-out + seeded moving
+target built DIALED-OFF. Gate: byte-equality vs EVERY golden at nominal/off (TERMINAL 194,
+ENTRY --mppi 95, AERO --mppi 44/60, AERO t0 220/300, MPPI run-1 2.63/10.48) + determinism
+pairs + vitest/typecheck + v4 protocol goldens. Integration + D-020 on green.
 
 **★★★★ D-012 STATE-ADAPTIVE DIVERT GAIN (night session; the current tree + goldens): ENTRY
 88/100 s42 (79 s7 / 78 s99 — every seed +2-3; op 5, th 5, fuel 2) · AERO tier-0 73.3% s42

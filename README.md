@@ -191,8 +191,11 @@ not yet dispersed). The physics is honest; the estimation problem is the next ho
   end-to-end; plume, dust, sky, audio propagation, HUD, and director camera are designed and
   partially scaffolded but not yet wired live (needs a real WebGPU browser, not headless).
 
-See `RUN_STATE.md` for the current ledger, `DECISIONS.md` for the architecture-decision log
-(D-001 … D-006), and `NEXT_SESSION.md` for the detailed build plan.
+See `RUN_STATE.md` for the current ledger and `DECISIONS.md` for the architecture-decision log
+(D-001 …). The canon is `CLAUDE_v2.md` (adopted D-019): it adds the perception-to-policy
+track — a learned `GM_NEURAL` guidance tier trained toward the reachability frontier, plant
+modules for engine-out and a movable target, and a VLM-ready target-estimate socket — all
+behind default-off flags with byte-identity gates.
 
 ---
 
@@ -238,9 +241,9 @@ pnpm -C ui dev        # pnpm -C ui test | pnpm -C ui typecheck
 ## Repository layout
 
 ```
-CLAUDE_v1.md          canon specification (read §0–§2 first)
+CLAUDE_v2.md          canon specification (read §0–§2 first; v1/v0 kept as history)
 RUN_STATE.md          session ledger — current milestone and next action
-DECISIONS.md          append-only architecture-decision log (D-001 … D-006)
+DECISIONS.md          append-only architecture-decision log (D-001 … )
 NEXT_SESSION.md       cold-start / continuation plan
 core/                 C11 plant + guidance + sim + Monte-Carlo (zero deps, CUDA-ready)
   dynamics.{h,c}      the single shared EOM (body + grid-fin aero, damping, mass props)
