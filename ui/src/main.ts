@@ -50,7 +50,20 @@ async function boot() {
   // S3 audio observer — a third pure observer of the SAME stream. Muted by default;
   // its dev-panel ENABLE button is the first-interaction gesture that resumes the
   // AudioContext. Self-contained under src/audio/ (touches nothing else here).
-  const audio = mountAudio();
+  // BOOT ARMOR: an optional observer must NEVER take down the renderer — first light
+  // died on a Web Audio construction error inside mountAudio (the createDelay(200)
+  // spec-cap bug). On any failure, degrade to a silent no-op and keep flying.
+  const audio = (() => {
+    try {
+      return mountAudio();
+    } catch (e) {
+      console.error("[audio] disabled — mount failed:", e);
+      const noop = () => {};
+      return {
+        onTlm: noop, onEvtBytes: noop, setListener: noop, tick: noop, updatePanel: noop,
+      } as unknown as ReturnType<typeof mountAudio>;
+    }
+  })();
 
   // S1 stream-stats chip (top-left, pointer-events:none): live seed/run/fps/backend.
   const chip = installConnectionChip(backend);

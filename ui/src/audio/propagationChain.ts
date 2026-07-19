@@ -25,11 +25,15 @@ export class PropagationChain {
   private gain: GainNode;
   private maxDelay: number;
 
-  constructor(ctx: BaseAudioContext, source: AudioNode, dest: AudioNode, maxDelaySec = 200) {
-    this.maxDelay = maxDelaySec;
-    // DelayNode max delay must exceed the largest retarded time we expect
-    // (62 km / 343 ≈ 181 s → 200 s cap).
-    this.input = ctx.createDelay(maxDelaySec);
+  constructor(ctx: BaseAudioContext, source: AudioNode, dest: AudioNode, maxDelaySec = 179) {
+    // The Web Audio spec hard-caps DelayNode maxDelayTime to the EXCLUSIVE range (0, 180) —
+    // createDelay(200) throws NotSupportedError and killed the first-light boot. The physics
+    // wants ~181 s at the 62 km entry start (62 km / 343 m/s), so the delay SATURATES at 179 s
+    // for the farthest ~2 s of slant range — physically negligible: at that range the 1/r gain
+    // is ~0 and the absorption knee is infrasonic, so the source is inaudible anyway. (If ever
+    // needed, two chained DelayNodes lift the cap; not worth it for the Tier-A sketch.)
+    this.maxDelay = Math.min(maxDelaySec, 179);
+    this.input = ctx.createDelay(this.maxDelay);
     this.lp = ctx.createBiquadFilter();
     this.lp.type = "lowpass";
     this.lp.frequency.value = 18000;
