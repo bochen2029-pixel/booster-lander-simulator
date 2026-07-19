@@ -19,14 +19,21 @@ presentation. Canon = `CLAUDE_v1.md` (read §0–§2 if anything here seems ambi
 `RUN_STATE.md`. Append-only ADR log = `DECISIONS.md` (D-001…D-012, many with addenda; **the tail
 from D-009 onward is the current epoch — read D-012 early**).
 
+> **⚠️ THIS HANDOFF IS THE CONSTITUTION but is now 2 milestones behind the tree. After reading it,
+> read `HANDOFF_2026-07-19_CONTINUITY.md` for the D-013→D-016 delta. Headline updated below.**
+> **M6 IS GREEN** (D-016): ENTRY under `--mppi` = 95/91/93 across s42/s7/s99, all ≥90. M4 (AERO
+> ≥90) is the sole remaining guidance gate → structural MPPI variant (CoVO/MPOPI).
+
 **Current headline (all under FULL spec winds, all bit-deterministic, all on GitHub `main`):**
 
 | Scenario | Landed rate | Notes |
 |---|---|---|
 | TERMINAL (2 km) | **97.0% — 194/200 byte-exact** | the sacred parity gate; must never move |
-| ENTRY (62 km, Mach ~5, 3 km offset) | **88% s42 · 79 s7 · 78 s99** | op 5, th 5, fuel 2 — M6 gate 2 pts away |
-| AERO_OFFSET (12 km, mean 500 m) tier-0 | **73.3% s42 · 73.3 s7** | M4 path = MPPI capacity, not tier-0 tuning |
-| AERO_OFFSET `--mppi` | **73.3% (44/60) — best ever** | td_v mean 2.95; th 2 |
+| ENTRY (62 km) reactive | **88% s42 · 79 s7 · 78 s99** | the reactive plateau (D-012); GM_HOVERSLAM default |
+| **ENTRY `--mppi` (M6 GATE)** | **95% s42 · 91 s7 · 93 s99 — M6 GREEN (D-016)** | stock config, +flag only; run-14 CPU==CUDA |
+| AERO_OFFSET tier-0 | **73.3% s42 · 73.3 s7** | M4 path = structural MPPI variant, not tier-0 tuning |
+| AERO_OFFSET `--mppi` | **73.3% (44/60)** | td_v mean 2.95; the M4 target; CoVO/MPOPI next |
+| `--mppi-cuda` (D-015) | **44/60 line-for-line = CPU** | fp64 GPU, 1-ULP parity, K≈1024 golden |
 | `--nav-noisy` | ENTRY 74 · AERO 72.3 · TERMINAL 96.5 | NAV_TRUTH bit-transparent |
 
 The D-012 mechanism that moved ENTRY 85→88 (every seed +2-3): a **profile-overspeed brake on the

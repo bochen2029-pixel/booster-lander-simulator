@@ -1012,3 +1012,57 @@ harvest of orphan batches recovered every lane with zero work lost. The worktree
 bit-determinism (worktree rows == main-tree reruns, verified ~6× tonight) is what made the
 successions cheap.
 
+## D-016 — M6 GREEN: ENTRY under MPPI clears ≥90 on every seed, stock config (2026-07-19)
+
+**THE GATE FALLS.** ENTRY under `--mppi` (GM_MPPI guidance, the D-015 shipped tree, ZERO code
+changes vs the reactive config — only the flag) lands **≥90% on all three seeds**, closing M6
+(ENTRY ≥90%). This is the payoff of the entire D-012→D-015 arc: once the reactive plateau (88) was
+proven exhausted (D-012 addendum + D-014), the roadmap pointed at MPPI's closed-loop replanning,
+and it delivered.
+
+**The M6 evidence (main tree, full spec winds, all bit-deterministic):**
+| seed | ENTRY --mppi | reactive baseline | Δ | causes (mppi) |
+|---|---|---|---|---|
+| 42 | **95/100** | 88 | +7 | off-pad 2, too-hard 1, fuel 1, other 1 |
+| 7  | **91/100** | 79 | +12 | off-pad 3, too-hard 0, fuel 4, other 2 |
+| 99 | **93/100** | 78 | +15 | off-pad 4, too-hard 1, fuel 0, other 2 |
+
+- **Determinism:** the s42 main-tree confirmation batch and an independent full re-capture are
+  identical to the digit (95/100, op2/th1/fuel1/other1, td_v 3.31, lat 16.32). Golden frozen:
+  `goldens/mc/entry_mppi_s42_d016_baseline.txt`.
+- **Directive-7 CPU↔CUDA spot on ENTRY:** run 14 CPU `--mppi` == CUDA `--mppi-cuda` BIT-IDENTICAL
+  (HARD td_v 2.35 / lat 18.68 / fuel 2346 / t 136.6 — both). The GPU port flies ENTRY identically,
+  not just AERO.
+- **The mechanism (why MPPI beats the reactive 88):** every reactive failure class shrinks under
+  replanning. The clincher is run 14 — the RELIGHT study's *unsavable* min-throttle climb-trap
+  fuel-out (D-013 addendum) — which **LANDS under MPPI with 2346 kg remaining**: MPPI arrives at
+  ignition with less residual cross-range velocity, so the landing burn spends less fuel nulling
+  lateral and never enters the trap. The graze band (op 5→2), the extreme-vxy too-hard tail
+  (5→1), and the fuel traps all shrink for the same reason — closed-loop re-solving on the fresh
+  nav state rejects the wind disturbance implicitly, without ever reading it (canon §4.3).
+
+**The honest scope of the claim (recorded so it is never overstated):**
+- **GM_HOVERSLAM remains the ENTRY DEFAULT.** `--mppi` is the M6-gate configuration, not a silent
+  swap. Promoting MPPI to ENTRY default is a SEPARATE decision requiring its own ADR + full Tier-B
+  (nav-noisy/inject combined) + the perf budget accounting (MPPI is ~9 s/run CPU vs the reactive
+  law's ~1 s). This ADR claims exactly one thing: the gate metric (ENTRY ≥90%) is MET by a
+  determinism-clean, canon-legal, anti-cheat-intact configuration that exists in the tree today.
+- **nav-noisy honesty spot** (ENTRY s42 --mppi --nav-noisy) — in flight at push time; the
+  estimation-layer degradation number appends in the follow-up commit so the ≥90 claim is not left
+  a truth-state-only artifact (reactive nav-noisy ENTRY was 74; MPPI expected comparable-or-better).
+
+**Capacity/variant verdicts folded in (the levers that got MPPI here vs the ones that didn't):**
+- **KPROBE (K 256→512→1024 = 44/44/42 AERO): capacity is NOT the rate lever** — freeze the sm_89
+  CUDA golden at K≈1024 (rate saturates by 512; fp64 real-time to ~K1024 within the 100 ms replan
+  budget). Adopted.
+- **MPPIVAR (LAMBDA_MIN 0.5 = −2, OU θ 0.10/0.08 = −2/−3): cheap scalar levers null-to-harmful at
+  K=256.** Adopted (no change). λ-floor is a large-K lever (pre-registered retest at K≥1024).
+- Both confirm the research trilogy: AERO ≥90 (M4, still open) needs a STRUCTURAL variant (CoVO
+  diagonal covariance / MPOPI iterate-and-recenter), not more K and not scalar retuning. That is
+  the next build (M4 wave).
+
+**Milestone status:** **M6 GREEN.** M7 (renderer first-light) is unlocked per directive 10 — and
+the operator's frontend fleet already has the documentary view + propagation-honest S3 audio
+sketch live against `--serve` (the D-013 pred_impact/ignite_h fields feeding a diegetic
+impact-marker + delay-modeled audio). M4 (AERO ≥90) is now the sole remaining guidance gate.
+

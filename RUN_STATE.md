@@ -46,6 +46,21 @@ strict rule (MPPI reach −3 despite AERO t0 +12/600). Fleet record + verdicts: 
 runs/cuda_mppi_report.md, cuda_rebase_report.md, decknull_report.md, kprobe_sweep.csv. Next
 decision pending: EMPI's ENTRY-under-MPPI number (the M6-via-MPPI hinge) + K=1024 + mvar finals.
 
+**★★★★★★ D-016 — M6 GREEN (2026-07-19): ENTRY under `--mppi` clears ≥90 on EVERY seed —
+s42 95/100 · s7 91/100 · s99 93/100** (reactive baselines 88/79/78; +7/+12/+15). ZERO code
+changes vs the shipped tree — only the flag; GM_MPPI's closed-loop replanning rejects the wind
+disturbance implicitly (canon §4.3, never reads wind). Determinism: s42 confirmation batch ==
+independent re-capture to the digit; golden `goldens/mc/entry_mppi_s42_d016_baseline.txt` frozen.
+Directive-7: ENTRY run-14 CPU `--mppi` == CUDA `--mppi-cuda` bit-identical. The mechanism — run 14
+(the RELIGHT study's unsavable fuel-trap seed) LANDS under MPPI (2346 kg left; arrives centered →
+short burn → never enters the min-throttle climb trap). SCOPE (honest): GM_HOVERSLAM stays the
+ENTRY DEFAULT; `--mppi` is the gate config, not a silent swap — promoting it needs its own ADR +
+full Tier-B + perf budget. Capacity/variant verdicts folded in: KPROBE freeze-at-K≈1024 (rate
+saturates by 512), MPPIVAR scalar levers null. **Sole remaining guidance gate: M4 (AERO ≥90),
+which needs a STRUCTURAL MPPI variant (CoVO diagonal covariance / MPOPI iterate-and-recenter) —
+the next build.** M7 renderer unlocked per directive 10 (frontend fleet already has documentary
+view + S3 audio live on `--serve`). Full record: DECISIONS **D-016**.
+
 **Current milestone:** M2 GREEN (TERMINAL ~97-98% across seeds) + **M3 socket path LIVE** + **M6
 entry supervisor BUILT**. This session (D-007, ran 4-A + 4-C concurrently per operator "BOTH"):
 (1) **E3 entry-burn supervisor** — predictive-peak-qbar 3-engine retrograde burn above hoverslam;
