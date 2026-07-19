@@ -1,8 +1,11 @@
 // picker.ts — scenario / seed / run PICKER (brainstorm §2 top-strip).
 //
-// Relaunches the sidecar via the control plane (Tauri invoke `relaunch_core`).
+// (Re)starts a sidecar RUN via the control plane (Tauri invoke `relaunch_core`).
+// The button is labelled RUN, not "launch": this is a booster DESCENT simulator —
+// pressing it starts a descent run (scenario/seed/run), it does not launch the
+// vehicle skyward (there is no ascent phase; see core/state.h PH_* — COAST→…→LANDED).
 // In a plain browser it degrades to READ-ONLY: the inputs reflect the current
-// launch identity but the LAUNCH button is disabled with an explaining tooltip
+// run identity but the RUN button is disabled with an explaining tooltip
 // (canon §11.1 "picker/chip degrade gracefully to read-only when no Tauri").
 
 import type { CockpitStateMachine } from "../state";
@@ -11,7 +14,7 @@ import type { bridge as Bridge } from "../tauriBridge";
 // Scenario names accepted by `booster-core --serve --scenario S`. Kept small and
 // matching the core's known set; free-typing is still allowed for forward-compat
 // (the capability/server-side validators are the real gate).
-const SCENARIOS = ["entry", "nominal", "windy", "hot", "cold", "dispersed"];
+const SCENARIOS = ["terminal", "aero_offset", "entry"];
 
 export function createPicker(
   machine: CockpitStateMachine,
@@ -50,7 +53,7 @@ export function createPicker(
 
   const launch = document.createElement("button");
   launch.className = "lz-picker__launch";
-  launch.textContent = "LAUNCH";
+  launch.textContent = "RUN";
 
   const sLabel = tag("scenario");
   const seedLabel = tag("seed");
@@ -91,7 +94,7 @@ export function createPicker(
     }
     setTimeout(() => {
       launch.disabled = false;
-      launch.textContent = "LAUNCH";
+      launch.textContent = "RUN";
     }, 900);
   }
 

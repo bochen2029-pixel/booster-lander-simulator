@@ -29,6 +29,12 @@ export const SHELL_CSS = `
 }
 .lz-chip__dot--pulse { animation: lz-pulse 1.4s ease-in-out infinite; }
 @keyframes lz-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.lz-chip__kind {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+  color: #7f8a97; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06);
+}
 .lz-chip__label { font-weight: 600; letter-spacing: 0.04em; }
 .lz-chip__ident { color: #9aa4b0; }
 .lz-chip__ver { font-size: 11px; }

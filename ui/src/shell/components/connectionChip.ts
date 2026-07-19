@@ -32,6 +32,13 @@ export function createConnectionChip(
   root.className = "lz-chip";
   root.setAttribute("role", "status");
 
+  // Honesty label: this is a booster DESCENT simulator (no ascent phase). Keeps the
+  // "RUN" button from reading as a liftoff — the vehicle only ever comes down.
+  const kind = document.createElement("span");
+  kind.className = "lz-chip__kind";
+  kind.textContent = "DESCENT SIM";
+  kind.title = "Booster descent/landing simulator — begins at altitude and lands. No ascent phase.";
+
   const dot = document.createElement("span");
   dot.className = "lz-chip__dot";
 
@@ -67,7 +74,7 @@ export function createConnectionChip(
     }, 1200);
   });
 
-  root.append(dot, label, ident, ver, note, relight);
+  root.append(kind, dot, label, ident, ver, note, relight);
 
   machine.subscribe((s: Readonly<CockpitState>) => {
     const st = STYLES[s.conn];
@@ -87,7 +94,7 @@ export function createConnectionChip(
       note.textContent = `stream lost${held}`;
       note.style.color = "#d0895f";
     } else if (s.conn === "FAILED") {
-      note.textContent = s.error ? `— ${truncate(s.error, 80)}` : "— launch failed";
+      note.textContent = s.error ? `— ${truncate(s.error, 80)}` : "— run failed";
       note.style.color = "#d0574f";
     } else if (s.conn === "COMPLETE") {
       note.textContent = "run complete";
