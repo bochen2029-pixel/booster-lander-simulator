@@ -479,7 +479,132 @@ Report, per seed: the recovery-rate-vs-frontier (§A.3), the LOC/off-pad tail (t
 
 **All in a `_neural_wt/` worktree** (CMakeLists + core + the env wrapper; VS2022 x64 configure), gitignored. **Never edit/build the real tree until a rung's gate is green.** Gates after every build (HANDOFF §1.7): `--selftest` PASS; TERMINAL s42 ×200 == **194/200 byte-exact**; a determinism pair on the changed path; and — since `GM_NEURAL` is default-off — proof that the MPPI/hoverslam rates (ENTRY 95, AERO 44/60, TERMINAL 194) reproduce byte-exact with the neural code present-but-unselected (the leak check: a new mode must not perturb existing modes).
 
+### H.0 — THE BUILD-ORDER DOCTRINE (read before S0 — the canonical sequencing)
+
+The rungs S0–S3 below are the training arc. But the operator's sequencing question — *"do I carve
+out the 3-engine asymmetric plant and get Monte-Carlo data first, then distill? or distill first,
+then add the disturbances?"* — is answered by two prerequisite steps (**Step 0, Step 1**) that must
+precede S0, and by one governing principle that dictates their timing. This subsection is the
+explicit, canonical order. **It is neither "all-plant-first" nor "distill-first-blindly" — it is
+interface-first, capability-early-but-off, difficulty-ramped.**
+
+**THE GOVERNING PRINCIPLE — THE PLANT IS THE CURRICULUM.** A policy can only learn to handle a
+disturbance the plant can *produce*, and the MPPI expert can only *demonstrate* recovery from a
+disturbance the plant can *simulate*. So plant-capability and policy-training advance in lockstep —
+but NOT uniformly. Every plant change splits into two classes with **opposite optimal timing:**
+
+- **INTERFACE changes** — anything that changes what the policy READS (its observation vector) or
+  EMITS (its action). Adding one mid-training changes the network's input/output dimensions →
+  forces a re-architecture + retrain. **→ BUILD ALL OF THESE FIRST, WIDE**, before any training.
+  Design the socket for the full *eventual* observation/action even if fields sit at constant
+  nominal values at first. Pay the interface cost once; then adding a disturbance is free.
+- **BEHAVIOR / DIFFICULTY changes** — anything that changes the PHYSICS (harder dynamics, larger
+  disturbances) *without* changing the interface. **→ these are a CURRICULUM KNOB**, ramped AFTER
+  the pipeline is proven, via fine-tuning. The interface is stable across them → zero
+  re-architecture, and the easy-setting policy is never wasted (nominal flight is unchanged; a
+  disturbance is an *added condition*, not a replacement).
+
+**THE TRAP: engine-out and moving-target are BOTH.** Classify each plant change into its halves:
+
+| plant change | INTERFACE half (build FIRST, wide) | BEHAVIOR/DIFFICULTY half (curriculum knob, later) |
+|---|---|---|
+| **Movable target** | `target_xy`, `target_vxy`, `target_cov` added to the observation (§C.4); the `null(r_xy − target)` guidance substitution + `GuidanceCmd.target_xy` socket (P0; `guidance_hoverslam.c:84`; protocol bump w/ lane perception) | the target actually MOVING (a seeded trajectory in training; VLM-acquired much later) |
+| **Engine-out** | the engine-health flag(s) added to the observation (`n_eng` is already in State) | the asymmetric torque + reduced authority on failure (`thrust_offset[2]` + `sim.c:154` literal; `engineout_design.md`) |
+| **Wind shear (gust)** | **NONE** — guidance is wind-blind (canon §4.3); the policy only ever feels wind as *state drift* | the gust magnitude/timing (`--gust`, D-017, already built) |
+| **Dispersions (`--inject`)** | **NONE** — same; felt only as state drift | the dispersion magnitude (already built) |
+
+**Consequence you can exploit immediately:** gust and dispersions need **zero** interface work
+(guidance never reads them) — they are pure curriculum knobs, available *today*. Target and
+engine-out each need a *small* interface add (a health flag; the target socket) done **up front**,
+after which their difficulty is also just a knob.
+
+**THE EASY-PLANT-FIRST RULE (why not build all the hard physics before training).** A **pipeline
+bug** (bad C export, broken determinism, a reward mistake, covariate shift) and a
+**physics-too-hard failure** (the disturbance exceeds the policy's or the plant's authority)
+produce *different symptoms* and need *different fixes* — but if you switch on hard physics before
+the pipeline is validated, a failure is **ambiguous** and you burn cycles bisecting "is my export
+broken, or is engine-out-plus-shear just unrecoverable here?" So: **validate the novel machinery
+(distill → freeze → C-export → determinism → golden) on the SIMPLEST physics that exercises it
+(nominal + mild gust), THEN ramp difficulty.** This is *why* S0 distills on the easy setting even
+though the ultimate target is the compound showcase — it is deliberate risk isolation, not timidity.
+
+**MPPI IS A VALID DISTILLATION TEACHER FOR EVERY *SINGLE* DISTURBANCE — the teacher question,
+answered.** Because of directive 7, MPPI's rollouts consume the SAME `EnvCtx` the plant integrates
+(`guidance_mppi.c:350,555` copy it), so the instant the plant produces an engine-out (reduced
+`n_eng` + `thrust_offset`), MPPI's rollouts **see the reduced authority and re-solve the recovery
+on the next 100 ms replan.** Therefore MPPI is a competent teacher for engine-out — *and* gust,
+*and* moving-target, *and* dispersions — taken **individually**: run it across Monte-Carlo
+scenarios with that one disturbance ON and regress its actions, and you inherit its recovery for
+free. Where MPPI is a **weak** teacher — and where distillation caps out and RL must take over — is
+the **JOINT / COMPOUNDING** distribution (engine-out + shear + moving-target *at once*): a
+fixed-horizon sampler composes multiple simultaneous disturbances poorly (the coupling), which is
+exactly the frontier RL exists to reach. **So: distill single/mild disturbances from MPPI (cheap,
+inherits competence); RL the joint/compound distribution (where the policy earns its keep and the
+showcase lives).**
+
+**THE CANONICAL BUILD SEQUENCE (explicit; Steps 0–1 are the S0 prerequisites the operator asked
+about):**
+
+- **STEP 0 — WIDEN THE SOCKET ONCE (interface, before any training).** Add to the observation
+  (§C.1): `target_xy`, `target_vxy`, `target_cov` (§C.4) and the engine-health flag(s) — at
+  constant nominal values for now. Add the movable-target guidance substitution `null(r_xy −
+  target)` + the `GuidanceCmd.target_xy` socket (= P0 of the stack roadmap; protocol bump
+  coordinated with lanes perception/targetdesign). **Gate:** byte-equality vs today when
+  `target = origin` AND all engines healthy — the wide socket at nominal inputs reproduces the
+  current plant *exactly* (TERMINAL 194 / ENTRY 95 / AERO 44/60). This *is* the "design the socket
+  wide, pay zero retraining tax" rule made concrete.
+- **STEP 1 — PUT THE DISTURBANCES IN THE PLANT, DIALED OFF (capability, cheap, build early).** Build
+  engine-out (`engineout_design.md`: decrement `n_eng` + `thrust_offset[2]` + the `sim.c:154`
+  literal + the seeded `--engine-out k@t` injector) and the seeded moving-target trajectory (the
+  target moves on a deterministic path *in training*; VLM acquisition is layered on much later — for
+  CONTROL training you feed the *true* moving target as the estimate; perception is a separate
+  concern, lane perception). Gust + dispersions already exist. **Gate:** each default-OFF is
+  byte-identical (the leak check). Now the plant is **capability-complete**; every disturbance's
+  difficulty is a dial.
+- **STEP 2 = S0 — PROVE THE MACHINERY ON EASY PHYSICS.** Distill MPPI → `GM_NEURAL` on the SIMPLE
+  setting (nominal + dispersions + mild gust + static-target-as-input; **engine-out OFF**).
+  Validates the whole pipeline + determinism export. **Do NOT turn engine-out on yet** — isolate
+  pipeline bugs from physics. (Full detail in S0 below.)
+- **STEP 3 = S1 — ONE DISTURBANCE, DISTILL-THEN-RL.** Turn engine-out ON; run MPPI across MC *with*
+  engine-out (the valid teacher, above); distill THAT; then RL fine-tune (warm-started from the
+  distilled weights) on engine-out-ALONE to beat MPPI on that axis. Repeat per single axis
+  (moving-target-alone, stronger-gust-alone). (S1 below.)
+- **STEP 4 = S2 — THE JOINT DISTRIBUTION, RL.** Sample engine-out + gust + moving-target +
+  dispersions TOGETHER; RL to the frontier. **This is the showcase AND the M4-gap attempt** — and
+  the step your dual-failure ("shear + engine-out at once") scenario lives in. MPPI is a weak
+  teacher here → RL earns its keep. (S2 below.)
+- **STEP 5 = S3 — WORLDS.** Add world-params as a randomization axis (lane interplanetary). (S3
+  below.)
+
+**WHY THIS ORDER — THE DECISIVE SUMMARY (answering "which is better," with the reasons):**
+1. **Interface-first → zero retraining tax.** You never re-architect the net to add a disturbance;
+   the socket was wide from Step 0.
+2. **Cheap capabilities early but OFF → the env is capability-complete before training**, so
+   expanding the distribution is a *dial*, not a rebuild — and default-off keeps every step
+   byte-clean against the existing goldens.
+3. **Easy-physics-first for the pipeline → clean diagnosis.** A pipeline bug and a
+   physics-too-hard failure look different; don't conflate them by turning on hard physics before
+   the machinery is proven.
+4. **Distill-single / RL-joint → spend effort where it's needed.** Inherit MPPI's per-axis
+   competence for nearly free; reserve RL (the expensive, delicate part) for the compounding
+   frontier MPPI can't reach.
+5. **Curriculum-ramp difficulty → stable and non-wasteful.** Standard RL practice; the easy-setting
+   policy from S0 is a valid initialization for every harder rung (nominal flight is unchanged).
+
+**So, directly: do NOT carve out the 3-engine plant and distill on it first.** Build the engine-out
+*capability* early (Step 1, it's small) with its health-flag *interface* wired from the start
+(Step 0), but distill on the *easy* plant first (Step 2 / S0) to prove the machinery, THEN turn
+engine-out on and distill *with* it (Step 3 / S1), THEN RL the dual-failure joint case (Step 4 /
+S2). Both orders "work"; this one is strictly lower-risk because it isolates pipeline bugs from
+physics difficulty and pays zero retraining tax.
+
+**RULE OF THUMB:** *widen the interface once, ramp the difficulty gradually, and always validate new
+machinery on the simplest physics that can exercise it.*
+
+---
+
 ### S0 — DISTILL-FROM-MPPI → match 44/60 AERO at NN speed (the pipeline + determinism-export proof)
+*(Prerequisites: Step 0 — the wide observation/action socket; and Step 1 — engine-out + moving-target built into the plant but dialed OFF. See §H.0.)*
 
 **Goal:** prove the ENTIRE machinery — env wrapper, data-gen, training, freeze, C-header export, `GM_NEURAL` bit-deterministic inference — by distilling the EXISTING MPPI expert to MPPI parity. No frontier claim; just "MPPI-quality guidance, 1000× faster, bit-deterministic."
 - **Build:** the `booster_env` C ABI (§E.2); the MPPI-teacher data-gen (DAgger, §B.1) across AERO seeds; the PyTorch supervised trainer (§B.1); the freeze/export (§F.1); the `neural_policy.c` C forward pass (§F.2); the `GM_NEURAL` mode (§F.4).

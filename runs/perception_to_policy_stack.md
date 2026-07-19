@@ -127,6 +127,22 @@ worlds) is a known-shaped extension. **P3 is where the "wow" lives** — the fir
 learned policy catch an engine-out on the way down — and it is also the honest M4 verdict: it
 either clears the gate or confirms the 0.70·D_phys wall is truly physical. Decisive either way.
 
+**The canonical build ORDER within the policy track is `neural_policy_design.md` §H.0 — the
+build-order doctrine (read it before P2).** The one-line version, because the sequencing is subtle:
+**widen the interface once, ramp the difficulty gradually, validate new machinery on the simplest
+physics that can exercise it.** Concretely — every plant change splits into an INTERFACE half (what
+the policy reads/emits: the target socket, the engine-health flag → build FIRST, wide, so you never
+retrain the net) and a BEHAVIOR/DIFFICULTY half (the physics: engine-out torque, target motion, gust
+magnitude → a curriculum knob ramped LATER). So the order is: **Step 0** widen the observation
+socket (target + health flag, nominal values, byte-equal to today) → **Step 1** build engine-out +
+moving-target into the plant but dialed OFF (byte-clean) → **P2/S0** distill MPPI on the EASY setting
+to prove the pipeline (engine-out still off — isolate pipeline bugs from physics) → **S1** turn one
+disturbance on, distill-then-RL (MPPI is a valid single-disturbance teacher — directive-7 rollouts
+see the reduced authority and re-solve) → **S2** RL the JOINT distribution (engine-out + shear +
+moving-target at once = the showcase, where MPPI is weak and RL earns its keep). **Do NOT** build the
+3-engine plant and distill on it first; build the *capability* early but distill on the *easy* plant
+first — strictly lower-risk, zero retraining tax.
+
 **Compute:** P2 distillation + a first P3 policy train on the local RTX in hours-to-days (the C
 plant's throughput, not the tiny net, is the bottleneck). The H200 fleet is the *scale* lever for
 the full joint-disturbance × multi-world training (P3/P6), not a prerequisite to start.
