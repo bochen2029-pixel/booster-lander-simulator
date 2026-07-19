@@ -18,6 +18,23 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★★★ D-023 — S0 GREEN (2026-07-19 ~12:45): the LEARNED POLICY MATCHES-OR-BEATS ITS
+TEACHER on every held-out seed, at ~9× speed.** `--neural` (Tier-A′ lateral-only,
+NP_VERSION 2, sha d6249fece…) AERO ×60: **45/60 s42 · 47/60 s7 · 43/60 s99 = 135/180 vs
+MPPI's 44/40/42 = 126/180 (+9)**; landers softer+tighter (td_v 2.49 vs 2.95, lat 9.12);
+never trained on any gate seed. The path from D-022's 1/60: the DAgger shadow teacher
+(GM_MPPI in shadow at the states the POLICY visits — proven pure: un-tapped flight
+byte-identical), round-1 farm (420 policy flights, 1.5M on-policy rows) + merged 3.58M
+retrain, then **Tier-A′** — hoverslam keeps the throttle, the net owns only a_lat (the
+D-008 lateral-only lesson at the learned tier; zero retrain; full Tier-A stays an ADR
+toggle). Honest intermediate recorded: full-Tier-A round-1 = 4/5/3. Gates: selftest PASS
+(KAT v2 pinned from the C pass), pair bit-identical, TERMINAL byte-clean, run-1 exact,
+shadow-purity battery. Scope per D-016 pattern: a gated CONFIG, GM_HOVERSLAM stays
+default. **N1/S0 complete; the student-exceeds-teacher signal (+9/180 held-out) is §B.2's
+frontier hypothesis showing EARLY — before any RL. Next: N2/S1 RL, engine-out/gust distill
+rounds, or target Stage-1; N3 (the compound showcase + M4 attempt) now has its engine.**
+Full record: DECISIONS **D-023**.
+
 **D-022 — S0 ROUND-0 (2026-07-19 ~10:00): the distill pipeline PROVEN end-to-end; the
 parity gate honestly NOT MET — and the FIRST LEARNED LANDING is on the books.** Farm 36
 train seeds × 20 = 720 teacher runs / 2.08M rows / 570 MB → CUDA train 195 s (val MSE

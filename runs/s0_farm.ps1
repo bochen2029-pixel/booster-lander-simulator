@@ -16,13 +16,20 @@ param(
   [int]$RunsPer = 20,
   [string]$DeadlineLocal = "09:15",
   [int]$SeedBase = 1000,
-  [string]$TapFlag = "--policy-log"   # confirm against the N1 scaffold report at integration
+  [string]$TapFlag = "--policy-log",
+  # D-023 DAgger: -Mode mppi  = round-0 (fly MPPI, log its own executed commands)
+  #               -Mode neural = round-1+ (fly GM_NEURAL, log the SHADOW-MPPI teacher labels
+  #               at the states the policy visits — neural_policy_design §B.1)
+  [ValidateSet("mppi","neural")][string]$Mode = "mppi",
+  [string]$OutDir = ""   # default: data\s0 for mppi, data\s0r1 for neural
 )
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path $PSScriptRoot -Parent
 $exe = Join-Path $repo "build\bin\Release\booster-core.exe"
-$dataDir = Join-Path $repo "data\s0"
+$modeFlag = if ($Mode -eq "neural") { "--neural" } else { "--mppi" }
+if ($OutDir -eq "") { $OutDir = if ($Mode -eq "neural") { "data\s0r1" } else { "data\s0" } }
+$dataDir = Join-Path $repo $OutDir
 New-Item -ItemType Directory -Force $dataDir | Out-Null
 $log = Join-Path $dataDir "farm.log"
 
@@ -43,10 +50,13 @@ for ($i = 0; $i -lt $Seeds; $i++) {
   if ((Get-Date) -gt $deadline) { Log "FARM-DEADLINE reached after $done seeds"; break }
   $bin = Join-Path $dataDir "aero_s$seed.bin"
   $t0 = Get-Date
-  & $exe --headless --scenario aero_offset --seed $seed --runs $RunsPer --mppi $TapFlag $bin 2>&1 |
+  & $exe --headless --scenario aero_offset --seed $seed --runs $RunsPer $modeFlag $TapFlag $bin 2>&1 |
     Select-String "LANDED:" | ForEach-Object { $_.Line } | Set-Variable -Name landedLine
-  if ($LASTEXITCODE -ne 0) {
-    Log "FARM-BATCH-FAIL seed=$seed exit=$LASTEXITCODE (continuing)"
+  # Success = the tap file exists and is non-trivial. The headless EXIT CODE reflects the
+  # LANDED rate, which is deliberately terrible for early DAgger rounds (-Mode neural flies
+  # the not-yet-good policy to collect teacher labels) — it is NOT a farm failure signal.
+  if (-not (Test-Path $bin) -or (Get-Item $bin).Length -lt 100000) {
+    Log "FARM-BATCH-FAIL seed=$seed exit=$LASTEXITCODE binMissingOrTiny (continuing)"
     continue
   }
   $sz = (Get-Item $bin -ErrorAction SilentlyContinue).Length

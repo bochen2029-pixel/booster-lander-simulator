@@ -176,7 +176,11 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     /* §8.1 measurement layer: NAV_TRUTH pass-through by default; NAV_NOISY under
      * MOD_NAV_NOISY. Keyed by (seed, run_idx) for replayable per-run noise. (D-010) */
     nav_init(&s->nav, modules, seed, run_idx);
-    if(guidance_mode==GM_MPPI) mppi_init(&s->mppi, seed, scenario);   /* HIER MPPI planner (track 4-B) */
+    /* HIER MPPI planner (track 4-B). Also initialized under GM_NEURAL for the DAgger SHADOW
+     * TEACHER (D-023): with --policy-log armed, the neural block runs MPPI in shadow to label
+     * the states the POLICY visits (neural_policy_design §B.1). Init alone touches only
+     * s->mppi (no other stream/state), so an un-tapped --neural flight is byte-identical. */
+    if(guidance_mode==GM_MPPI || guidance_mode==GM_NEURAL) mppi_init(&s->mppi, seed, scenario);
 }
 
 static void set_verdict(Sim* s){
@@ -449,6 +453,21 @@ int sim_step(Sim* s){
              * so engine_cmd/deploy_cmd/n_eng from hoverslam survive — the policy owns the continuous
              * channels, the analytic triggers own ignition/legs. */
             hoverslam_step(&nav, &s->gcmd);
+            /* ---- DAGGER SHADOW TEACHER (D-023; --policy-log under GM_NEURAL; §B.1). With the tap
+             * armed, run the FULL GM_MPPI machinery in shadow on the SAME resync'd nav (10 Hz replan
+             * + knot-hold, identical cadence to the GM_MPPI block) into a LOCAL GuidanceCmd, and log
+             * (o, a_MPPI) — the teacher's answer AT THE STATE THE POLICY VISITS — while the plant
+             * flies the NEURAL command. Pure observation of the flight: the shadow writes only
+             * s->mppi (its own planner memory) + the tap file; s->gcmd and every plant/nav/RNG
+             * stream the flight consumes are untouched, so --neural with and without the tap are
+             * byte-identical trajectories (gated). CPU mppi_step only (bit-parity with CUDA anyway). */
+            if(s->tap.f){
+                GuidanceCmd shadow = s->gcmd;   /* carries target_xy + hoverslam-set triggers, as GM_MPPI's gcmd would */
+                if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, &nav, &s->env, &shadow);
+                else                                        mppi_execute(&s->mppi, &nav, &shadow);
+                s->mppi.gtick++;
+                policy_tap_write(&s->tap, &nav, &shadow);
+            }
             neural_policy_step(&nav, &s->gcmd);   /* pi_theta(legal obs) -> a_lat[2] + throttle */
         }
         if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){

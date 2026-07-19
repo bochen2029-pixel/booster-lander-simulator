@@ -1414,3 +1414,57 @@ variant with analytic vertical (hoverslam throttle + learned lateral only), more
 Per the report-the-null tradition (D-013/D-014/D-018): a measured 1/60 with the pipeline
 proven beats an unmeasured promise.
 
+## D-023 — S0 GREEN: DAgger round-1 + Tier-A′ — the learned policy MATCHES-OR-BEATS its teacher on every held-out seed (2026-07-19)
+
+**The S0 gate (≥42/60, neural_policy_design §H-S0) is PASSED — and exceeded: `GM_NEURAL`
+lands MORE than its MPPI teacher on all three held-out gate seeds, at ~9× the speed.**
+
+| AERO ×60 | MPPI (teacher) | `--neural` Tier-A′ NP_VERSION 2 | Δ |
+|---|---|---|---|
+| s42 | 44/60 = 73.3% (the D-012 golden) | **45/60 = 75.0%** | +1 |
+| s7 | 40/60 = 66.7% (measured today) | **47/60 = 78.3%** | +7 |
+| s99 | 42/60 = 70.0% (measured today) | **43/60 = 71.7%** | +1 |
+| **total** | 126/180 = 70.0% | **135/180 = 75.0%** | **+9** |
+
+Student landers are SOFTER and TIGHTER than the teacher's (s42: td_v mean 2.49 vs 2.95,
+lat 9.12; crash anatomy off-pad 14 / too-hard 1 / fuel-out 0). Held-out law intact: the
+policy never trained on 42/7/99 (enforced in trainer code). Wall: ~52-60 s per ×60 batch
+vs MPPI's ~9-15 min.
+
+**The three moves that got here from D-022's 1/60:**
+1. **The DAgger SHADOW TEACHER** (sim.c GM_NEURAL block): with `--policy-log` armed, the
+   full GM_MPPI machinery runs in shadow (same 10 Hz replan cadence, own MppiState) on the
+   SAME resync'd nav the policy reads, logging (o, a_MPPI) at the states the POLICY visits
+   while the plant flies the NEURAL command — §B.1 verbatim. Proven pure observation:
+   un-tapped `--neural` ×60 BYTE-IDENTICAL to the D-022 reference; with-log == no-log
+   RESULTs; log SHA-deterministic; GM_MPPI tap hash + TERMINAL unchanged. (`mppi_init` now
+   also under GM_NEURAL; farm script gained `-Mode neural`; the headless exit code was
+   reclassified as a non-signal for early-round farms — success = the tap file.)
+2. **Round-1 farm + merged retrain:** 21 seeds × 20 = 420 policy flights, ~1.5M on-policy
+   teacher rows; merged with round-0 → 3.58M rows, 350 s CUDA retrain; throttle val-MSE
+   0.101→0.085. Exported **NP_VERSION 2** (weights_sha256[:16]=d6249fece9e4c838); KAT
+   re-pinned bit-exact from the C fixed-order pass (−3.0531381235500641 /
+   −1.7298372458568902 / 0.400004232908095). Honest intermediate, recorded: FULL Tier-A
+   round-1 = 4/60 · 5/60 · 3/60 — the real-but-slow 4-6× DAgger slope.
+3. **TIER-A′ (the decisive lever, zero retrain):** `neural_policy_step` no longer applies
+   the net's throttle — the PROVEN hoverslam suicide-burn keeps the vertical channel; the
+   net owns only `a_lat[2]`. The D-008 lesson ("lateral-only MPPI: hoverslam owns the
+   proven vertical; the planner owns only the cross-range null — its actual edge") applied
+   to the learned tier, indicated by two rounds of throttle-channel weakness (val-MSE
+   plateau; too-hard-dominant crashes). The forward pass still computes all 3 channels
+   (the KAT tests the full pass); the STEP ignores a[2]. Full Tier-A remains available as
+   a future ADR toggle when a policy earns it.
+
+**Gates (the ceremony, this tree):** selftest PASS (KAT NP_VERSION 2); Tier-A′ ×60 pair
+bit-identical; TERMINAL ×200 byte-clean; MPPI run-1 2.63/10.48 exact; the shadow-tap purity
+battery above. **Scope (the D-016 honesty pattern):** `--neural` is a gated CONFIGURATION —
+GM_HOVERSLAM remains the default; promoting GM_NEURAL anywhere is its own ADR with Tier-B
+(nav-noisy/inject) and cross-scenario study. S0 SHIPS: the frozen NP_VERSION-2 artifact +
+Tier-A′ inference, behind the default-off flag.
+
+**What this means for the roadmap:** N1 is functionally complete in its S0 form; the
+student-exceeds-teacher signal (+9/180 on held-out seeds) is exactly the frontier-lever
+hypothesis §B.2 predicted — earlier than expected, before any RL. Next per §14: N2/S1
+(single-disturbance RL vs the frontier metric), or engine-out/gust distill rounds on the
+now-proven loop, or target Stage-1. M4's designated vehicle (N3) now has a credible engine.
+

@@ -106,7 +106,14 @@ BL_HD void neural_policy_step(const State* nav, GuidanceCmd* g){
     neural_policy_forward(o, a);
     g->a_lat[0] = a[0];
     g->a_lat[1] = a[1];
-    g->throttle = a[2];
+    /* TIER-A' (D-023): LATERAL-ONLY policy — the PROVEN hoverslam suicide-burn keeps the
+     * THROTTLE (vertical) channel; the net owns only the a_lat steering. The D-008 lesson
+     * ("lateral-only MPPI — hoverslam owns the proven vertical, the planner owns only the
+     * cross-range null, its actual edge") applied to the learned tier: rounds 0-1 measured
+     * the throttle channel as the weakest imitation (val-MSE plateau; too-hard-dominant
+     * crashes), and the vertical law is already 97% at TERMINAL. The forward pass still
+     * computes all 3 channels (the KAT tests the full pass); the STEP just does not apply
+     * a[2]. Revisit full Tier-A when a policy earns it (an ADR toggle, not a retrain). */
     g->mode = GM_NEURAL;
     /* engine_cmd / n_eng / deploy_cmd stay on the analytic triggers (Tier A) — set by the sim.c
      * GM_NEURAL block (hoverslam_step's ignition + leg-deploy gate), exactly as GM_MPPI. */

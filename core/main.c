@@ -209,15 +209,16 @@ static void test_neural_kat(void){
     CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (placeholder bit-exact)");
     CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (placeholder bit-exact)");
 #else
-    /* REAL-WEIGHTS expectation — NP_VERSION 1 (S0 distill, weights_sha256[:16]=b4141469fb0dce15,
-     * D-022). Dumped from THIS binary's fixed-order pass at %.17g (fp64 round-trips exactly);
-     * NEVER recompute in numpy (accumulation order differs). Regenerate on every export. */
-    const double EXP0 =  2.0362957123562331;
-    const double EXP1 = -2.5091017358926435;
-    const double EXP2 =  0.97730989476634422;
-    CHECKF(a[0], EXP0, 0.0, "NP KAT a_lat0 (NP_VERSION 1 bit-exact)");
-    CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (NP_VERSION 1 bit-exact)");
-    CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (NP_VERSION 1 bit-exact)");
+    /* REAL-WEIGHTS expectation — NP_VERSION 2 (DAgger round-1, weights_sha256[:16]=
+     * d6249fece9e4c838, D-023). Dumped from THIS binary's fixed-order pass at %.17g (fp64
+     * round-trips exactly); NEVER recompute in numpy (accumulation order differs).
+     * Regenerate on every export. */
+    const double EXP0 = -3.0531381235500641;
+    const double EXP1 = -1.7298372458568902;
+    const double EXP2 =  0.400004232908095;
+    CHECKF(a[0], EXP0, 0.0, "NP KAT a_lat0 (NP_VERSION 2 bit-exact)");
+    CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (NP_VERSION 2 bit-exact)");
+    CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (NP_VERSION 2 bit-exact)");
 #endif
     /* determinism: the forward pass is a pure function — twice on the same input is bit-identical. */
     double a2[3]; neural_policy_forward(o, a2);
@@ -388,7 +389,7 @@ static int cmd_run(int argc, char** argv){
         tapf=fopen(policy_log,"wb");
         if(!tapf){ int e=errno; fprintf(stderr,"error: --policy-log: cannot open '%s' for writing: %s (errno=%d)\n"
                                               "       (the parent directory must already exist)\n", policy_log, strerror(e), e); return 3; }
-        if(gmode!=GM_MPPI) fprintf(stderr,"warning: --policy-log has no effect without --mppi (rows are logged only on GM_MPPI ticks)\n");
+        if(gmode!=GM_MPPI && gmode!=GM_NEURAL) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher) or --neural (DAgger shadow teacher, D-023)\n");
     }
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
@@ -483,7 +484,7 @@ static int cmd_headless(int argc, char** argv){
         if(!tapf){ int e=errno; fprintf(stderr,"error: --policy-log: cannot open '%s' for writing: %s (errno=%d)\n"
                                               "       (the parent directory must already exist)\n", policy_log, strerror(e), e);
                    if(f) fclose(f); return 3; }
-        if(gmode!=GM_MPPI) fprintf(stderr,"warning: --policy-log has no effect without --mppi (rows are logged only on GM_MPPI ticks)\n");
+        if(gmode!=GM_MPPI && gmode!=GM_NEURAL) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher) or --neural (DAgger shadow teacher, D-023)\n");
     }
     long cnt[6]={0}; long fault[6]={0};
     long c_offpad=0, c_hard=0, c_fuel=0, c_other=0;
