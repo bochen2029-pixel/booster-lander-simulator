@@ -8,22 +8,14 @@
       :root { color-scheme: dark; }
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
       canvas { display: block; }
-      #splash {
-        position: fixed; inset: 0; display: grid; place-items: center;
-        background: #000; color: #cde; font: 14px/1.5 monospace; cursor: pointer; z-index: 100;
-      }
     </style>
   </head>
   <body>
-    <!-- Audio autoplay policy (canon §12): AudioContext resumes on this click. -->
-    <div id="splash">click to arm audio &amp; connect</div>
-    <script type="module">
-      // Gate the boot on a user gesture so WebAudio can start (canon §12, Risk #13).
-      const splash = document.getElementById("splash");
-      splash.addEventListener("click", async () => {
-        splash.remove();
-        await import("./src/main.ts");
-      }, { once: true });
-    </script>
+    <!-- Boot + connect IMMEDIATELY. The pre-F1 scaffold gated the whole app behind a
+         "click to arm audio" splash (canon §12 Risk #13) — obsolete since the S3 audio
+         observer starts SUSPENDED + muted by design and arms itself from the dev panel's
+         ENABLE button (the real user gesture). The stream is a pure observer; it must
+         never wait on an audio-policy click. -->
+    <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
