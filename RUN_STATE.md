@@ -46,6 +46,19 @@ strict rule (MPPI reach −3 despite AERO t0 +12/600). Fleet record + verdicts: 
 runs/cuda_mppi_report.md, cuda_rebase_report.md, decknull_report.md, kprobe_sweep.csv. Next
 decision pending: EMPI's ENTRY-under-MPPI number (the M6-via-MPPI hinge) + K=1024 + mvar finals.
 
+**D-018 — M4 SAMPLER BRANCH CLOSED (2026-07-19): AERO ≥90 is a PLANT-AUTHORITY ceiling, not a
+solver problem.** Four structural-MPPI variants ALL null from four angles — kprobe (K 256→1024
+flat 44/44/42), mppi-var (OU-θ/λ-floor −2/−3), covo (anisotropic reach-axis Σ flat-to-harmful),
+mpopi (iterate-and-recenter 15/20==baseline + blows the 100 ms budget). Unified diagnosis: off-pad
+misses are the aero/thrust crossover dead-zone reach ceiling (~22 kPa); the controller realizes
+~0.70·D_phys ≈ 775 m of the 1107 m physical divert ceiling — the off-pad seeds are physically
+landable but past the tilt-capped controller's reach. **AERO stays 73.3%; M4 NOT green.** Redirect
+(both ADR-grade, operator-steered): a PLANT-AUTHORITY lever (earlier/harder divert, or raise the
+15° tilt cap vs the STRUCT envelope) OR the LEARNED NEURAL POLICY as frontier-extractor (now on the
+M4 critical path — the perception-to-policy design fleet is speccing it). The guidance work has
+reached the honest limit of the classical/sampling approach on the hard scenario. Full record:
+DECISIONS **D-018**; reports covo/mpopi/kprobe/mvar.
+
 **D-017 — DIAL-A-GUST shipped (2026-07-19): `--gust <peak>@<alt>[:<hw>]` + `--gust-dir` — a
 deterministic 1-cosine wind-shear injector (plant input, guidance-blind per §4.3, off-by-default
 byte-identical: TERMINAL 194 exact, AERO --mppi run-1 invariant).** The first BUILT play-menu

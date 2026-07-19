@@ -1116,3 +1116,53 @@ robustness-test INSTRUMENT, not a guidance change (fleet lane `gust`, `_gust_wt`
   All three are deterministic, guidance-legal plant events — the anti-cheat thesis extends to the
   toys.
 
+## D-018 — M4 structural-sampler branch CLOSED: AERO ≥90 is a plant-authority ceiling (2026-07-19)
+
+A four-angle NEGATIVE RESULT, recorded per directive 8 (failures with numbers). After M6 went
+green via MPPI, the M4 wave attacked AERO ≥90 (from 44/60 = 73.3% under `--mppi`) with four
+independent structural-MPPI-variant levers. **All four are null; all four diagnose the SAME wall.**
+
+| lane | lever | result |
+|---|---|---|
+| kprobe | K capacity 256→512→1024 | 44/44/42 — FLAT (0 of 14 off-pads converted) |
+| mppi-var | isotropic OU-θ 0.15→0.08 + λ-floor 2.0→0.5 | null-to-harmful (−2/−3) |
+| covo | radial/tangential anisotropic Σ (reach-axis variance, det-preserving) | null (22/30 flat at ρ=1.5; ρ=2/3 HARMFUL — more off-pad) |
+| mpopi | iterate-and-recenter (K×L, proposal support) | null (L=3/L=4 x20 = 15/20 == L=1 baseline; off-pad unconverted; AND L≥3 ≈ 139-185 ms blows the 100 ms/10 Hz budget) |
+
+**The unified diagnosis (all four lanes independently converged):** AERO's off-pad misses are the
+**aero/thrust crossover dead-zone reach CEILING (~22 kPa) — a PLANT-AUTHORITY limit, not a
+sampling/proposal-support gap.** The MPPI warm-start already sits on the radial converging profile,
+so reshaping/scaling/iterating the exploration re-samples the SAME reach envelope; no cycle-1
+rollout reaches the far off-pad seed *nulled*, so recentering or anisotropy on a non-reaching set
+cannot extend reach. **The controller realizes only ~0.70·D_phys ≈ 775 m of the physical
+D_phys ≈ 1107 m divert ceiling** (runs/sandbox/ceiling.c); the off-pad seeds live in that
+775→1107 m gap — physically landable, but past what the tilt-capped (15°) reactive/sampled
+controller reaches before the crossover dead-zone inverts its lateral authority.
+
+**Verdict: the "tune the solver harder" branch for M4 is CLOSED with numbers from four angles.**
+AERO stays 73.3% honestly; **M4 is NOT green** and will not be closed by another sampler. This is
+a valuable negative result — it redirects effort instead of burning it. Reports:
+runs/covo_report.md, runs/mpopi_report.md, runs/kprobe_report.md, runs/mvar_report.md. All four
+implementations are preserved behind default-off compile switches (COVO_ON=0 etc.), bit-identical
+to the shipped controller — available for a future re-probe at higher authority.
+
+**The M4 REDIRECT — two honest paths to close the 775→1107 m gap (the frontier-extraction
+problem):**
+1. **A PLANT-AUTHORITY lever** — commit the divert EARLIER/HARDER (more altitude/time to reach), or
+   raise the 15° fins-deployed tilt cap (buys lateral authority, but trades against the qbar>80 kPa
+   STRUCT envelope — an ADR-grade physics decision that changes the VEHICLE, not the solver). A
+   dispersion reconsideration is NOT warranted (D-009 proved mean-500/σ150 well-posed at D_phys).
+2. **A LEARNED NEURAL POLICY as frontier-extractor** — a policy trained toward the reachability
+   frontier could plausibly extract more of D_phys than the hand-tuned MPPI warm-start, by finding
+   a more aggressive divert the reactive profile never explores. This is now on the M4 CRITICAL
+   PATH, not just a capability play — and the perception-to-policy design fleet
+   (runs/neural_policy_design.md + perception_design.md + interplanetary_integration_design.md, in
+   flight) is speccing exactly this. The four-angle sampler-null is the empirical case FOR it:
+   AERO-90 is precisely where hand-tuned/sampled control hits its physical ceiling and the
+   learned-policy frontier begins.
+
+**Milestone status:** M6 GREEN (D-016); M4 open, redirected off the sampler branch. The guidance
+work has reached the honest limit of the classical/sampling approach on the hard scenario — the
+next lever is either the vehicle (plant authority) or a fundamentally different controller (learned
+policy). Both are ADR-grade, deliberate, operator-steered decisions.
+
