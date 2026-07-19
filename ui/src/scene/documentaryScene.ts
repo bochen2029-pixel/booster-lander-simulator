@@ -52,8 +52,12 @@ import {
 } from "../fx/plume";
 import { buildMarkers, type MarkersHandle } from "./markers";
 
-// dark-studio palette (Bonsai borrowed this from the booster canon; borrow back)
-const STUDIO_BG = 0x07090c;
+// OPERATOR DOCTRINE (first light, verbatim): "it MUST always sunny and daytime by
+// default." The dark studio is retired as the default (it survives only as a future
+// night PRESET). Daytime palette: bright sky, fog tinted TO THE SKY (aerial
+// perspective), warm sun + strong sky/ground fill so the white hull always reads.
+const DAY_SKY = 0x8fc1ea;
+const DAY_FOG = 0x9fcbee;
 // FIRST-LIGHT FIX: the original 400/6000 m fog was Bonsai's DESK-SCALE preset pasted
 // into a 70 km scene — everything beyond 6 km fogged to background, so the entire
 // descent rendered pure black ("where is the freaking rocket"). Fog must be a subtle
@@ -77,28 +81,30 @@ export interface DocumentaryScene {
 }
 
 export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
-  scene.background = new Color(STUDIO_BG);
-  scene.fog = new Fog(STUDIO_BG, STUDIO_FOG_NEAR, STUDIO_FOG_FAR);
+  scene.background = new Color(DAY_SKY);
+  scene.fog = new Fog(DAY_FOG, STUDIO_FOG_NEAR, STUDIO_FOG_FAR);
 
   const world = new Group();
   scene.add(world);
 
-  // --- ground: dark-studio concrete pad + weathered ring + grid ---------------
-  const groundMat = new MeshStandardMaterial({ color: 0x0c0e11, roughness: 1.0, metalness: 0.0 });
-  const ground = new Mesh(new CircleGeometry(4000, 96), groundMat);
+  // --- ground: DAYTIME scrubland to the horizon + concrete pad (LZ-1 grammar) --
+  // (was near-black night-studio; and the 4 km disc ended mid-view — extend to the
+  // fog so ground meets sky at the horizon like the real coastline footage)
+  const groundMat = new MeshStandardMaterial({ color: 0x8a8577, roughness: 1.0, metalness: 0.0 });
+  const ground = new Mesh(new CircleGeometry(60000, 96), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   world.add(ground);
 
   // the landing pad disc (Ø from HELLO pad_radius; default 30 m radius circle-X)
-  const padMat = new MeshStandardMaterial({ color: 0x14171b, roughness: 0.85, metalness: 0.05 });
+  const padMat = new MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.85, metalness: 0.05 });
   const pad = new Mesh(new CircleGeometry(30, 64), padMat);
   pad.rotation.x = -Math.PI / 2;
   pad.position.y = 0.02;
   pad.receiveShadow = true;
   world.add(pad);
-  // circle-X pad marking (two crossed bars) — set-dressing, per canon §B.2
-  const markMat = new MeshBasicMaterial({ color: 0x2a3038, transparent: true, opacity: 0.7, side: DoubleSide });
+  // circle-X pad marking (two crossed bars) — WHITE on concrete, per LZ-1 footage
+  const markMat = new MeshBasicMaterial({ color: 0xe8ecef, transparent: true, opacity: 0.9, side: DoubleSide });
   for (const rot of [Math.PI / 4, -Math.PI / 4]) {
     const bar = new Mesh(new PlaneGeometry(3, 42), markMat);
     bar.rotation.x = -Math.PI / 2;
@@ -107,19 +113,18 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
     world.add(bar);
   }
 
-  const grid = new GridHelper(3000, 60, 0x161c22, 0x0d1116);
+  const grid = new GridHelper(3000, 60, 0x6e6a5e, 0x7c776a);
   grid.position.y = 0.01;
   const gridMat = grid.material as LineBasicMaterial;
   gridMat.transparent = true;
   gridMat.opacity = 0.4;
   world.add(grid);
 
-  // --- lighting rig (Bonsai dark-studio: hemisphere fill + warm key + cool rim)
-  // FIRST-LIGHT FIX: 0.35 was night-studio dim; floor the fill so the hull always
-  // reads. (The VISIBILITY daylight rig supersedes this with a proper sun/sky.)
-  const hemi = new HemisphereLight(0x8fa8c0, 0x0a0e14, 1.0);
+  // --- lighting rig: SUNNY DAYTIME (operator doctrine — the default, not a mode).
+  // Hemisphere = bright sky bounce + warm ground bounce; sun = strong warm key.
+  const hemi = new HemisphereLight(0xcfe4f7, 0x8a7f6e, 1.35);
   scene.add(hemi);
-  const key = new DirectionalLight(0xfff2e2, 1.6);
+  const key = new DirectionalLight(0xfff4e0, 3.0);
   key.position.set(60, 120, 40);
   key.castShadow = true;
   key.shadow.camera.near = 1;

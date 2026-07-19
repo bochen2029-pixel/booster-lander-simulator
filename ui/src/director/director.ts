@@ -106,12 +106,21 @@ export interface CamPose {
  * `vehPos`/`vehVel` are SIM frame; `up` is sim +Z. `orbitT` drives FREE_ORBIT +
  * long-lens seeing shimmer phase.
  */
+/** Optional user-camera state for FREE_ORBIT (drag/wheel ownership). */
+export interface OrbitOpts {
+  halfH?: number; // vehicle half-length [m] (frame the CENTER, not the base)
+  az?: number; // user azimuth [rad]
+  el?: number; // user elevation [rad]
+  r?: number; // user radius [m]
+}
+
 export function presetPose(
   preset: CameraPreset,
   vehPos: Vector3,
   vehVel: Vector3,
   orbitT: number,
-  out: CamPose
+  out: CamPose,
+  opts?: OrbitOpts
 ): CamPose {
   out.target.copy(vehPos);
   switch (preset) {
@@ -146,14 +155,22 @@ export function presetPose(
       break;
     }
     case "FREE_ORBIT": {
-      // THE DEFAULT EXTERNAL VIEW (KSP-style): side-on at framing distance, whole
-      // vehicle + plume in frame, gentle drift (a full orbit takes ~7 min — near-
-      // static, so the shot reads as a steady external tracker, not a carousel).
-      // Slightly ABOVE center-height so the approaching ground enters frame late
-      // in the descent and the touchdown is seen side-on.
-      const r = 150;
-      const a = orbitT * 0.015;
-      out.eye.set(vehPos.x + Math.cos(a) * r, vehPos.y + Math.sin(a) * r, vehPos.z + 35);
+      // THE DEFAULT EXTERNAL VIEW (KSP-style, operator-owned): side-on, whole
+      // vehicle framed at its CENTER (not its base — centering the base shoved the
+      // rocket to the bottom of the frame), user-controlled azimuth/elevation/
+      // radius via drag + wheel (the rig only FOLLOWS the vehicle; the user owns
+      // the angle — a camera that fights the mouse is worse than no camera).
+      const halfH = opts?.halfH ?? 23.5; // ~half a 47 m booster
+      const r = opts?.r ?? 150;
+      const az = (opts?.az ?? 0) + orbitT * 0.008; // near-static drift under the user's angle
+      const el = opts?.el ?? 0.08; // slight upward tilt of the orbit plane
+      const cz = vehPos.z + halfH; // vehicle CENTER height
+      out.target.set(vehPos.x, vehPos.y, cz);
+      out.eye.set(
+        vehPos.x + Math.cos(az) * Math.cos(el) * r,
+        vehPos.y + Math.sin(az) * Math.cos(el) * r,
+        cz + Math.sin(el) * r
+      );
       out.fov = 45;
       break;
     }
@@ -220,7 +237,7 @@ export class DirectorRig {
     this.fromTarget.copy(this.target);
     this.fromFov = this.fov;
     this.preset = p;
-    presetPose(p, vehPos, vehVel, this.orbitT, this.toPose);
+    presetPose(p, vehPos, vehVel, this.orbitT, this.toPose, this.orbitOpts());
     this.transT = 0;
     this.lastCutT = simT;
   }
@@ -231,7 +248,7 @@ export class DirectorRig {
 
     // the target pose is recomputed live (so a preset tracking the moving vehicle
     // keeps up); on a settled cam it just is the current preset pose.
-    presetPose(this.preset, vehPos, vehVel, this.orbitT, this._scratch);
+    presetPose(this.preset, vehPos, vehVel, this.orbitT, this._scratch, this.orbitOpts());
 
     if (this.transT < 1) {
       this.transT = Math.min(1, this.transT + dtSec / this.transDur);
@@ -241,11 +258,34 @@ export class DirectorRig {
       this.target.copy(this.fromTarget).lerp(this._scratch.target, e);
       this.fov = this.fromFov + (this._scratch.fov - this.fromFov) * e;
     } else {
-      // settled: follow the live preset pose directly (smooth because pose is
-      // continuous in vehPos/vehVel which are interpolated).
-      this.eye.lerp(this._scratch.eye, Math.min(1, dtSec * 4));
-      this.target.lerp(this._scratch.target, Math.min(1, dtSec * 4));
+      // settled: track the pose EXACTLY. A follow camera's offset from the vehicle
+      // is constant — lerping here chased a 300 m/s target with a ~0.25 s rubber
+      // band, which read as vertical JERK at 150 m range (first-light finding).
+      // The pose is already continuous because vehPos comes from the interp layer.
+      this.eye.copy(this._scratch.eye);
+      this.target.copy(this._scratch.target);
       this.fov = this._scratch.fov;
     }
+  }
+
+  // ---- user-owned external camera (KSP grammar: the user owns the angle) ----
+  orbitAz = 0.6;
+  orbitEl = 0.08;
+  orbitR = 150;
+  vehHalfH = 23.5;
+
+  private orbitOpts(): OrbitOpts {
+    return { halfH: this.vehHalfH, az: this.orbitAz, el: this.orbitEl, r: this.orbitR };
+  }
+
+  /** Mouse-drag orbit (pixels). Never fights the user: input applies immediately. */
+  orbitInput(dxPx: number, dyPx: number): void {
+    this.orbitAz -= dxPx * 0.005;
+    this.orbitEl = Math.min(1.25, Math.max(-0.45, this.orbitEl + dyPx * 0.003));
+  }
+
+  /** Wheel zoom (exponential; clamped so the vehicle can never be lost). */
+  zoomInput(wheelDeltaY: number): void {
+    this.orbitR = Math.min(2500, Math.max(40, this.orbitR * Math.exp(wheelDeltaY * 0.0012)));
   }
 }

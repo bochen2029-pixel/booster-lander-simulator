@@ -107,6 +107,7 @@ async function boot() {
         try {
           const h = decodeHello(buf);
           doc.applyHello(h);
+          if (h.vehLen > 1) director.vehHalfH = h.vehLen / 2; // frame the true center
           chip.setInfo(`seed ${h.seed} run ${h.runIdx} v${h.ver}`);
           console.info("[net] HELLO", h);
         } catch (e) {
@@ -258,6 +259,30 @@ function installCameraHotkeys(
       director.setAuto(true);
     }
   });
+
+  // KSP-style manual orbit (operator doctrine: the user OWNS the external angle).
+  // Drag = azimuth/elevation, wheel = zoom. Applies to the default external view;
+  // grabbing the mouse also drops any cinematic preset back to the external cam.
+  let dragging = false;
+  window.addEventListener("pointerdown", (e) => {
+    if (e.button === 0 && (e.target as HTMLElement)?.tagName === "CANVAS") {
+      dragging = true;
+      if (director.preset !== "FREE_ORBIT") {
+        director.select("FREE_ORBIT", getPos(), getVel());
+      }
+    }
+  });
+  window.addEventListener("pointerup", () => (dragging = false));
+  window.addEventListener("pointermove", (e) => {
+    if (dragging) director.orbitInput(e.movementX, e.movementY);
+  });
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if ((e.target as HTMLElement)?.tagName === "CANVAS") director.zoomInput(e.deltaY);
+    },
+    { passive: true }
+  );
 }
 
 boot().catch((e) => {
