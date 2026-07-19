@@ -51,6 +51,7 @@ import {
   type PlumeUniforms,
 } from "../fx/plume";
 import { buildMarkers, type MarkersHandle } from "./markers";
+import { buildTargetMarker, readTargetEst } from "./targetMarker";
 
 // OPERATOR DOCTRINE (first light, verbatim): "it MUST always sunny and daytime by
 // default." The dark studio is retired as the default (it survives only as a future
@@ -264,6 +265,12 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const markers = buildMarkers(0);
   world.add(markers.root);
 
+  // target-estimate marker (v2 §8.4 "what the rocket believes") — dormant until
+  // the protocol-v4 decoder surfaces the estimate fields (readTargetEst -> null
+  // on a v3 stream), then lights up with covariance ellipse + provenance color.
+  const targetMarker = buildTargetMarker();
+  world.add(targetMarker.root);
+
   // green-flash decay state (EVT-pulsed uniform, decays on its own — canon §B.3)
   let greenFlash = 0;
 
@@ -344,11 +351,16 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       plumeLight.color.setRGB(1.0, 0.42 + 0.2 * f.throttleAct, 0.14 + 0.12 * f.throttleAct);
 
       // --- markers (diegetic, interpolate-never-snap via the interp frame) ------
+      // v2 §4.5/§9.9: the solve-convergence reference is the TARGET ESTIMATE when
+      // one is streaming (v4), else the classic fixed pad at the origin. This is
+      // the renderer-side half of "null the offset to wherever the target is".
+      const est = readTargetEst(f);
+      targetMarker.update(est);
       markers.update({
         predImpact: f.predImpact,
         igniteH: f.igniteH,
         vehSimPos: [s.r.x, s.r.y, s.r.z],
-        padCenter: [0, 0],
+        padCenter: est && est.valid ? est.xy : [0, 0],
         dtSec,
       });
     },

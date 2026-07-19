@@ -83,7 +83,10 @@ export function createConnectionChip(
     label.textContent = st.label;
     label.style.color = st.dot;
 
-    ident.textContent = `${s.scenario} s${s.seed} r${s.run} · :${s.port}`;
+    // Launch identity + any armed play-menu disturbances (v2 §10.6 — an armed
+    // disturbance is part of the run's identity, so the chip must say so).
+    ident.textContent =
+      `${s.scenario} s${s.seed} r${s.run}` + (s.disturb ? ` · ${s.disturb}` : "") + ` · :${s.port}`;
 
     ver.textContent = s.helloVerified ? "v3 ✓" : "v3 —";
     ver.style.color = s.helloVerified ? "#4fd08a" : "#8a8f9a";

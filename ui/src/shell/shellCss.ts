@@ -60,6 +60,13 @@ export const SHELL_CSS = `
 }
 .lz-picker__scenario { width: 90px; }
 .lz-picker__seed, .lz-picker__run { width: 62px; }
+/* v2 play-menu inputs (the DISTURB group) — compact, clearly optional. */
+.lz-picker__gust { width: 104px; }
+.lz-picker__gdir { width: 44px; }
+.lz-picker__eo { width: 56px; }
+.lz-picker__target { width: 84px; }
+.lz-picker__tag--disturb { color: #d0a05f; }
+.lz-picker input::placeholder { color: #55606d; }
 .lz-picker input:disabled { opacity: 0.5; }
 .lz-picker__launch {
   padding: 3px 12px; border-radius: 5px; border: none; cursor: pointer;

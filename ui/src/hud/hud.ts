@@ -164,7 +164,7 @@ export function installHud(): HudHandle {
   const stats = document.createElement("div");
   stats.className = "hud-left-stats";
   const rows: Record<string, HTMLElement> = {};
-  for (const key of ["ALT", "SPD", "MACH", "t_go", "THR", "LOX", "RP1"]) {
+  for (const key of ["ALT", "SPD", "MACH", "t_go", "THR", "ENG", "LOX", "RP1"]) {
     const k = document.createElement("span");
     k.className = "k";
     k.textContent = key;
@@ -253,6 +253,9 @@ export function installHud(): HudHandle {
       rows["MACH"].textContent = f.mach.toFixed(2);
       rows["t_go"].textContent = f.tGo > 0 ? `${f.tGo.toFixed(1)} s` : "—";
       rows["THR"].textContent = `${(f.throttleAct * 100).toFixed(0)}%`;
+      // ENG: live engine count (v2 §4.6 engine-out readiness — n_eng has been on
+      // the wire since v1 §10.3; when an ENGINE_OUT fires it drops 3→2 live).
+      rows["ENG"].textContent = `${f.nEng}×`;
       rows["LOX"].textContent = `${f.propLox.toFixed(0)} kg`;
       rows["RP1"].textContent = `${f.propRp1.toFixed(0)} kg`;
 

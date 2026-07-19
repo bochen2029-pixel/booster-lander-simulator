@@ -75,16 +75,38 @@ impl Phase {
 
 /// The launch parameters the picker sets. Validated on the JS side too, but the
 /// capability arg-validators are the real gate (`shell/capabilities/default.json`).
+///
+/// v2 PLAY MENU (canon §10.6 "keep INJECT_DISTURBANCE one keystroke away in the
+/// UI"; D-017/D-019): optional disturbance specs, passed through to the core CLI
+/// verbatim when non-empty. Empty string = flag absent = byte-identical baseline.
+///   gust       -> `--gust <peak_mps>@<alt_m>[:<halfwidth_m>]`   (BUILT, D-017)
+///   gust_dir   -> `--gust-dir <deg>`                            (BUILT, D-017)
+///   engine_out -> `--engine-out <k>@<t>`                        (N0 core; pre-N0 the
+///   target     -> `--target <spec>`                              core rejects loudly
+///                                                                and the stderr panel
+///                                                                shows why)
 #[derive(Clone, Debug)]
 pub struct Launch {
     pub scenario: String,
     pub seed: i64,
     pub run: i64,
+    pub gust: String,
+    pub gust_dir: String,
+    pub engine_out: String,
+    pub target: String,
 }
 
 impl Default for Launch {
     fn default() -> Self {
-        Launch { scenario: "entry".into(), seed: 42, run: 1 }
+        Launch {
+            scenario: "entry".into(),
+            seed: 42,
+            run: 1,
+            gust: String::new(),
+            gust_dir: String::new(),
+            engine_out: String::new(),
+            target: String::new(),
+        }
     }
 }
 
@@ -163,7 +185,11 @@ impl Supervisor {
         let payload = serde_json::json!({
             "phase": p.as_str(),
             "port": self.port(),
-            "launch": { "scenario": l.scenario, "seed": l.seed, "run": l.run },
+            "launch": {
+                "scenario": l.scenario, "seed": l.seed, "run": l.run,
+                "gust": l.gust, "gustDir": l.gust_dir,
+                "engineOut": l.engine_out, "target": l.target,
+            },
             "error": self.last_error_str(),
         });
         let _ = app.emit("core://state", payload);
@@ -263,26 +289,43 @@ pub async fn spawn(app: &AppHandle, sup: &Arc<Supervisor>, launch: Launch, user_
     let run = launch.run.to_string();
     let port_s = port.to_string();
 
-    tracing::info!(
-        "spawning core: {} --serve --scenario {} --seed {} --run {} --port {}",
-        exe.display(), launch.scenario, seed, run, port
-    );
+    // Base args + the optional play-menu disturbance flags (empty = absent =
+    // byte-identical baseline, the D-017 off-by-default pattern).
+    let mut args: Vec<String> = vec![
+        "--serve".into(),
+        "--scenario".into(),
+        launch.scenario.clone(),
+        "--seed".into(),
+        seed,
+        "--run".into(),
+        run,
+        "--port".into(),
+        port_s,
+    ];
+    if !launch.gust.is_empty() {
+        args.push("--gust".into());
+        args.push(launch.gust.clone());
+    }
+    if !launch.gust_dir.is_empty() {
+        args.push("--gust-dir".into());
+        args.push(launch.gust_dir.clone());
+    }
+    if !launch.engine_out.is_empty() {
+        args.push("--engine-out".into());
+        args.push(launch.engine_out.clone());
+    }
+    if !launch.target.is_empty() {
+        args.push("--target".into());
+        args.push(launch.target.clone());
+    }
+
+    tracing::info!("spawning core: {} {}", exe.display(), args.join(" "));
 
     let mut cmd = Command::new(&exe);
-    cmd.args([
-        "--serve",
-        "--scenario",
-        &launch.scenario,
-        "--seed",
-        &seed,
-        "--run",
-        &run,
-        "--port",
-        &port_s,
-    ])
-    .stdout(Stdio::piped())
-    .stderr(Stdio::piped())
-    .kill_on_drop(true);
+    cmd.args(&args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
 
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW — suppress console

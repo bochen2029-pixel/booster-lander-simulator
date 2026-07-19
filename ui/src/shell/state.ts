@@ -21,7 +21,19 @@
 // Renderer-owns-no-truth still holds: this machine drives only CHROME (the chip,
 // the RELIGHT affordance). It never touches vehicle state.
 
-import type { CorePhase, CoreStatePayload } from "./tauriBridge";
+import type { CoreLaunch, CorePhase, CoreStatePayload, DisturbSpec } from "./tauriBridge";
+
+/**
+ * One-line human summary of the armed play-menu disturbances (chip ident +
+ * picker echo). Empty string when the run is a clean baseline.
+ */
+export function disturbSummary(l: Partial<CoreLaunch> | DisturbSpec): string {
+  const parts: string[] = [];
+  if (l.gust) parts.push(`gust ${l.gust}${l.gustDir ? `@${l.gustDir}°` : ""}`);
+  if (l.engineOut) parts.push(`eo ${l.engineOut}`);
+  if (l.target) parts.push(`tgt ${l.target}`);
+  return parts.join(" · ");
+}
 
 export type ConnState =
   | "SPAWNING"
@@ -45,6 +57,8 @@ export interface CockpitState {
   scenario: string;
   seed: number;
   run: number;
+  /** Armed play-menu disturbances, as a display summary ("" = clean baseline). */
+  disturb: string;
   /** Readable error, when FAILED/LOST. */
   error: string;
   /** True when the control plane (Tauri) is present. */
@@ -76,6 +90,7 @@ export class CockpitStateMachine {
       error: "",
       hasControlPlane: opts.hasControlPlane,
       frameCount: 0,
+      disturb: "",
     };
   }
 
@@ -109,6 +124,7 @@ export class CockpitStateMachine {
       scenario: p.launch.scenario,
       seed: p.launch.seed,
       run: p.launch.run,
+      disturb: disturbSummary(p.launch),
       error: p.error || this.s.error,
     };
     // Map supervisor lifecycle to the chip where the socket can't speak for it.
@@ -179,7 +195,7 @@ export class CockpitStateMachine {
   }
 
   /** Reset for a fresh launch (picker/relight) initiated from the webview. */
-  beginRelaunch(scenario: string, seed: number, run: number): void {
+  beginRelaunch(scenario: string, seed: number, run: number, disturb = ""): void {
     this.set({
       conn: "SPAWNING",
       helloVerified: false,
@@ -189,6 +205,7 @@ export class CockpitStateMachine {
       scenario,
       seed,
       run,
+      disturb,
     });
   }
 

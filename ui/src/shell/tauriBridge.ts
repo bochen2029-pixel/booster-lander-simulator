@@ -25,6 +25,19 @@ export interface CoreLaunch {
   scenario: string;
   seed: number;
   run: number;
+  /** v2 play-menu disturbance specs (canon §10.6/D-019). Empty/absent = off. */
+  gust?: string;
+  gustDir?: string;
+  engineOut?: string;
+  target?: string;
+}
+
+/** The optional play-menu disturbances the picker can arm on a relaunch. */
+export interface DisturbSpec {
+  gust?: string;
+  gustDir?: string;
+  engineOut?: string;
+  target?: string;
 }
 
 export interface CoreStatePayload {
@@ -118,8 +131,17 @@ export const bridge = {
   getCoreStatus: () => invoke<CoreStatePayload>("get_core_status"),
   getCorePort: () => invoke<number>("get_core_port"),
   getStderrTail: () => invoke<string>("get_stderr_tail"),
-  relaunch: (scenario: string, seed: number, run: number) =>
-    invoke<number>("relaunch_core", { scenario, seed, run }),
+  relaunch: (scenario: string, seed: number, run: number, disturb: DisturbSpec = {}) =>
+    invoke<number>("relaunch_core", {
+      scenario,
+      seed,
+      run,
+      // Tauri v2 maps camelCase invoke args onto snake_case command params.
+      gust: disturb.gust ?? "",
+      gustDir: disturb.gustDir ?? "",
+      engineOut: disturb.engineOut ?? "",
+      target: disturb.target ?? "",
+    }),
   relight: () => invoke<number>("relight_core"),
   onState: (h: (p: CoreStatePayload) => void) => listen<CoreStatePayload>("core://state", h),
   onExit: (h: (p: CoreExitPayload) => void) => listen<CoreExitPayload>("core://exit", h),
