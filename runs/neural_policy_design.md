@@ -120,7 +120,18 @@ Three training approaches, in the order they should be built. **Recommendation u
 - **PPO (Proximal Policy Optimization)** — on-policy, extremely robust/stable, trivially parallel (matches the plant's millions-of-steps/sec throughput — you can run thousands of parallel envs and PPO eats the on-policy data). **Acceptable and simpler to stabilize**; the standard choice for massively-parallel sim (Isaac-Gym-style). If SAC's off-policy instability bites, fall back to PPO with a large parallel-env count.
 - **Warm-start RL from the distilled policy** (B.1): initialize the RL policy's weights from the S0 distilled net. This starts RL at MPPI-quality (not from noise), so RL only has to *improve* from a good baseline — dramatically faster and safer than tabula-rasa RL, and it means S1/S2 never regress below the distilled floor if early-stopped. **This is the recommended coupling of B.1→B.2: distill to bootstrap, RL to exceed.**
 
-**RL's risks (managed in §F.5, §H):** reward hacking (§D.5), sim-overfitting (§F.5), training instability (mitigated by distill-warm-start + PPO fallback), and the determinism export applying to the *frozen* final policy only (RL training may be nondeterministic; the *shipped* artifact is frozen and re-golden'd, §F).
+> **[Adopted 2026-07-19, post-D-024 — the bridge between these two rungs: EXPERT ITERATION.**
+> Before (or instead of) tabula-rasa RL at the pairwise/compound rounds, the TEACHER itself
+> upgrades via two improvement operators routed by disturbance visibility: student-warm-started
+> MPPI refinement on rollout-visible axes (engine-out / target / dispersions), and
+> verdict-filtered self-imitation on the rollout-invisible axis (wind — §4.3's wind-blind
+> rollouts make sampler-refinement actively HARMFUL there), composed in series on mixed rungs
+> with the verdict as final arbiter. Full spec, floors, promotion gates, and do-nots:
+> **`runs/expert_iteration_design.md`**. RL stays reserved exactly as this section describes if
+> the loop plateaus short of the compound gate. Context: D-023/D-024 measured the student
+> EXCEEDING its fixed teacher closed-loop, so B.1's "bounded by its teacher" clause is hereby
+> annotated — the bound holds per-decision on the training distribution; closed-loop
+> composition (rate, variance) is a separate axis, and the REACH claim (M4) remains untouched.] reward hacking (§D.5), sim-overfitting (§F.5), training instability (mitigated by distill-warm-start + PPO fallback), and the determinism export applying to the *frozen* final policy only (RL training may be nondeterministic; the *shipped* artifact is frozen and re-golden'd, §F).
 
 ### B.3 Approach 3 — RESIDUAL (NN correction on the hoverslam baseline) — the safety/legibility variant
 
