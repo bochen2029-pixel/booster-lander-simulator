@@ -21,7 +21,11 @@ param(
   #               -Mode neural = round-1+ (fly GM_NEURAL, log the SHADOW-MPPI teacher labels
   #               at the states the policy visits — neural_policy_design §B.1)
   [ValidateSet("mppi","neural")][string]$Mode = "mppi",
-  [string]$OutDir = ""   # default: data\s0 for mppi, data\s0r1 for neural
+  [string]$OutDir = "",  # default: data\s0 for mppi, data\s0r1 for neural
+  # Arc A (D-024): per-seed DETERMINISTIC gust randomization — the disturbance enters the
+  # curriculum as a dial (canon §H.0: gust needs zero interface work). Spec derived from the
+  # seed so every farmed batch is exactly replayable/documentable.
+  [switch]$GustFromSeed
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,7 +54,17 @@ for ($i = 0; $i -lt $Seeds; $i++) {
   if ((Get-Date) -gt $deadline) { Log "FARM-DEADLINE reached after $done seeds"; break }
   $bin = Join-Path $dataDir "aero_s$seed.bin"
   $t0 = Get-Date
-  & $exe --headless --scenario aero_offset --seed $seed --runs $RunsPer $modeFlag $TapFlag $bin 2>&1 |
+  $gustArgs = @()
+  if ($GustFromSeed) {
+    $peak = 8 + ($seed % 5) * 4        # 8..24 m/s
+    $alt  = 2000 + ($seed % 7) * 1000  # 2..8 km
+    $hw   = 400 + ($seed % 3) * 200    # 400/600/800 m
+    $dir  = ($seed * 37) % 360
+    $spec = "{0}@{1}:{2}" -f $peak, $alt, $hw
+    $gustArgs = @("--gust", $spec, "--gust-dir", "$dir")
+    Log "FARM-GUST seed=$seed spec=$spec dir=$dir"
+  }
+  & $exe --headless --scenario aero_offset --seed $seed --runs $RunsPer $modeFlag @gustArgs $TapFlag $bin 2>&1 |
     Select-String "LANDED:" | ForEach-Object { $_.Line } | Set-Variable -Name landedLine
   # Success = the tap file exists and is non-trivial. The headless EXIT CODE reflects the
   # LANDED rate, which is deliberately terrible for early DAgger rounds (-Mode neural flies

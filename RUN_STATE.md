@@ -18,6 +18,16 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★★ D-024 — GUST ROUNDS (2026-07-19 ~15:00): the student is MORE SHEAR-ROBUST than its
+teacher — the N2 "recovery ≥ MPPI on ≥1 axis" gate MET by distillation alone.** NP_VERSION 3
+(5.15M-row full-curriculum retrain; sha 5fd2b9a7…): s42 ×60 clean 43 vs MPPI 44 (parity);
+**gust 12@5000:800 → neural 45 vs MPPI 38 (+7); gust 20@3000:600 → neural 46 vs MPPI 42
+(+4)** — the policy's rate is FLAT calm→20 m/s while the teacher degrades. Loop: gusty
+teacher farm (15 seeds) + gusty on-policy shadow farm (12 seeds), `-GustFromSeed`
+deterministic specs; KAT v3 pinned; TERMINAL byte-clean; pairs bit-identical; the −2 clean
+cost recorded honestly. **Next: engine-out rounds (ENTRY farms + 2-engine frontier oracle)
+→ pairwise → joint/N3.** Full record: DECISIONS **D-024**.
+
 **★★★★★★ D-023 — S0 GREEN (2026-07-19 ~12:45): the LEARNED POLICY MATCHES-OR-BEATS ITS
 TEACHER on every held-out seed, at ~9× speed.** `--neural` (Tier-A′ lateral-only,
 NP_VERSION 2, sha d6249fece…) AERO ×60: **45/60 s42 · 47/60 s7 · 43/60 s99 = 135/180 vs

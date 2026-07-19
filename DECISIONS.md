@@ -1468,3 +1468,36 @@ hypothesis §B.2 predicted — earlier than expected, before any RL. Next per §
 (single-disturbance RL vs the frontier metric), or engine-out/gust distill rounds on the
 now-proven loop, or target Stage-1. M4's designated vehicle (N3) now has a credible engine.
 
+## D-024 — Arc A gust rounds: the student is MORE shear-robust than its teacher (2026-07-19)
+
+**The first disturbance-distillation arc (canon §H.0 curriculum: one axis at a time; the
+§14-N2 gate "recovery ≥ MPPI on ≥1 axis" — MET, by distillation alone, before any RL):**
+
+| AERO s42 ×60 | MPPI (teacher) | `--neural` NP_VERSION 3 | Δ |
+|---|---|---|---|
+| clean | 44/60 (golden) | 43/60 | −1 (parity) |
+| `--gust 12@5000:800` | 38/60 | **45/60** | **+7** |
+| `--gust 20@3000:600` | 42/60 | **46/60** | **+4** |
+
+**MPPI degrades under shear (44→38); the gust-trained student does not degrade at all**
+(43/45/46 — flat from calm to a 20 m/s shear it cannot see). The D-017 thesis — reject a
+disturbance you can't measure — now held by a 37k-param feed-forward net, and held BETTER
+than the sampler that taught it.
+
+**The round (the now-standard loop):** farm script gained `-GustFromSeed` (deterministic
+per-seed spec: peak 8-24 m/s, alt 2-8 km, hw 400-800, dir seed·37 mod 360 — every batch
+replayable); gusty TEACHER farm (15 seeds ×20, MPPI demonstrating shear flight, seeds
+2000-2014) + gusty ON-POLICY shadow farm (12 seeds ×20, the policy flying shear while MPPI
+labels, seeds 2100-2111); merged retrain over the FULL curriculum (clean r0+r1 + both gusty
+sets = 5,151,289 rows / 1,260 runs; 520 s CUDA; lateral val-MSE improved 0.072/0.081 →
+0.066/0.065) → **NP_VERSION 3** (weights_sha256[:16]=5fd2b9a705f802ec) → KAT re-pinned from
+the C pass (3.1996865681178459 / −0.13214497848064036 / 0.40000162929689165). Gates:
+selftest PASS (KAT v3); TERMINAL ×200 byte-clean; gusty ×60 pair bit-identical; the clean
+no-regression cost recorded honestly: 45→43 (−2 on 60, teacher-parity retained — the price
+of the wider curriculum, within batch noise). Held-out law intact throughout (train seeds
+1000s/2000s; eval on s42 with specs never farmed: dir=0 fixed vs seed-derived dirs).
+
+**Next per the curriculum:** engine-out rounds (ENTRY-regime farms + the 2-engine frontier
+oracle) → pairwise → the joint compound (where MPPI weakens as a teacher and RL/N3 takes
+over). Target axis waits on target Stage-1 (the §A.3 verdict).
+
