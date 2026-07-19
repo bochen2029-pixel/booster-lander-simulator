@@ -3,7 +3,7 @@
 #include "constants.h"
 #include <math.h>
 
-static void foot_body_pos(const State* st, int i, double com, double p_rel[3]){
+BL_HD static void foot_body_pos(const State* st, int i, double com, double p_rel[3]){
     double az = (double)i * (PI*0.5);           /* 0,90,180,270 deg */
     double df = st->deploy_frac; if(df<0)df=0; if(df>1)df=1;
     double rad = VEH_RADIUS + df*(LEG_RADIUS - VEH_RADIUS);

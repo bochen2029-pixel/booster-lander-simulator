@@ -4,8 +4,8 @@
 #include "atmosphere.h"
 #include <math.h>
 
-/* grid-fin transonic authority dip (mirror of dynamics.c fin_dip). */
-static double fin_dip_ctrl(double M){
+/* grid-fin transonic authority dip (mirror of dynamics.c fin_dip). M5 CUDA: BL_HD for device. */
+BL_HD static double fin_dip_ctrl(double M){
     if(M>0.8 && M<1.2) return 0.55;
     if(M>2.0) return 0.80;
     if(M>=0.6 && M<=0.8) return 1.0 + (0.55-1.0)*(M-0.6)/0.2;
@@ -14,14 +14,14 @@ static double fin_dip_ctrl(double M){
 }
 /* body aero mirrors of dynamics.c (control ESTIMATE for trim feedforward; plant is truth).
  * Keep in sync with dynamics.c AERO_CN table and xcp_frac. */
-static double body_cna_ctrl(double M){
+BL_HD static double body_cna_ctrl(double M){
     static const double XM[9]={0.0,0.6,0.9,1.1,1.5,2.0,3.0,5.0,8.0};
     static const double CN[9]={2.0,2.1,2.4,2.5,2.4,2.3,2.2,2.1,2.0};
     if(M<=XM[0])return CN[0]; if(M>=XM[8])return CN[8];
     for(int i=0;i<8;i++) if(M<=XM[i+1]){ double t=(M-XM[i])/(XM[i+1]-XM[i]); return CN[i]+t*(CN[i+1]-CN[i]); }
     return CN[8];
 }
-static double xcp_frac_ctrl(double M, double alpha){
+BL_HD static double xcp_frac_ctrl(double M, double alpha){
     double base=0.29+0.03*exp(-((M-1.05)/0.3)*((M-1.05)/0.3));
     double amod=0.015*fmin(fabs(alpha)/(15.0*DEG2RAD),1.0);
     return base-amod;

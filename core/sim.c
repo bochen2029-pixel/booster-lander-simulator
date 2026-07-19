@@ -5,11 +5,22 @@
 #include "control.h"
 #include "guidance_hoverslam.h"
 #include "guidance_mppi.h"
+#ifdef BL_HAVE_CUDA
+#include "guidance_mppi_cuda.h"   /* M5: --mppi-cuda routes the full-solve to the GPU (CUDA build only) */
+#endif
 #include "atmosphere.h"
 #include "constants.h"
 #include "rng.h"
 #include <math.h>
 #include <string.h>
+
+/* M5 CUDA MPPI flag (set from the CLI in main.c). When 1 AND guidance_mode==GM_MPPI, the full
+ * replan goes through mppi_step_cuda (GPU rollout); otherwise the CPU mppi_step is used. The
+ * between-solve mppi_execute and everything else are identical either way. Default 0 -> CPU path
+ * byte-identical (directive: CPU stays default and unchanged when the flag is off).
+ * The flag exists in BOTH builds: in a CPU-only (no-CUDA) build main.c refuses --mppi-cuda at the
+ * CLI, so this stays 0 and the GPU branch below is compiled out entirely. */
+int g_mppi_use_cuda = 0;
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -251,7 +262,14 @@ int sim_step(Sim* s){
         int entry_handled = entry_supervisor(s, &nav);   /* E3 above MPPI (reads the estimate) */
         if(!entry_handled){
             nav_resync(st, &nav);   /* refresh pass-through fields after a possible entry-burn CUT */
-            if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, &nav, &s->env, &s->gcmd);
+            if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0){
+#ifdef BL_HAVE_CUDA
+                if(g_mppi_use_cuda) mppi_step_cuda(&s->mppi, &nav, &s->env, &s->gcmd);  /* M5 GPU rollout */
+                else                mppi_step(&s->mppi, &nav, &s->env, &s->gcmd);         /* CPU rollout */
+#else
+                mppi_step(&s->mppi, &nav, &s->env, &s->gcmd);   /* CPU rollout (no-CUDA build) */
+#endif
+            }
             else mppi_execute(&s->mppi, &nav, &s->gcmd);   /* emit next warm-start knot + shift (cheap) */
         }
         s->mppi.gtick++;

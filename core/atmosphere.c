@@ -3,13 +3,14 @@
 #include "constants.h"
 #include <math.h>
 
-/* Geopotential base H' (km), base temp (K), lapse (K/km'), base pressure (Pa). App-A.1 */
-static const double H_b[8]  = { 0.0, 11.0, 20.0, 32.0, 47.0, 51.0, 71.0, 84.852 };
-static const double T_b[8]  = { 288.15,216.65,216.65,228.65,270.65,270.65,214.65,186.946 };
-static const double L_b[7]  = { -6.5, 0.0, 1.0, 2.8, 0.0, -2.8, -2.0 };
-static const double P_b[8]  = { 101325.0,22632.1,5474.89,868.019,110.906,66.9389,3.95642,0.373384 };
-
+/* Geopotential base H' (km), base temp (K), lapse (K/km'), base pressure (Pa). App-A.1
+ * M5 CUDA: FUNCTION-LOCAL static const so the BL_HD atmo_eval compiles for the device (file-scope
+ * statics are host-only under nvcc). Values byte-identical; the CPU exe is unchanged. */
 BL_HD void atmo_eval(double h, AtmoOut* o){
+    static const double H_b[8]  = { 0.0, 11.0, 20.0, 32.0, 47.0, 51.0, 71.0, 84.852 };
+    static const double T_b[8]  = { 288.15,216.65,216.65,228.65,270.65,270.65,214.65,186.946 };
+    static const double L_b[7]  = { -6.5, 0.0, 1.0, 2.8, 0.0, -2.8, -2.0 };
+    static const double P_b[8]  = { 101325.0,22632.1,5474.89,868.019,110.906,66.9389,3.95642,0.373384 };
     if(h < 0.0) h = 0.0;
     /* geometric -> geopotential (km') */
     double Hp = (R_EARTH * h) / (R_EARTH + h) / 1000.0;

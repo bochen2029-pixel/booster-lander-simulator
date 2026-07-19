@@ -4,12 +4,10 @@
 #include "atmosphere.h"
 #include <math.h>
 
-/* ---------- Aero coefficient tables (App-A.6, representative, frozen) ---------- */
-static const double AERO_M[9]  = {0.0,0.6,0.9,1.1,1.5,2.0,3.0,5.0,8.0};
-static const double AERO_CA[9] = {0.85,0.88,1.10,1.40,1.25,1.10,0.95,0.92,0.90};
-static const double AERO_CN[9] = {2.0,2.1,2.4,2.5,2.4,2.3,2.2,2.1,2.0};
-
-static double table_lookup(const double* xs, const double* ys, int n, double x){
+/* ---------- Aero coefficient tables (App-A.6, representative, frozen) ----------
+ * M5 CUDA: the tables moved to FUNCTION-LOCAL static const inside dynamics_deriv (their only user)
+ * so the BL_HD path is device-compilable; helpers below are BL_HD static. Values byte-identical. */
+BL_HD static double table_lookup(const double* xs, const double* ys, int n, double x){
     if(x<=xs[0]) return ys[0];
     if(x>=xs[n-1]) return ys[n-1];
     for(int i=0;i<n-1;i++){
@@ -18,7 +16,7 @@ static double table_lookup(const double* xs, const double* ys, int n, double x){
     return ys[n-1];
 }
 /* Grid-fin normal-force slope vs Mach: transonic authority dip (lattice cells choke). */
-static double fin_dip(double M){
+BL_HD static double fin_dip(double M){
     if(M>0.8 && M<1.2) return 0.55;
     if(M>2.0) return 0.80;
     /* smooth blends at the edges */
@@ -32,7 +30,7 @@ static double fin_dip(double M){
  * i.e. at/below the CoM (~0.30 L) => MARGINALLY UNSTABLE bare body, per CLAUDE_v1 §5.4/§6.3.
  * (The old 0.62 L placed CoP ~13 m aft of CoM => wrongly self-stable, stealing the fins' job
  * and contradicting the spec. See DECISIONS D-005.) */
-static double xcp_frac(double M, double alpha){
+BL_HD static double xcp_frac(double M, double alpha){
     /* Fraction of STAGE length from base. CoM(empty) ~12.27 m = 0.298 of stage length, so to
      * keep the bare body marginally UNSTABLE at ALL Mach (canon §5.4/6.3), the CoP must stay
      * below ~0.298. Audit: the old +0.03 transonic bump overshot CoM -> wrongly STABLE in
@@ -90,6 +88,10 @@ BL_HD void mass_props(double m_lox, double m_rp1, double mdot_lox, double mdot_r
 /* ---------- State derivative ---------- */
 BL_HD void dynamics_deriv(const State* st, const Actuators* act, const EnvCtx* env,
                           double dy[NSTATE], Diag* diag){
+    /* aero tables (function-local static const for device compilation; byte-identical values) */
+    static const double AERO_M[9]  = {0.0,0.6,0.9,1.1,1.5,2.0,3.0,5.0,8.0};
+    static const double AERO_CA[9] = {0.85,0.88,1.10,1.40,1.25,1.10,0.95,0.92,0.90};
+    static const double AERO_CN[9] = {2.0,2.1,2.4,2.5,2.4,2.3,2.2,2.1,2.0};
     const double* y = st->y;
     double r[3]={y[S_RX],y[S_RY],y[S_RZ]};
     double v[3]={y[S_VX],y[S_VY],y[S_VZ]};

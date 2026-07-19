@@ -17,9 +17,17 @@
 #include "sim.h"
 #include "protocol.h"
 #include "ws.h"
+#include "guidance_mppi.h"        /* MPPI_K/MPPI_H/MPPI_NCH for the CUDA harness (also via sim.h) */
+#ifdef BL_HAVE_CUDA
+#include "guidance_mppi_cuda.h"   /* M5: CUDA MPPI rollout + parity/perf harness (CUDA build only) */
+#endif
 #ifdef _WIN32
 #  include <windows.h>   /* QueryPerformanceCounter / Sleep — PACING ONLY (never sim) */
 #endif
+
+/* M5: --mppi-cuda routes GM_MPPI solves to the GPU (defined in sim.c; exists in BOTH builds so the
+ * flag parse compiles either way — in a no-CUDA build it stays 0 and the CLI refuses --mppi-cuda). */
+extern int g_mppi_use_cuda;
 
 static int g_fail = 0;
 #define CHECK(cond, msg) do{ if(!(cond)){ printf("  FAIL: %s\n", msg); g_fail++; } }while(0)
@@ -196,7 +204,12 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
+        else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
     }
+#ifndef BL_HAVE_CUDA
+    if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
+        "(configure with -DBL_CUDA=ON and a CUDA toolkit). Use --mppi for the CPU path.\n"); return 4; }
+#endif
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
@@ -233,7 +246,12 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;   /* Tier-B plant disturbances (F4) */
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
+        else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
     }
+#ifndef BL_HAVE_CUDA
+    if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
+        "(configure with -DBL_CUDA=ON and a CUDA toolkit). Use --mppi for the CPU path.\n"); return 4; }
+#endif
     /* --out: open the report up front and FAIL LOUDLY if it can't be created -- otherwise we
      * run every sim for nothing and still print a false "wrote" (directive 5: headless is THE
      * proof artifact, it must not lie about producing it). The parent directory must already
@@ -577,6 +595,174 @@ static int cmd_golden(int argc, char** argv){ (void)argc; (void)argv;
     fprintf(stderr,"--golden requires Windows.\n"); return 2; }
 #endif /* _WIN32 */
 
+/* ================= M5 CUDA MPPI parity + perf harness (CUDA build only) =================
+ * These commands drive the guidance_mppi_cuda.{h,cu} device path. They are compiled ONLY when the
+ * build linked the CUDA toolkit (BL_HAVE_CUDA). In a CPU-only (CI) build they degrade to a graceful
+ * stub that explains how to enable CUDA — never a link error against absent mppi_cuda_* symbols. */
+#ifdef BL_HAVE_CUDA
+/* ---------------- M5 CUDA MPPI parity + perf harness (--mppi-cuda-verify) ---------------- */
+static int dcmp_desc(const void* a, const void* b){ double x=*(const double*)a,y=*(const double*)b; return (x<y)-(x>y); }
+static int dcmp_asc(const void* a, const void* b){ double x=*(const double*)a,y=*(const double*)b; return (x>y)-(x<y); }
+
+/* top-N rank agreement: fraction of the CPU-ref top-N rollout indices that are ALSO in the GPU
+ * top-N (set overlap; order within the set not required — softmax weights the SET). */
+static double topN_agreement(const double* cpu, const double* gpu, int K, int N){
+    /* find the N smallest-cost indices for each (min-cost = best rollout). O(K*N), N small. */
+    int* cpu_idx=(int*)malloc(sizeof(int)*N); int* gpu_idx=(int*)malloc(sizeof(int)*N);
+    char* used=(char*)calloc(K,1);
+    for(int n=0;n<N;n++){ int best=-1; double bv=1e300; for(int k=0;k<K;k++) if(!used[k]&&cpu[k]<bv){bv=cpu[k];best=k;} used[best]=1; cpu_idx[n]=best; }
+    memset(used,0,K);
+    for(int n=0;n<N;n++){ int best=-1; double bv=1e300; for(int k=0;k<K;k++) if(!used[k]&&gpu[k]<bv){bv=gpu[k];best=k;} used[best]=1; gpu_idx[n]=best; }
+    int hit=0;
+    for(int i=0;i<N;i++){ for(int j=0;j<N;j++) if(cpu_idx[i]==gpu_idx[j]){ hit++; break; } }
+    free(cpu_idx); free(gpu_idx); free(used);
+    return (double)hit/(double)N;
+}
+
+static int cmd_mppi_cuda_verify(int argc, char** argv){
+#ifdef _WIN32
+    int scen=SCEN_AERO_OFFSET; uint32_t seed=42, run=3; long target=6000;
+    for(int i=2;i<argc;i++){
+        if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_AERO_OFFSET; }
+        else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--run")&&i+1<argc) run=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--step")&&i+1<argc) target=strtol(argv[++i],0,10);
+    }
+    printf("========= M5 CUDA MPPI PARITY + PERF (%s seed=%u run=%u, capture @step %ld) =========\n",
+           scenario_name(scen), seed, run, target);
+    if(mppi_cuda_init(MPPI_K)!=0){ fprintf(stderr,"FATAL: no CUDA device / init failed\n"); return 5; }
+
+    /* --- capture a real mid-descent replan state via the CPU Sim driver --- */
+    State st; EnvCtx env; static double ubar[MPPI_H][MPPI_NCH];
+    double ignite_h=0, m0=0; uint32_t replan=0;
+    {
+        Sim s; sim_init(&s, scen, seed, run, MOD_TURB, GM_MPPI);
+        g_mppi_use_cuda = 0;   /* advance on the CPU sim; snapshot the state a solve would see */
+        long n=0; int alive=1;
+        while(alive && n<target){ alive=sim_step(&s); n++; }
+        st = s.st; env = s.env; replan = s.mppi.replan;
+        MassProps mp; mass_props(st.y[S_MLOX],st.y[S_MRP1],0,0,&mp); m0=mp.m;
+        ignite_h = mppi_cuda_compute_ignite_h(&st);
+        mppi_cuda_warm_start(ubar, ignite_h, &st, &env);
+        double lat=sqrt(st.y[S_RX]*st.y[S_RX]+st.y[S_RY]*st.y[S_RY]);
+        printf("captured @step %ld (alive=%d): h=%.1f m  vz=%.1f  lat=%.1f m  ignite_h=%.1f  replan=%u  m0=%.0f kg\n",
+               n, alive, st.y[S_RZ]-mp.com, st.y[S_VZ], lat, ignite_h, replan, m0);
+    }
+
+    double gamma=1.0;   /* GAMMA_IS */
+    static double cpuC[MPPI_K], gpuC[MPPI_K], gpuC2[MPPI_K];
+    mppi_cpuref_rollout_costs(seed, replan, ignite_h, gamma, m0, &st, &env, ubar, cpuC, MPPI_K);
+    mppi_cuda_rollout_costs  (seed, replan, ignite_h, gamma, m0, &st, &env, ubar, gpuC, MPPI_K);
+    mppi_cuda_rollout_costs  (seed, replan, ignite_h, gamma, m0, &st, &env, ubar, gpuC2, MPPI_K);
+
+    /* --- CPU<->GPU cost parity (design §9.5 tolerance) --- */
+    double maxad=0, maxrel=0, sumabs=0; int nfin=0;
+    double cmin=1e300; for(int k=0;k<MPPI_K;k++){ if(cpuC[k]<cmin)cmin=cpuC[k]; }
+    for(int k=0;k<MPPI_K;k++){
+        double d=fabs(cpuC[k]-gpuC[k]); if(d>maxad)maxad=d; sumabs+=d; nfin++;
+        double denom=fabs(cpuC[k])>1.0?fabs(cpuC[k]):1.0; double rel=d/denom; if(rel>maxrel)maxrel=rel;
+    }
+    /* --- GPU run-twice determinism (same GPU+seed -> bit-identical) --- */
+    int det_bitexact = (memcmp(gpuC,gpuC2,sizeof(double)*MPPI_K)==0);
+    double det_maxad=0; for(int k=0;k<MPPI_K;k++){ double d=fabs(gpuC[k]-gpuC2[k]); if(d>det_maxad)det_maxad=d; }
+
+    double agree64 = topN_agreement(cpuC, gpuC, MPPI_K, 64);
+    double agree16 = topN_agreement(cpuC, gpuC, MPPI_K, 16);
+
+    printf("\n--- ROLLOUT COST PARITY (CPU-ref __host__  vs  GPU __device__, K=%d) ---\n", MPPI_K);
+    printf("  cost range (cpu-ref): min=%.4f\n", cmin);
+    printf("  max |Delta cost|      = %.6g\n", maxad);
+    printf("  mean |Delta cost|     = %.6g\n", sumabs/nfin);
+    printf("  max relative delta    = %.3e\n", maxrel);
+    printf("  top-16 rank agreement = %.1f%%  (%d/16)\n", 100*agree16, (int)(agree16*16+0.5));
+    printf("  top-64 rank agreement = %.1f%%  (%d/64)\n", 100*agree64, (int)(agree64*64+0.5));
+    printf("\n--- PER-ARCH DETERMINISM (GPU run-twice, same seed) ---\n");
+    printf("  C_k bit-identical run-twice = %s  (max|Delta|=%.3g)\n", det_bitexact?"YES":"NO", det_maxad);
+
+    /* --- perf: p50/p99 replan latency vs K (end-to-end incl. transfers + reduction) --- */
+    printf("\n--- REPLAN LATENCY vs K (mppi_cuda_solve end-to-end, ms) ---\n");
+    printf("  %8s  %8s  %8s  %8s  %8s\n","K","p50","p90","p99","max");
+    int Ks[]={256,1024,4096,8192,16384};
+    LARGE_INTEGER fq; QueryPerformanceFrequency(&fq);
+    for(int ki=0; ki<(int)(sizeof(Ks)/sizeof(Ks[0])); ki++){
+        int K=Ks[ki];
+        if(mppi_cuda_init(K)!=0){ printf("  K=%d init failed (OOM?) — stopping perf sweep\n",K); break; }
+        /* warm-start ubar is K-independent (H*NCH); reuse the captured one. */
+        int iters=60; double* ms=(double*)malloc(sizeof(double)*iters);
+        double lo,eo,bo;
+        /* 3 warmup */
+        for(int w=0; w<3; w++) mppi_cuda_solve(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,30.0,&lo,&eo,&bo,K);
+        for(int it=0; it<iters; it++){
+            /* NOTE: solve mutates ubar (warm-start += correction), but the latency is K-dominated
+             * (rollout + reduction), not ubar-value-dependent, so we time the steady-state solve. */
+            LARGE_INTEGER t0,t1; QueryPerformanceCounter(&t0);
+            mppi_cuda_solve(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,30.0,&lo,&eo,&bo,K);
+            QueryPerformanceCounter(&t1);
+            ms[it]=1000.0*(double)(t1.QuadPart-t0.QuadPart)/(double)fq.QuadPart;
+        }
+        qsort(ms,iters,sizeof(double),dcmp_asc);
+        double p50=ms[(int)(0.50*iters)], p90=ms[(int)(0.90*iters)], p99=ms[(int)(0.99*iters)], mx=ms[iters-1];
+        printf("  %8d  %8.3f  %8.3f  %8.3f  %8.3f\n", K,p50,p90,p99,mx);
+        free(ms);
+    }
+    (void)dcmp_desc;
+    printf("\n  perf gate: p99 <= 6 ms at K=16384\n");
+    mppi_cuda_shutdown();
+    return 0;
+#else
+    (void)argc; (void)argv; fprintf(stderr,"--mppi-cuda-verify requires Windows.\n"); return 2;
+#endif
+}
+
+/* --------------- M5 GPU-event kernel latency (contention-immune) --------------- */
+static int cmd_mppi_cuda_bench(int argc, char** argv){
+    int scen=SCEN_AERO_OFFSET; uint32_t seed=42, run=3; long target=6000;
+    for(int i=2;i<argc;i++){
+        if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_AERO_OFFSET; }
+        else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--run")&&i+1<argc) run=(uint32_t)strtoul(argv[++i],0,10);
+        else if(!strcmp(argv[i],"--step")&&i+1<argc) target=strtol(argv[++i],0,10);
+    }
+    printf("===== M5 CUDA MPPI GPU-EVENT KERNEL LATENCY (%s seed=%u run=%u @step %ld) =====\n",
+           scenario_name(scen), seed, run, target);
+    if(mppi_cuda_init(256)!=0){ fprintf(stderr,"FATAL: no CUDA device / init failed\n"); return 5; }
+    State st; EnvCtx env; static double ubar[MPPI_H][MPPI_NCH];
+    double ignite_h=0, m0=0; uint32_t replan=0;
+    {
+        Sim s; sim_init(&s, scen, seed, run, MOD_TURB, GM_MPPI);
+        g_mppi_use_cuda = 0;
+        long n=0; int alive=1; while(alive && n<target){ alive=sim_step(&s); n++; }
+        st=s.st; env=s.env; replan=s.mppi.replan;
+        MassProps mp; mass_props(st.y[S_MLOX],st.y[S_MRP1],0,0,&mp); m0=mp.m;
+        ignite_h=mppi_cuda_compute_ignite_h(&st);
+        mppi_cuda_warm_start(ubar, ignite_h, &st, &env);
+    }
+    double gamma=1.0;
+    printf("GPU-only device time (cudaEvent; excludes host ESS-servo + CPU contention). ms:\n");
+    printf("  %8s  %10s %10s %10s  %10s %10s\n","K","roll_p50","roll_p99","roll_max","reduce_p50","total_p99");
+    int Ks[]={256,1024,4096,8192,16384}; int iters=80;
+    static double rm[80], nm[80], tm[80];
+    for(int ki=0; ki<(int)(sizeof(Ks)/sizeof(Ks[0])); ki++){
+        int K=Ks[ki];
+        if(mppi_cuda_bench_kernel(seed,replan,ignite_h,gamma,m0,&st,&env,ubar,K,iters,rm,nm,tm)!=0){
+            printf("  K=%d bench failed (OOM?)\n",K); break; }
+        qsort(rm,iters,sizeof(double),dcmp_asc); qsort(nm,iters,sizeof(double),dcmp_asc); qsort(tm,iters,sizeof(double),dcmp_asc);
+        printf("  %8d  %10.4f %10.4f %10.4f  %10.4f %10.4f\n",
+               K, rm[iters/2], rm[(int)(0.99*iters)], rm[iters-1], nm[iters/2], tm[(int)(0.99*iters)]);
+    }
+    printf("\n  perf gate: p99 <= 6 ms at K=16384 (GPU device time is the fp64-feasibility floor)\n");
+    mppi_cuda_shutdown();
+    return 0;
+}
+#else  /* !BL_HAVE_CUDA — CPU-only build: graceful stubs, no mppi_cuda_* references */
+static int cmd_mppi_cuda_verify(int argc, char** argv){ (void)argc; (void)argv;
+    fprintf(stderr,"--mppi-cuda-verify: this build has no CUDA support "
+        "(configure with -DBL_CUDA=ON and a CUDA toolkit).\n"); return 4; }
+static int cmd_mppi_cuda_bench(int argc, char** argv){ (void)argc; (void)argv;
+    fprintf(stderr,"--mppi-cuda-bench: this build has no CUDA support "
+        "(configure with -DBL_CUDA=ON and a CUDA toolkit).\n"); return 4; }
+#endif /* BL_HAVE_CUDA */
+
 int main(int argc, char** argv){
     const char* mode = (argc>1)? argv[1] : "--selftest";
     if(!strcmp(mode,"--selftest")) return cmd_selftest();
@@ -584,6 +770,8 @@ int main(int argc, char** argv){
     if(!strcmp(mode,"--run")) return cmd_run(argc,argv);
     if(!strcmp(mode,"--serve")) return cmd_serve(argc,argv);
     if(!strcmp(mode,"--golden")) return cmd_golden(argc,argv);
-    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi] | --serve [--scenario S --seed N --run N --port P --nav-noisy]\n");
+    if(!strcmp(mode,"--mppi-cuda-verify")) return cmd_mppi_cuda_verify(argc,argv);  /* M5 (CUDA build) */
+    if(!strcmp(mode,"--mppi-cuda-bench")) return cmd_mppi_cuda_bench(argc,argv);    /* M5 (CUDA build) */
+    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda] | --serve [--scenario S --seed N --run N --port P --nav-noisy] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
     return 2;
 }

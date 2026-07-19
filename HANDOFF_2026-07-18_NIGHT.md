@@ -160,6 +160,17 @@ transfer into the composed tree (the TH 0.7-seek lesson) — re-measure every im
 
 ## 5. DO NOT RE-TRY (all measured, all reverted, all recorded)
 
+**D-014 addition (wind estimator — DECISIONS D-014 / runs/windbuild_report.md):**
+- Attitude-only (NAV-legal) wind estimation during offset-nulling ENTRY/AERO descents. Stage-0
+  falsified in `_wind2_wt/` (real tree untouched; byte-transparency proven): freeze error 18–22 m/s
+  (mean 21.7 ENTRY / 18.5 AERO, n=20 each) vs the <2 m/s bar — ≥ the 16–22 m/s true wind itself, anti-informative — because the body NEVER
+  weathervanes while diverting (mean true AoA 9–11°, transients to 53°; 4.5 m/s error per degree).
+  The τ=5 s filter makes it WORSE (37–38 — the error is not zero-mean); clean ticks are 0–3.5% and
+  unidentifiable in flight. Stage 1 (`aim_bias` upwind pre-bias) correctly unbuilt — a
+  wrong-direction pre-bias converts on-pad landers into grazes (the design's own §6 poison). Any
+  revisit requires a genuinely feathered, attitude-settled regime at ignition, which ENTRY/AERO
+  never provide.
+
 **D-012 additions:**
 - Divert seek <0.9 ANYWHERE while the C14 trim stands (v1: ENTRY 69/AERO 66.3 — the TH-tree 0.7
   optimum does not transfer; AERO th→0 shows the upside exists but off-pad +31 pays for it).

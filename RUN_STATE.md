@@ -21,6 +21,31 @@ relight-blocked at relights_left=2). **Next session: MPPI capacity (K 256→1024
 CUDA) — it is the path to BOTH M6 and M4.** Optional plant study: relights 2→3 ADR unblocks the
 ENTRY fuel pair (+2 s42 / +5 s7 potential).
 
+**D-014 WIND-ESTIMATOR FALSIFIED at Stage 0 (same night, post-D-012; real tree UNTOUCHED —
+settling artifact `_wind2_wt/`):** the NAV-legal OBS-B estimator (runs/windthink_design.md, lane
+windbuild) was built exactly per design and killed by measurement: byte-transparency PROVEN
+(ENTRY 88/100 · AERO 220/300 · TERMINAL 194/200 · MPPI run-1 all byte-exact vs the D-012
+baselines) but the estimate is anti-informative — mean |est−true| at the ignition freeze 21.7 m/s
+ENTRY / 18.5 AERO (n=20 each; every run 7–36) vs the <2 m/s bar, because the vehicle NEVER
+weathervanes: it holds mean true AoA 9–11° while diverting to null the offset (4.5 m/s error per
+degree at |v_rel|~250). Stage 1 (aim_bias feedforward) correctly NOT built (the design's §6
+garbage-pre-bias failure mode). DO NOT RETRY attitude-only wind estimation during offset-nulling
+descents. Reinforces the plateau verdict above — wind rejection comes from MPPI replanning
+(Roadmap A), not open-loop inference. Full record: runs/windbuild_report.md; ADR: DECISIONS D-014.
+
+**★★★★★ D-015 M5 CUDA MPPI INTEGRATED (2026-07-19 small hours; the current tree): `--mppi-cuda`
+runs the rollout sweep on the GPU (sm_89/CUDA 13.1, fp64 EVERYWHERE — the .cu unity-includes the
+SAME plant sources, directive-7-clean), parity 1 ULP / top-64 rank 100% / run-twice BIT-IDENTICAL
+at K=256 AND K=16384, and the 60-batch lands 44/60 LINE-FOR-LINE identical to CPU.** CI-safe
+conditional CMake (toolkit-less runners build CPU-only; --mppi-cuda refuses exit-4). Latency
+honestly missed the fp32-era 6 ms bar (fp64 p99 ≈46 ms @K256 → 299 ms @K16384) and was RESCOPED
+by measurement to the real 100 ms replan budget → fp64 real-time-viable to ~K1024 — exactly where
+vanilla saturates: **K=512 measured 44/60 FLAT vs K=256** (kprobe; K=1024 confirming), cheap
+variant levers 42/60 interim (mppi-var). Deck-null (1.7,350) cross-validated and REJECTED by the
+strict rule (MPPI reach −3 despite AERO t0 +12/600). Fleet record + verdicts: DECISIONS **D-015**,
+runs/cuda_mppi_report.md, cuda_rebase_report.md, decknull_report.md, kprobe_sweep.csv. Next
+decision pending: EMPI's ENTRY-under-MPPI number (the M6-via-MPPI hinge) + K=1024 + mvar finals.
+
 **Current milestone:** M2 GREEN (TERMINAL ~97-98% across seeds) + **M3 socket path LIVE** + **M6
 entry supervisor BUILT**. This session (D-007, ran 4-A + 4-C concurrently per operator "BOTH"):
 (1) **E3 entry-burn supervisor** — predictive-peak-qbar 3-engine retrograde burn above hoverslam;

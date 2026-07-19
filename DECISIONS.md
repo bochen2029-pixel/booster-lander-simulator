@@ -871,3 +871,144 @@ telemetry writer (`fill_tlm`); guidance reads nothing new; no feedback path exis
   remaining path is MPPI capacity + variants (lanes kprobe/cuda-mppi/mppi-var, in flight), exactly
   as the research trilogy independently concluded.
 
+## D-014 — NAV-legal wind estimator: BUILT and FALSIFIED at Stage 0 (2026-07-18, night)
+
+The windbuild lane (the "Build in flight" noted under D-013's research artifacts) landed. Recorded
+per directive 8 — failed experiments get recorded WITH numbers. Full record: runs/windbuild_report.md
+(design: runs/windthink_design.md). NUMBERING NOTE: the report and the `_wind2_wt/` code comments
+call this "the D-013 estimator" — they were authored before the telemetry-protocol entry above
+claimed D-013. A compact cross-lane summary of the same result also lands in the D-013 addendum
+above (appended by the concurrent fleet-integration push); this D-014 entry is the full dedicated
+record.
+
+**What was built (worktree `_wind2_wt/` ONLY — the real tree was never touched):** strictly per the
+windthink design — the OBS-B AoA-corrected wind estimator in the `Sim` struct (`wind_est[2]`,
+`wind_est_valid`, `wind_est_frozen[2]`, `prev_engine_on`), updated at the 50 Hz guidance tick under
+the observability gate (fins_deployed && !engine_on && qbar>500 && |v|>30 && tilt<20°),
+GM_HOVERSLAM-gated (MPPI-exempt): de-rotate the KNOWN commanded steering tilt out of the nav
+attitude, `w = v_horiz − |v|·(−zb2w_aero)_horiz`, τ=5 s low-pass, freeze latched on the ignition
+edge. Canon §4.3 clean — reads ONLY nav attitude + inertial v, never wind_world/wind_filt. Plus an
+off-by-default WIND_DBG stderr tap (env BL_WIND_DBG, separate build_dbg/) and winderr_batch.ps1.
+Stage 1 (`GuidanceCmd.aim_bias` upwind pre-bias) was NOT built — correctly, see below.
+
+**Stage 0, transparency half — PROVEN (the estimator computes but injects nothing):** vs the D-012
+baselines captured on the unmodified worktree copy: `--selftest` PASS; TERMINAL s42 ×200 = 194/200,
+ENTRY s42 ×100 = 88/100 (op5 th5 fuel2), AERO s42 ×300 = 220/300 (op47 th30 fuel1) — all
+byte-exact; MPPI run-1 invariance byte-identical (HARD td_v 2.63 / lat 10.48); ENTRY run 3 (the
+canonical 31.8 m graze) and the ENTRY/AERO run-twice determinism pairs reproduce exactly. Zero
+hidden coupling: the Sim-struct placement + fins/GM gating are correct, and TERMINAL (fins stowed)
+never touches the estimator (directive 9).
+
+**Stage 0, estimator-error half — FAILED the bar by ~10×:** mean |estimate − true mean wind| at the
+ignition freeze (the value Stage 1 would consume) = **21.7 m/s ENTRY / 18.5 m/s AERO** (n=20 each,
+s42, DBG tap) against the design's **<2 m/s** ship bar (probe idealized <0.2). True winds at
+ignition are 16–22 m/s, so **the error ≥ the signal itself — the estimate is anti-informative**
+(its direction essentially uncorrelated with truth). Every one of the 40 runs freezes 7–36 m/s
+wrong; none approaches 2. The OBS-B commanded-AoA correction DOES help (est 18–22 vs raw OBS-A
+21–32) but cannot remove the uncommanded oscillation, and the τ=5 s filter makes it WORSE
+(37–38 m/s): the error is NOT zero-mean in wind space (sin nonlinearity of the AoA→error map + the
+sustained divert bias), so no averaging recovers the mean. Clean-tick census: 0/1399, 115/3301
+(3.5%), 14/1418 observable ticks under 3 m/s across probed runs — transient AoA-zero-crossings,
+scattered, unidentifiable in flight (isolating them requires knowing the true wind). Not
+salvageable by tighter gating.
+
+**Root cause — the body never weathervanes (measured from TRUTH, independent of any estimator):**
+the vehicle holds **mean true AoA 9–11° (transients 20–53°, swinging −26°..+7°)** through the
+entire fins-deployed aero-descent, because it is continuously diverting to null the 500 m–3 km
+cross-range offset and the fin-rate-limited (20°/s) attitude loop oscillates around the commanded
+divert AoA (control.c:138: "tilt swinging 2..24 deg"). The estimator's foundational premise — the
+airframe weathervanes so body −Z tracks the relative wind (AoA≈0) — never holds in the composed
+sim. At |v_rel|~250 m/s the probe's own measured sensitivity (4.5 m/s of wind error per degree of
+AoA) turns 9–11° into ~40 m/s of raw error — exactly the OBS-A number measured. The WINDTHINK
+probe (windobs.c) reached <0.2 m/s only by MODELING the attitude as −vrel_dir by construction
+(windobs.c:182) — correct math, wrong operating point: the isolated-model-vs-composed-tree lesson
+(HANDOFF §4) again. The probe measured its own failure mode (its finding 2) without modeling the
+flight condition that triggers it; the design's staged in-sim truth-up existed precisely to catch
+this, and did — small cost, decisive kill.
+
+**Why Stage 1 was correctly NOT built:** the design's decision rule ("do not proceed to Stage 1
+until Stage 0 passes; if the bar fails, record the falsification and STOP") was applied as written.
+Injecting an 18–22 m/s wrong-direction estimate as a ≤40 m upwind aim shift is the design's own §6
+named failure mode ("a garbage estimate injected as a pre-bias moves the aim-point
+deterministically wrong… can actively degrade a clean lander"): it would convert currently-on-pad
+runs into off-pad grazes — strictly worse than the reactive faded C14 integral, which can only
+ever leave a residual, never push a good trajectory off the pad. Bitter symmetry: ENTRY run 3's
+31.8 m trim-residual graze (a flawless landing settling downwind) is exactly what a CORRECT upwind
+pre-bias would fix — and exactly what a wrong one manufactures on runs that today land.
+
+**Convergence with the D-012 addendum:** D-012 closed the trim grid (null-to-negative) and the
+engine-cut rule (relight-blocked); this closes the wind-estimator-feedforward lever too — not at
+the §6 Pareto test but UPSTREAM of it, at observability (the input cannot be observed in the
+flight condition where it is needed). **ENTRY 88 / AERO 73.3 stand as the plateau of the
+reactive/open-loop wind-rejection structure. The path to M6 ≥90 AND M4 ≥90 is Roadmap A — MPPI
+capacity (K 256→1024 CPU probe → M5 CUDA) — which rejects wind by replanning on the fresh nav
+state every tick; closed-loop, no wind estimate needed.**
+
+**DO NOT RETRY:** an attitude-only wind estimator during offset-nulling ENTRY/AERO descents
+(measured: 18–22 m/s freeze error, mean true AoA 9–11°, no identifiable clean window; OBS-B2
+force-inversion assessed and not a small fix — the oscillation is fin-rate-limit/slosh-driven, not
+cleanly invertible, and the ~5° residual at ignition poisons it even feathered). Prerequisite for
+any future revisit: a flight regime where the body genuinely weathervanes (feathered,
+attitude-settled) at ignition — which the current ENTRY/AERO scenarios never provide.
+
+**Artifacts preserved:** `_wind2_wt/` is the settling artifact — the estimator (core/sim.{h,c}),
+the WIND_DBG tap, clean `build/` + `build_dbg/`, and `winderr_batch.ps1`; runs/windbuild_report.md
+holds the full record incl. repro commands. Honesty note kept with it: the tap's first version
+called `wind_sample()` for the truth column — which MUTATES the plant's Dryden state and broke
+determinism (ENTRY run 3 td_v 5.48→5.92); fixed by computing the true MEAN wind inline, after
+which the DBG exe reproduces the baseline byte-exact. Instrument the plant without touching it —
+measure-the-measurer applies to debug taps too.
+
+## D-015 — M5 CUDA MPPI port INTEGRATED; the fp64/latency rescope; capacity-saturation evidence (2026-07-19, small hours)
+
+**The port (fleet lanes cuda-mppi ×3, `_cuda_wt` → `_cuda2_wt` rebase; full record
+runs/cuda_mppi_report.md + runs/cuda_rebase_report.md):** `--mppi-cuda` runs the MPPI rollout
+sweep on the GPU (RTX 4070 Ti SUPER, sm_89, CUDA 13.1, `-fmad=false`, no fast-math, no atomics,
+on-device Philox with the CPU counter scheme, fixed power-of-two pairwise reductions).
+
+- **Precision architecture: fp64 EVERYWHERE — the directive-7 decision.** The `.cu` unity-includes
+  the SAME plant `.c` files (BL_HD qualifiers only; no-ops in CPU builds), so nvcc compiles
+  byte-identical dynamics source. An fp32 rollout would be a second, divergent plant — rejected on
+  principle before performance was even measured.
+- **Parity + determinism, measured at K=256 AND K=16384:** CPU-ref vs GPU max relative Δcost
+  8.7e-16..1.3e-15 (≈1 ULP, the known MSVC↔CUDA libm divergence), top-64 rollout rank agreement
+  100%; same-GPU run-twice **bit-identical (max|Δ|=0) at both K** — per-arch determinism is the
+  hard gate and it holds at the design-target K.
+- **Behavioral identity:** AERO s42 ×60 `--mppi-cuda` = **44/60, line-for-line identical to the
+  CPU batch and the D-012 golden** (every bucket, every landed mean) — not one flipped outcome in
+  60 dispersed runs. Single-run + determinism pair re-verified on the integrated main tree, plus
+  selftest PASS, TERMINAL 194/200, protocol-v3 goldens MATCH.
+- **The honest latency miss and the RESCOPE:** fp64 on consumer sm_89 (~1/64 fp32 throughput)
+  misses the design's p99≤6 ms at every K — measured GPU-event floor: rollout+reduction p99
+  ≈46 ms @K256 → ≈299 ms @K16384 (255-reg occupancy-capped; GPU-bound 85-94%). BUT the controller
+  replans at 10 Hz = a **100 ms budget**, against which fp64 is real-time-viable to ~K1024 — and
+  that is exactly where vanilla MPPI saturates (below). **The 6 ms number was an fp32-era
+  hard-real-time bar; re-scoped by measurement to the 100 ms replan budget.** Tighter-latency
+  paths if ever gated: the reduction kernel, MPOPI 4096×4 iterate-per-replan.
+- **CI-safe wiring (proven both paths):** CUDA is NEVER in `project()`; `option(BL_CUDA ON)` +
+  `check_language(CUDA)` → clean CPU-only build when no toolkit (the GitHub runner); `--mppi-cuda*`
+  flags refuse with exit 4 in CPU-only builds. Verified: full CUDA build green AND `-DBL_CUDA=OFF`
+  build green with graceful refusal; all gates green under BOTH builds. `.github/workflows/ci.yml`
+  unchanged — this push is the live CI test of the toolkit-less path.
+
+**Capacity-saturation evidence (the D-013 research prediction, now measured):** K=512 AERO s42
+×60 = **44/60 FLAT vs K=256** (identical failure anatomy; runs/kprobe_sweep.csv, lane kprobe;
+K=1024 confirmation in flight, verdict pre-registered as locked regardless). The cheap variant
+levers are ALSO null-to-negative so far (lane mppi-var interim: LAMBDA_MIN 2.0→0.5 = 42/60;
+OU_THETA 0.15→0.10 = 42/60; θ 0.08 in flight). Vanilla capacity alone does not move the rate —
+consistent with runs/mppi_research.md: exploration-limited, pair capacity with STRUCTURAL
+variants (CoVO covariance / MPOPI iterate-per-replan).
+
+**Deck-null cross-validation VERDICT (lane decknull, runs/decknull_report.md): REJECT (1.7,350).**
+The strict pre-registered rule caught it: AERO tier-0 +12/600 (real; reproduces sweep2) and ENTRY
+0/+1/+1 PASS, but **MPPI 44→41 (−3, all off-pad reach) FAILS rule 3** — the stronger deck damping,
+correctly mirrored into the rollout (directive 7), over-damps the replanner's reach. Trading the
+roadmap's M4/M6 vehicle for tier-0 gain is backwards; main stays (250, 1.6). Flagged for a future
+ADR study ONLY: a deliberate directive-7-exception decoupling (hoverslam 350/1.7, MPPI 250/1.6).
+
+**Fleet-method note for the record:** eight of ~14 build agents died to the idle-wait trap ("I'll
+wait for the notification"); successor agents with poll-heartbeat discipline + main-session
+harvest of orphan batches recovered every lane with zero work lost. The worktree pipeline's
+bit-determinism (worktree rows == main-tree reruns, verified ~6× tonight) is what made the
+successions cheap.
+
