@@ -193,9 +193,33 @@ static int cmd_selftest(void){
 /* ---------------- single run (debug) ---------------- */
 static const char* verdict_str(int v){ const char* s[]={"NONE","PERFECT","GOOD","HARD","TIPPED","CRASHED"}; return (v>=0&&v<=5)?s[v]:"?"; }
 static const char* fault_str(int f){ const char* s[]={"none","FUEL","STRUCT","THERMAL","LOC","OFFPAD"}; return (f>=0&&f<=5)?s[f]:"?"; }
+
+/* DIAL-A-GUST CLI parse (shared by --run and --headless). Grammar:
+ *   --gust <peak_mps>@<alt_m>[:<halfwidth_m>]    e.g.  --gust 12@3000:400
+ *   --gust-dir <deg>                              fixed horizontal bearing (0 => +x; optional)
+ * Half-width defaults to GUST_HW_DEFAULT when the ':<hw>' is omitted. Returns 1 if a valid --gust
+ * was parsed (peak>0), else 0. Writes peak/alt/hw/dir on success. dir is parsed independently and
+ * persists across calls (pass the same &dir). A malformed spec disarms (returns 0) so the run stays
+ * byte-identical rather than silently mis-firing. */
+#define GUST_HW_DEFAULT 300.0
+static int parse_gust_flag(const char* arg, const char* val, double* peak, double* alt, double* hw){
+    if(strcmp(arg,"--gust")!=0 || !val) return 0;
+    double p=0,a=0,w=GUST_HW_DEFAULT;
+    const char* at=strchr(val,'@');
+    if(!at){ fprintf(stderr,"error: --gust: expected <peak>@<alt>[:<halfwidth>] (got '%s')\n",val); return 0; }
+    p=strtod(val,0);
+    a=strtod(at+1,0);
+    const char* colon=strchr(at+1,':');
+    if(colon) w=strtod(colon+1,0);
+    if(!(p>0.0) || !(w>0.0)){ fprintf(stderr,"error: --gust: peak and halfwidth must be > 0 (got peak=%g hw=%g)\n",p,w); return 0; }
+    *peak=p; *alt=a; *hw=w;
+    return 1;
+}
+
 static int cmd_run(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=0; int verbose=0; int gmode=GM_HOVERSLAM;
     int modules=MOD_TURB;
+    double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
@@ -205,14 +229,19 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
+        else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
+        else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
         "(configure with -DBL_CUDA=ON and a CUDA toolkit). Use --mppi for the CPU path.\n"); return 4; }
 #endif
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
+    sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
+    if(s.gust.peak!=0.0) printf("  GUST: peak=%.1f m/s @ alt=%.0f m  hw=%.0f m (band %.0f..%.0f)  dir=%.0f deg (%.2f,%.2f)\n",
+        s.gust.peak, s.gust.alt, s.gust.hw, s.gust.alt-s.gust.hw, s.gust.alt+s.gust.hw, g_dir, s.gust.dirx, s.gust.diry);
     long n=0;
     while(sim_step(&s)){
         n++;
@@ -221,9 +250,13 @@ static int cmd_run(int argc, char** argv){
             double lat=sqrt(s.st.y[S_RX]*s.st.y[S_RX]+s.st.y[S_RY]*s.st.y[S_RY]);
             double wperp=sqrt(s.st.y[S_WX]*s.st.y[S_WX]+s.st.y[S_WY]*s.st.y[S_WY]);
             double vrad=(lat>1e-3)?(s.st.y[S_VX]*s.st.y[S_RX]+s.st.y[S_VY]*s.st.y[S_RY])/lat:0.0; /* + = outward */
-            printf("  t=%6.2f h=%8.1f vz=%7.1f thr=%.2f tilt=%5.2f lat=%7.1f vrad=%6.1f qbar=%6.0f wperp=%5.2f m=%8.0f ph=%d\n",
+            /* horizontal wind the plant is currently applying (mean+Dryden+GUST), world m/s — makes
+             * the 1-cosine pulse visible in-trace as the vehicle penetrates the band (guidance never
+             * sees this number; it only feels the resulting lat/vrad drift). */
+            double wind=sqrt(s.env.wind_world[0]*s.env.wind_world[0]+s.env.wind_world[1]*s.env.wind_world[1]);
+            printf("  t=%6.2f h=%8.1f vz=%7.1f thr=%.2f tilt=%5.2f lat=%7.1f vrad=%6.1f qbar=%6.0f wperp=%5.2f wind=%5.1f m=%8.0f ph=%d\n",
                 s.st.t, s.st.y[S_RZ]-mp.com, s.st.y[S_VZ], s.st.y[S_THR],
-                sim_body_tilt(&s.st)*RAD2DEG, lat, vrad, s.diag.qbar, wperp, mp.m, s.st.phase);
+                sim_body_tilt(&s.st)*RAD2DEG, lat, vrad, s.diag.qbar, wperp, wind, mp.m, s.st.phase);
         }
         if(s.st.t>300.0) break;
     }
@@ -237,6 +270,7 @@ static int cmd_run(int argc, char** argv){
 /* ---------------- headless Monte Carlo ---------------- */
 static int cmd_headless(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42; long runs=1000; const char* out=0; int modules=MOD_TURB; int gmode=GM_HOVERSLAM;
+    double g_peak=0, g_alt=0, g_hw=0, g_dir=0;   /* DIAL-A-GUST (peak=0 => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
@@ -247,6 +281,8 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
+        else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
+        else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
@@ -275,6 +311,7 @@ static int cmd_headless(int argc, char** argv){
     double vmax=0;
     for(long r=0;r<runs;r++){
         Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,gmode);
+        sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
         sim_run(&s,&res,300.0);
         cnt[res.verdict<6?res.verdict:5]++; fault[res.fault<6?res.fault:0]++;
         if(res.verdict==V_CRASHED||res.verdict==V_TIPPED){
@@ -296,6 +333,8 @@ static int cmd_headless(int argc, char** argv){
     double centre=(p+z*z/(2*runs))/den, halfw=z*sqrt(p*(1-p)/runs + z*z/(4.0*runs*runs))/den;
     printf("========= HEADLESS MONTE CARLO =========\n");
     printf("scenario=%s seed=%u runs=%ld turb=%d\n", scenario_name(scen),seed,runs,(modules&MOD_TURB)!=0);
+    if(g_peak>0.0) printf("GUST: peak=%.1f m/s @ alt=%.0f m  hw=%.0f m (band %.0f..%.0f)  dir=%.0f deg\n",
+        g_peak, g_alt, g_hw, g_alt-g_hw, g_alt+g_hw, g_dir);
     printf("LANDED: %ld/%ld = %.1f%%  (Wilson95: %.1f..%.1f%%)\n", landed,runs,rate,100*(centre-halfw),100*(centre+halfw));
     printf("  PERFECT %ld  GOOD %ld  HARD %ld  TIPPED %ld  CRASHED %ld\n",
         cnt[V_PERFECT],cnt[V_GOOD],cnt[V_HARD],cnt[V_TIPPED],cnt[V_CRASHED]);
@@ -772,6 +811,7 @@ int main(int argc, char** argv){
     if(!strcmp(mode,"--golden")) return cmd_golden(argc,argv);
     if(!strcmp(mode,"--mppi-cuda-verify")) return cmd_mppi_cuda_verify(argc,argv);  /* M5 (CUDA build) */
     if(!strcmp(mode,"--mppi-cuda-bench")) return cmd_mppi_cuda_bench(argc,argv);    /* M5 (CUDA build) */
-    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda] | --serve [--scenario S --seed N --run N --port P --nav-noisy] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
+    printf("booster-core modes: --selftest | --headless [--scenario S --seed N --runs N --out csv --no-turb --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --run [--scenario S --seed N --run N --verbose --inject --nav-noisy --mppi|--mppi-cuda --gust P@A[:HW] --gust-dir DEG] | --serve [--scenario S --seed N --run N --port P --nav-noisy] | --mppi-cuda-verify [--scenario S --seed N --run N --step N] | --mppi-cuda-bench [...]\n");
+    printf("  --gust <peak_mps>@<alt_m>[:<halfwidth_m>]  DIAL-A-GUST: deterministic 1-cosine wind-shear pulse (canon 4.3/10.6), default hw=300 m, default dir +x; --gust-dir sets the bearing in deg. Default OFF => byte-identical.\n");
     return 2;
 }

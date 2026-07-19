@@ -46,6 +46,16 @@ strict rule (MPPI reach −3 despite AERO t0 +12/600). Fleet record + verdicts: 
 runs/cuda_mppi_report.md, cuda_rebase_report.md, decknull_report.md, kprobe_sweep.csv. Next
 decision pending: EMPI's ENTRY-under-MPPI number (the M6-via-MPPI hinge) + K=1024 + mvar finals.
 
+**D-017 — DIAL-A-GUST shipped (2026-07-19): `--gust <peak>@<alt>[:<hw>]` + `--gust-dir` — a
+deterministic 1-cosine wind-shear injector (plant input, guidance-blind per §4.3, off-by-default
+byte-identical: TERMINAL 194 exact, AERO --mppi run-1 invariant).** The first BUILT play-menu
+item — throw a shear and watch MPPI re-solve through a disturbance it cannot see (ENTRY reactive
+92→72 under 12@5000; ENTRY-MPPI rides a 37 m/s crest, closes 116→18 m, bit-deterministic). The
+other two play-menu items are specced-not-built: movable target (runs/target_sandbox_design.md)
+and engine-out (runs/engineout_design.md). Also: D-016 nav-noisy honesty spot landed —
+**ENTRY --mppi --nav-noisy = 90/100**, MPPI holds the M6 gate exactly at 90 through the estimation
+layer (reactive was 74). Full record: DECISIONS **D-017**, runs/gust_report.md.
+
 **★★★★★★ D-016 — M6 GREEN (2026-07-19): ENTRY under `--mppi` clears ≥90 on EVERY seed —
 s42 95/100 · s7 91/100 · s99 93/100** (reactive baselines 88/79/78; +7/+12/+15). ZERO code
 changes vs the shipped tree — only the flag; GM_MPPI's closed-loop replanning rejects the wind

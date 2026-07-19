@@ -1047,9 +1047,12 @@ and it delivered.
   (nav-noisy/inject combined) + the perf budget accounting (MPPI is ~9 s/run CPU vs the reactive
   law's ~1 s). This ADR claims exactly one thing: the gate metric (ENTRY ≥90%) is MET by a
   determinism-clean, canon-legal, anti-cheat-intact configuration that exists in the tree today.
-- **nav-noisy honesty spot** (ENTRY s42 --mppi --nav-noisy) — in flight at push time; the
-  estimation-layer degradation number appends in the follow-up commit so the ≥90 claim is not left
-  a truth-state-only artifact (reactive nav-noisy ENTRY was 74; MPPI expected comparable-or-better).
+- **nav-noisy honesty spot (appended D-017 push): ENTRY s42 --mppi --nav-noisy = 90/100** — MPPI
+  holds the M6 gate EXACTLY at 90 even through the estimation layer (pos σ .5/.5/.3 m, vel σ .1,
+  att σ .1°, gyro walk), vs the reactive config's 74 noisy. So the ≥90 claim is NOT a
+  truth-state-only artifact — closed-loop replanning on the noisy nav estimate still clears the
+  gate (landed td_v mean 3.29, lat 15.77; off-pad 4, th 1, fuel 2, other 3). This is the single
+  strongest evidence that MPPI's win is real disturbance rejection, not truth-state luck.
 
 **Capacity/variant verdicts folded in (the levers that got MPPI here vs the ones that didn't):**
 - **KPROBE (K 256→512→1024 = 44/44/42 AERO): capacity is NOT the rate lever** — freeze the sm_89
@@ -1065,4 +1068,51 @@ and it delivered.
 the operator's frontend fleet already has the documentary view + propagation-honest S3 audio
 sketch live against `--serve` (the D-013 pred_impact/ignite_h fields feeding a diegetic
 impact-marker + delay-modeled audio). M4 (AERO ≥90) is now the sole remaining guidance gate.
+
+## D-017 — Dial-a-gust: a deterministic wind-shear injector (the play menu opens) (2026-07-19)
+
+First BUILT entry in the operator-requested "play menu" (throw a disturbance at the vehicle and
+watch the closed-loop guidance re-solve). A discrete **1-cosine wind-shear event** injectable from
+the CLI, per canon §4.3 (layer-3 discrete gust) / §10.6 (`INJECT_DISTURBANCE type=gust`). It is a
+robustness-test INSTRUMENT, not a guidance change (fleet lane `gust`, `_gust_wt` → integrated).
+
+- **Flag:** `--gust <peak_mps>@<alt_m>[:<halfwidth_m>]` (e.g. `--gust 12@3000:400`) + optional
+  `--gust-dir <deg>` (fixed bearing, 0→+x). On `--run`, `--headless`, `--serve`. Half-width
+  default 300 m. **Absent or peak≤0 → OFF → byte-identical to today.**
+- **Physics/threading:** `w(h) = 0.5·peak·(1 − cos(π·x/hw))`, `x = h−(alt−hw)`, over a `2·hw`
+  penetration band, SUPERPOSED on the mean profile + Dryden inside `wind_sample()` (core/sim.c) —
+  the single sink that fills `env.wind_world` (consumed by dynamics.c as `v_rel = v − wind`).
+  Config in a new `GustCfg` on the Sim struct; CLI parse in main.c. Pure function of altitude, no
+  RNG → fully replayable. **Canon §4.3 intact:** the MPPI planner zeroes `env.wind_world` in its
+  rollouts, so guidance can only feel the gust as STATE DRIFT and re-solve — it cannot see or
+  pre-compensate the wind. (The guidance-blindness that makes the demo honest.)
+- **Gates (integrated main tree):** clean relink (sim.c/main.c recompiled — NOT the stale-exe
+  trap; the first attempt hit LNK1104 behind a batch and was caught), selftest PASS, **TERMINAL
+  s42 x200 = 194/200 byte-exact with the flag absent** (off-by-default proven), gust demonstrably
+  LIVE (TERMINAL landed-means shift under `--gust 40@1500:300` while the rate stays robust —
+  near-ground qbar is ~2-20 Pa so wind→force is negligible there, the honest reason TERMINAL
+  shrugs off even a 120 m/s gust).
+- **The robustness story (seed 42, full spec winds + the gust; runs/gust_report.md):**
+  - TERMINAL: flat ~96% even at 120 m/s (no air to couple to near the deck).
+  - ENTRY reactive (integrated main tree, authoritative): **88% → 77%** under `--gust 12@5000:800`
+    — the shear bites at ~50 kPa on the committed divert; crashes degrade GRACEFULLY (off-pad →
+    too-hard, not catastrophe). (The worktree report's 92→72 used its own captured baseline; the
+    main-tree −11 is the number of record.)
+  - Gust determinism pair (ENTRY x20 --mppi --gust 30@6000:800, twice): **20/20 IDENTICAL to the
+    digit** (td_v 3.05, lat 16.77, fuel 2500) — bit-deterministic WITH the gust active.
+  - AERO reactive: near-neutral (the C14 integral absorbs a 2 km-wide gust).
+  - ENTRY MPPI single-run: rides a ~37 m/s 1-cosine crest, banks tilt 8-20°, closes lat
+    116→18 m, lands — **bit-deterministic**. Guidance visibly re-solving through a shear it
+    cannot see (the exact "reject a disturbance you can't measure" thesis, now a knob).
+  - `--gust-dir` verified to rotate the pulse; composes with `--inject` + `--nav-noisy`.
+- **The play menu (this + two specced-not-built designs):** dial-a-gust is shipped; the other two
+  are implementer-grade designs awaiting build behind M4: **movable target** (runs/
+  target_sandbox_design.md — one substitution `null(r_xy − target_xy)` at guidance_hoverslam.c:84;
+  the protocol already reserves `BL_EVT_TARGET_CHANGED`; two modes — a deterministic seeded
+  ASDS/SEA deck vs a fenced live-drag with determinism deliberately waived) and **engine-out**
+  (runs/engineout_design.md — the Apollo-13/F9-CRS-1 recovery; the induced torque rides the
+  existing `arm_thr × Fthr` at dynamics.c:138, so the build is decrement `n_eng` + a new
+  `thrust_offset[2]` env field + one literal `3.0`→`st->n_eng` at sim.c:154, directive-7 free).
+  All three are deterministic, guidance-legal plant events — the anti-cheat thesis extends to the
+  toys.
 

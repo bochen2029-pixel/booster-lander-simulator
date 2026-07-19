@@ -54,6 +54,36 @@ static void wind_sample(Sim* s, double h, double out[3]){
             out[k]+=s->st.wind_filt[k];
         }
     }
+    /* DIAL-A-GUST (canon §4.3 layer 3, §10.6 INJECT_DISTURBANCE type=gust). Discrete 1-cosine
+     * wind-shear pulse SUPERPOSED on the mean+Dryden wind, in a FIXED horizontal direction. Pure
+     * function of altitude h (== the vehicle CoM world-Z, the same argument the mean/Dryden layers
+     * use) — NO RNG, so it neither perturbs the seeded turbulence stream above nor breaks replay:
+     * (seed, gust) is bit-identical run-to-run, and peak==0 skips the block entirely => byte-exact
+     * to the no-gust tree (the TERMINAL-194 parity gate). The vehicle penetrates the band
+     * [alt-hw, alt+hw]; over that penetration distance dm=2*hw the pulse magnitude follows the
+     * canonical 1-cosine  V = 0.5*peak*(1 - cos(2*pi*x/dm)),  x = h-(alt-hw) in [0, 2*hw]:
+     *   0 at the band edges, rising to +peak at band center (x=hw), back to 0 at the far edge.
+     * Guidance never sees it (§4.3): the plant integrates v_rel = v - wind_world; the MPPI planner
+     * zeroes env.wind_world in its rollouts (guidance_mppi.c), so it re-solves purely against the
+     * lateral drift the gust induces — the honest wind-shear-rejection test. */
+    if(s->gust.peak != 0.0 && s->gust.hw > 0.0){
+        double x = h - (s->gust.alt - s->gust.hw);
+        if(x > 0.0 && x < 2.0*s->gust.hw){
+            double V = 0.5*s->gust.peak*(1.0 - cos((PI*x)/s->gust.hw));  /* 2*pi*x/(2*hw) = pi*x/hw */
+            out[0] += V*s->gust.dirx;
+            out[1] += V*s->gust.diry;
+        }
+    }
+}
+
+/* DIAL-A-GUST arming (call AFTER sim_init, which memsets s->gust to OFF). Stores the fixed
+ * horizontal direction as a unit vector from the bearing dir_deg (0 => +x). Disarms (peak=0) on a
+ * non-positive peak or half-width so a malformed/absent flag leaves the run byte-identical. */
+void sim_set_gust(Sim* s, double peak, double alt, double hw, double dir_deg){
+    if(peak<=0.0 || hw<=0.0){ s->gust.peak=0.0; return; }
+    s->gust.peak=peak; s->gust.alt=alt; s->gust.hw=hw;
+    double th=dir_deg*DEG2RAD;
+    s->gust.dirx=cos(th); s->gust.diry=sin(th);
 }
 
 void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules, int guidance_mode){
