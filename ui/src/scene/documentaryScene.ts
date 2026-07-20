@@ -166,9 +166,9 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
     const z = Math.random(); // cos(theta) in [0,1] => above-horizon hemisphere
     const s = Math.sqrt(1 - z * z);
     const ph = Math.random() * Math.PI * 2;
-    starPos[i * 3] = STAR_R * s * Math.cos(ph);
-    starPos[i * 3 + 1] = STAR_R * s * Math.sin(ph);
-    starPos[i * 3 + 2] = STAR_R * z + 400; // world Z-up, lifted off the horizon line
+    starPos[i * 3] = STAR_R * s * Math.cos(ph); // x (horizontal)
+    starPos[i * 3 + 1] = STAR_R * z + 400; // y = UP in three.js (above the horizon), not z
+    starPos[i * 3 + 2] = STAR_R * s * Math.sin(ph); // z (horizontal)
   }
   const starGeo = new BufferGeometry();
   starGeo.setAttribute("position", new BufferAttribute(starPos, 3));

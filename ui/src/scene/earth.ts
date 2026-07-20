@@ -31,7 +31,10 @@ export interface EarthEnv {
 
 export function buildEarth(): EarthEnv {
   const root = new Group();
-  root.position.z = -EARTH_R - 120; // center far below; top surface ~120 m under the pad (no z-fight)
+  // THREE.js is Y-UP: "down" is -Y (NOT -Z, which is horizontal/into-screen — the bug that made
+  // the globe a vertical wall). Center the planet directly below so its top surface sits ~120 m
+  // under the pad and it curves away beneath the rocket like real ground.
+  root.position.y = -EARTH_R - 120;
   root.visible = false;
 
   const tex = makeEarthTexture();
@@ -70,7 +73,7 @@ export function buildEarth(): EarthEnv {
       // ~above 13 km), the flat ground owns it below — so you never see two grounds at once.
       root.visible = dayF < 0.62; // keep the globe (its curvature) down to ~9 km — more of the descent
       atmoMat.opacity = 0.16 * spaceF; // faint limb haze (was 0.35 — it washed the globe gray)
-      earth.rotation.z += dtSec * 0.0005; // a slow, subtle spin
+      earth.rotation.y += dtSec * 0.0005; // slow spin about the polar (Y) axis
     },
     dispose() {
       earth.geometry.dispose();
