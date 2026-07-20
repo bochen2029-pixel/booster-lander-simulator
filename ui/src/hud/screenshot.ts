@@ -95,7 +95,9 @@ export function installScreenshot(
     const img = ctx.createImageData(W, H);
     const out = img.data;
     for (let y = 0; y < H; y++) {
-      const src = (H - 1 - y) * srcRow;
+      // readRenderTargetPixelsAsync returns rows TOP-DOWN here — copy straight (a Y-flip
+      // was inverting every capture: sky at the bottom, rocket nose-down).
+      const src = y * srcRow;
       const dst = y * dstRow;
       for (let x = 0; x < dstRow; x += 4) {
         out[dst + x] = linToSrgb8(raw[src + x] / 255);

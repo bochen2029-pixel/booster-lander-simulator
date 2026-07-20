@@ -93,12 +93,17 @@ export function gerstnerSample(
 }
 
 // --- palette (sensible defaults; flagged for eyes-on tuning) ------------------
-const SEA_DEEP = 0x0a2a3a; // deep water body
-const SEA_SHALLOW = 0x14495e; // near-surface teal
-const DECK_STEEL = 0x2b2f36; // ASDS dark steel deck
-const DECK_TRIM = 0x14171c; // darker structural trim
-const BULLSEYE = 0xd8dee6; // white landing bullseye rings
+const SEA_DEEP = 0x0b3550; // deep water body (saturated ocean blue)
+const SEA_SHALLOW = 0x1f6f8f; // near-surface teal
+const DECK_STEEL = 0x3a4048; // ASDS steel landing deck (lighter top plate)
+const HULL_STEEL = 0x20242b; // dark hull sides / barge body
+const DECK_TRIM = 0x121519; // darker structural trim / superstructure
+const BULLSEYE = 0xe6ebf2; // white landing bullseye rings
 const FOAM = 0xeaf2f5; // crest / waterline foam
+
+// The barge deck (the landing surface, = streamed deck_z) sits this far ABOVE the rendered
+// waterline, so the hull shows freeboard and reads as a floating ship rather than a flat plate.
+const SEA_FREEBOARD = 5.5;
 
 export interface SeaEnv {
   /** Add to the floating-origin `world` group. */
@@ -133,6 +138,8 @@ export function buildSea(padRadius = 30): SeaEnv {
     color: SEA_DEEP,
     roughness: 0.35,
     metalness: 0.0,
+    emissive: SEA_DEEP, // a blue floor so the water never washes to the tan ground-bounce
+    emissiveIntensity: 0.28,
   });
   const farOcean = new Mesh(new CircleGeometry(60_000, 96), farMat);
   farOcean.rotation.x = -Math.PI / 2;
@@ -153,23 +160,32 @@ export function buildSea(padRadius = 30): SeaEnv {
   const deck = new Group();
   root.add(deck);
 
-  // deck plate: a wide flat steel barge. Its TOP sits at the deck local y=0, so the
-  // deck.position.y (= streamed deck_z, three-space) IS the landing surface height.
-  const deckLen = Math.max(90, padRadius * 2.6);
-  const deckWid = Math.max(60, padRadius * 2.0);
-  const hullH = 4.0;
-  const deckMat = new MeshStandardMaterial({ color: DECK_STEEL, roughness: 0.85, metalness: 0.25 });
+  // The ASDS droneship: a real barge, not a flat plate. The deck TOP (the landing surface)
+  // sits at local y=0 (= streamed deck_z, three-space); a TALL hull drops from there through
+  // the rendered waterline (SEA_FREEBOARD below), so the hull sides read above the swell.
+  const deckLen = Math.max(110, padRadius * 3.0); // fore-aft
+  const deckWid = Math.max(76, padRadius * 2.3); // beam
+  const hullH = 11.0; // tall hull: ~5.5 m freeboard above water + ~5.5 m draft below
+  const deckMat = new MeshStandardMaterial({ color: DECK_STEEL, roughness: 0.9, metalness: 0.18 });
+  const hullMat = new MeshStandardMaterial({ color: HULL_STEEL, roughness: 0.78, metalness: 0.32 });
   const trimMat = new MeshStandardMaterial({ color: DECK_TRIM, roughness: 0.7, metalness: 0.4 });
 
-  const hull = new Mesh(new BoxGeometry(deckLen, hullH, deckWid), deckMat);
-  hull.position.y = -hullH / 2; // top face at y=0
+  // hull body (dark steel sides; top face is the landing deck at y=0)
+  const hull = new Mesh(new BoxGeometry(deckLen, hullH, deckWid), hullMat);
+  hull.position.y = -hullH / 2;
   hull.castShadow = true;
   hull.receiveShadow = true;
   deck.add(hull);
 
-  // a low raised rim around the deck edge (the ASDS blast-wall lip) for silhouette
-  const rimH = 1.2;
-  const rimT = 1.5;
+  // lighter deck plating slab on top so the landing surface reads distinct from the hull
+  const plate = new Mesh(new BoxGeometry(deckLen * 0.99, 0.7, deckWid * 0.99), deckMat);
+  plate.position.y = -0.35;
+  plate.receiveShadow = true;
+  deck.add(plate);
+
+  // raised blast-wall rim around the deck edge (silhouette + landing lip)
+  const rimH = 1.8;
+  const rimT = 2.2;
   for (const [sx, sz, w, d] of [
     [0, deckWid / 2, deckLen, rimT] as const,
     [0, -deckWid / 2, deckLen, rimT] as const,
@@ -182,10 +198,24 @@ export function buildSea(padRadius = 30): SeaEnv {
     deck.add(rim);
   }
 
-  // equipment silhouette at one end (containers / thruster pods — the ASDS look)
-  for (let i = 0; i < 3; i++) {
-    const box = new Mesh(new BoxGeometry(6, 2.6 + i * 0.4, 12), trimMat);
-    box.position.set(-deckLen / 2 + 6, 1.3 + i * 0.2, -deckWid / 2 + 9 + i * 13);
+  // station-keeping thruster WINGS jutting out each long side — the signature ASDS look
+  for (const side of [1, -1] as const) {
+    const wing = new Mesh(new BoxGeometry(deckLen * 0.46, 3.4, 11), trimMat);
+    wing.position.set(deckLen * 0.05, -1.7, side * (deckWid / 2 + 5));
+    wing.castShadow = true;
+    deck.add(wing);
+  }
+
+  // stern superstructure: a stack of containers/equipment at ONE end (deck stays clear for
+  // the landing bullseye at center). Tall massing so the ship silhouettes against the sky.
+  for (let i = 0; i < 5; i++) {
+    const h = 6 + (i % 3) * 3.5;
+    const box = new Mesh(new BoxGeometry(11, h, 13), trimMat);
+    box.position.set(
+      -deckLen / 2 + 10 + (i % 2) * 13,
+      h / 2,
+      -deckWid / 2 + 12 + Math.floor(i / 2) * 15
+    );
     box.castShadow = true;
     deck.add(box);
   }
@@ -248,8 +278,8 @@ export function buildSea(padRadius = 30): SeaEnv {
       // action (the swell is world-anchored via the sampled world x/z, so it does not
       // "slide" with the grid — only the sampling window recenters). Keep it at sea
       // level (y≈0); the deck heaves relative to it, which reads as riding the swell.
-      near.mesh.position.set(deckPos.x, 0, deckPos.z);
-      farOcean.position.set(deckPos.x, -0.15, deckPos.z);
+      near.mesh.position.set(deckPos.x, -SEA_FREEBOARD, deckPos.z);
+      farOcean.position.set(deckPos.x, -SEA_FREEBOARD - 0.15, deckPos.z);
       near.animate(deckPos.x, deckPos.z, timeSec);
       _q.identity();
     },
@@ -317,9 +347,11 @@ function buildOceanGrid(span: number, seg: number): OceanGrid {
 
   const mat = new MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.18, // glossy water; the sun key gives a specular sheet
+    roughness: 0.2, // glossy water; the sun key gives a specular sheet
     metalness: 0.0,
     side: DoubleSide,
+    emissive: SEA_DEEP, // blue floor: down-facing wave slopes keep the ocean color, not tan
+    emissiveIntensity: 0.22,
   });
   const mesh = new Mesh(geo, mat);
   mesh.receiveShadow = true;
@@ -350,7 +382,8 @@ function buildOceanGrid(span: number, seg: number): OceanGrid {
       normals[j * 3 + 2] = g.nz;
       // depth + crest tint: deep in troughs, teal near flat, foam on steep crests
       const up = g.ny; // ~1 flat, <1 on slopes
-      const crest = Math.max(0, (g.oy - 0.35) * 1.6) + Math.max(0, (0.55 - up) * 1.2);
+      // foam only on the STEEPEST crests (raised thresholds — the sea was over-whitecapped)
+      const crest = Math.max(0, (g.oy - 0.62) * 1.1) + Math.max(0, (0.34 - up) * 0.9);
       const cf = Math.min(1, crest);
       const df = Math.min(1, Math.max(0, 0.5 - g.oy * 0.6)); // deeper look in troughs
       const r = deepR * df + shR * (1 - df);
