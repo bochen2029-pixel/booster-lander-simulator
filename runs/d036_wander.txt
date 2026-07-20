@@ -1,0 +1,26 @@
+D-036 Target Stage-1c — SEA horizontal station wander (heave + drift)
+
+=== BYTE-CHECK: SEA heave-only must EXACTLY match the D-035 deck-aware batch ===
+hoverslam s42 Hs3   : LANDED: 43/60   (D-035: 43)  MATCH
+hoverslam s7  Hs3   : LANDED: 33/60   (D-035: 33)  MATCH
+hoverslam s99 Hs3   : LANDED: 38/60   (D-035: 38)  MATCH
+hoverslam s42 Hs1.5 : LANDED: 43/60   (D-035: 43)  MATCH
+neural    s42 Hs1.5 : LANDED: 37/60   (D-035: 37)  MATCH
+=> Stage-1c wander-off is byte-identical to Stage-1b (wander Philox draws use RNG_SEA
+   lanes 1000/1001; heave phases lanes 0-47 untouched; target_xy=(0,0) bit-exact).
+
+Leak (SEA off): selftest PASS, TERMINAL 194/200, MPPI run-1 AERO s42 HARD 2.63/10.48.
+
+=== NEW: heave + horizontal wander (hoverslam, Hs=1.5, +-3 m) ===
+                       s42   s7   s99   total/180
+heave only (D-035):     43    50    36    129 (71.7%)
+heave + wander:         42    48    35    125 (69.4%)   [-2.2 pp — slow wander nearly free]
+
+=== wander determinism pair (seed 42, Hs 1.5, wander 3) ===
+det A : 42/60
+det B : 42/60   IDENTICAL
+
+Verdict: the deterministic moving deck (heave + drift + deck-relative leg loads +
+target-relative verdict) is complete and byte-clean. The +-3 m slow station-keeping
+wander tracks nearly for free because the guidance re-aims at the deck's current pose
+each tick (A.4 Option-i, now demonstrated horizontally as well as vertically).

@@ -19,7 +19,7 @@
 #define SEA_PHI_PITCH 1.0471975512   /* π/3  — decorrelate pitch from heave */
 #define SEA_PHI_ROLL  2.0943951024   /* 2π/3 — decorrelate roll from pitch */
 
-void sea_init(SeaState* S, uint32_t seed, double Hs){
+void sea_init(SeaState* S, uint32_t seed, double Hs, double wander_amp){
     if(Hs < SEA_HS_MIN) Hs = SEA_HS_MIN;
     S->Hs = Hs;
     double U  = sqrt(Hs * G0 / 0.2092);                 /* U19.5 from Hs */
@@ -32,11 +32,19 @@ void sea_init(SeaState* S, uint32_t seed, double Hs){
         uint32_t o[4]; rng_block(seed, RNG_SEA, (uint32_t)k, 0u, 0u, 0u, o);
         S->phase[k] = SEA_TWO_PI * rng_u01(o[0]);
     }
-    /* Stage-1b: the deck is horizontally FIXED at the origin (pure heave). The ±3 m station-keeping
-     * wander + feeding target_xy to guidance is Stage-1c — kept zero here so the horizontal behavior is
-     * identical to a fixed pad and the heave physics is measured in isolation. Fields kept for 1c. */
+    /* Stage-1c: slow ±wander_amp horizontal station-keeping drift. Two seeded components (x,y) with SLOW
+     * periods ~40–80 s — slow relative to the divert authority, so the inertial-velocity-null guidance
+     * tracks target_xy(t_now) without target_vxy leading (a FAST wander would need the §F.6 target_vxy
+     * extension; kept out of scope). wander_amp==0 => the deck is fixed at the origin (Stage-1b heave-only,
+     * target_xy stays (0,0) => byte-identical). */
     S->x0 = 0.0; S->y0 = 0.0;
-    for(int j=0;j<2;j++){ S->wander_omega[j]=0.0; S->wander_amp[j]=0.0; S->wander_phase[j]=0.0; }
+    for(int j=0;j<2;j++){
+        uint32_t o[4]; rng_block(seed, RNG_SEA, 1000u+(uint32_t)j, 0u, 0u, 0u, o);
+        double period = 40.0 + 40.0*rng_u01(o[0]);     /* 40–80 s (slow station-keeping) */
+        S->wander_omega[j] = SEA_TWO_PI/period;
+        S->wander_amp[j]   = wander_amp;
+        S->wander_phase[j] = SEA_TWO_PI*rng_u01(o[1]);
+    }
 }
 
 void sea_deck_pose(const SeaState* S, double t,

@@ -27,8 +27,11 @@ typedef struct {
     double Hs;             /* significant wave height [m] — the operator-facing sea-state knob */
 } SeaState;
 
-/* Build the 48-component table from (seed, Hs). Hs is clamped to a small positive floor. */
-void sea_init(SeaState* S, uint32_t seed, double Hs);
+/* Build the 48-component table from (seed, Hs). Hs is clamped to a small positive floor. wander_amp is the
+ * ±amplitude [m] of the slow horizontal station-keeping drift (Stage-1c, §4.4): 0 => the deck is fixed at
+ * the origin (Stage-1b heave-only, byte-identical); >0 => 2 seeded slow components (period ~40–80 s) so the
+ * deck drifts within ±wander_amp and the guidance tracks target_xy(t_now) (§A.4 Option-i, horizontal). */
+void sea_init(SeaState* S, uint32_t seed, double Hs, double wander_amp);
 
 /* Pure deck pose at absolute sim time t (closed-form sum; NO integration). Any out-ptr may be NULL.
  *   deck_z  = Σ amp[k]·cos(omega[k]·t + phase[k])                 heave [m]

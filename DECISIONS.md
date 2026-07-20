@@ -1954,3 +1954,40 @@ WANDER + feeding `target_xy` to guidance (Stage-1c; the SeaState fields exist, d
 contact from deck pitch/roll (SEA-polish §F); MPPI rollout-level deck-awareness; the protocol renderer marker
 (§C — TLM already carries `deck_z`). No NP_VERSION bump (no weights). Draft: `runs/D035_draft.md`.
 
+## D-036 — Target Stage-1c: the SEA horizontal station-keeping wander (2026-07-20, night)
+
+Completes the MOVING deck: D-035 gave the vertical heave; this adds the deck's slow ±wander horizontal
+station-keeping (canon §4.4), so the deck both HEAVES and DRIFTS and the vehicle tracks it in all three axes.
+
+**The change (byte-clean).** `sea_init` now seeds the two horizontal wander components from an amplitude
+argument — SLOW periods ~40–80 s (a droneship holding station, not zipping; slow relative to the divert
+authority so the inertial-velocity-null guidance tracks `target_xy(t_now)` without `target_vxy` leading — a
+FAST wander would need the §F.6 `target_vxy` extension, out of scope). The `sim_step` SEA block feeds the
+deck's `target_x/y` into `gcmd.target_xy` (+ the nav socket), exactly like the MOD_TARGET seeded drift, so
+the EXISTING horizontal reactive law (`r_xy = y − target_xy`, D-034/§B.1) tracks it with no new guidance
+edit. New CLI `--sea-wander [amp]` (default 3.0 m; implies MOD_SEA). `sim_arm_sea` gains the wander arg.
+
+**Byte-clean (wander off ⇒ Stage-1b).** `wander_amp==0 ⇒ target_x/y = x0 + 0·cos = (0,0)` bit-exact ⇒
+`gcmd.target_xy` stays (0,0) ⇒ guidance nulls the origin, identical to Stage-1b heave-only. The extra wander
+Philox draws use `RNG_SEA` lanes 1000/1001, leaving the heave phases (lanes 0–47) untouched. **PROVEN byte-
+identical:** the SEA heave-only aggregate on this build EXACTLY reproduces the D-035 deck-aware batch —
+hoverslam 43/33/38 (Hs3), 43 (Hs1.5), neural 37 (Hs1.5), all identical LANDED counts. Leak GREEN: selftest
+PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48 (SEA-off untouched).
+
+**The result — landing on a HEAVING + DRIFTING deck (hoverslam, Hs=1.5, ±3 m wander):**
+
+| deck motion | s42 | s7 | s99 | total /180 |
+|---|---|---|---|---|
+| heave only (D-035) | 43 | 50 | 36 | 129 (71.7%) |
+| **heave + ±3 m wander (D-036)** | 42 | 48 | 35 | **125 (69.4%)** |
+
+The ±3 m horizontal wander costs only **−2.2 pp** — the slow station-keeping is nearly free because the
+guidance re-aims at the deck's current pose each tick and the deck moves slowly vs the divert authority
+(the §A.4 Option-i thesis, now demonstrated horizontally too). Determinism pair identical (42/60 == 42/60).
+
+**Scope / remaining (Target Stage-1).** Stage-1a (verdict, D-034) + 1b (heave + Option-i, D-035) + 1c
+(horizontal wander, D-036) ⇒ the full deterministic moving deck is DONE (heave + drift + deck-relative leg
+loads + target-relative verdict, all byte-clean, replayable). **Remaining polish:** tilted-normal contact
+from deck pitch/roll (§F); MPPI rollout-level deck-awareness; a fast-wander `target_vxy` lead (§F.6); the
+protocol renderer marker streaming `target_xy` (§C, TLM already carries `deck_z`). No NP_VERSION bump.
+

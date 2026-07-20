@@ -341,8 +341,8 @@ static void sim_arm_target(Sim* s, int mode, double amp, double period, double b
  * The deck is seeded per (seed,run) so a farm samples independent sea states and each run replays
  * bit-exact. MOD_SEA gates the feature; this only builds the 48-component spectrum table (sea_deck_pose
  * is evaluated per physics step in sim_step). Hs is the significant wave height [m] (the sea-state knob). */
-static void sim_arm_sea(Sim* s, uint32_t seed, uint32_t run, double Hs){
-    sea_init(&s->sea, seed + run*2654435761u + 313u, Hs);
+static void sim_arm_sea(Sim* s, uint32_t seed, uint32_t run, double Hs, double wander){
+    sea_init(&s->sea, seed + run*2654435761u + 313u, Hs, wander);
 }
 
 /* N0: arm the engine-out event on a Sim after sim_init (engineout_design §E.3). For the seeded
@@ -371,6 +371,7 @@ static int cmd_run(int argc, char** argv){
     int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
     int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     double sea_hs=3.0;                            /* SEA sea-state Hs [m] (armed by --sea; MOD_SEA => OFF => byte-identical) */
+    double sea_wander=0.0;                        /* SEA Stage-1c ±horizontal wander [m] (--sea-wander; 0 => heave-only) */
     const char* policy_log=0;                    /* N1 S0 teacher tap (--policy-log; NULL => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
@@ -390,6 +391,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
         else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
         else if(!strcmp(argv[i],"--sea")){ modules|=MOD_SEA; if(i+1<argc && argv[i+1][0]!='-') sea_hs=strtod(argv[++i],0); }  /* SEA §4.4: heaving deck, optional Hs [m] (default 3.0) */
+        else if(!strcmp(argv[i],"--sea-wander")){ modules|=MOD_SEA; sea_wander=3.0; if(i+1<argc && argv[i+1][0]!='-') sea_wander=strtod(argv[++i],0); }  /* SEA §4.4 Stage-1c: ±wander [m] slow station-keeping (default 3.0) */
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
@@ -409,7 +411,7 @@ static int cmd_run(int argc, char** argv){
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
     if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
     if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
-    if(modules&MOD_SEA){ sim_arm_sea(&s, seed, run, sea_hs); }
+    if(modules&MOD_SEA){ sim_arm_sea(&s, seed, run, sea_hs, sea_wander); }
     if(tapf){ s.tap.f=tapf; s.tap.seed=seed; s.tap.run=run; }   /* attach the tap AFTER sim_init (memset) */
     printf("scenario=%s seed=%u run=%u  h0=%.0f m  vz0=%.1f m/s\n",
         scenario_name(scen),seed,run, s.st.y[S_RZ], s.st.y[S_VZ]);
@@ -417,7 +419,7 @@ static int cmd_run(int argc, char** argv){
         s.gust.peak, s.gust.alt, s.gust.hw, s.gust.alt-s.gust.hw, s.gust.alt+s.gust.hw, g_dir, s.gust.dirx, s.gust.diry);
     if(modules&MOD_ENGINE_OUT) printf("  ENGINE-OUT: engine k=%d fails at t=%.2f s%s\n", s.eo_engine, s.eo_time, eo_rnd?" (seeded)":"");
     if(modules&MOD_TARGET) printf("  TARGET: SEEDED mode=%d amp=%.1f m omega=%.4f rad/s (drift)\n", s.tgt_mode, s.tgt_amp, s.tgt_omega);
-    if(modules&MOD_SEA) printf("  SEA: heaving deck Hs=%.2f m (%d P-M components, seeded)\n", s.sea.Hs, SEA_N);
+    if(modules&MOD_SEA) printf("  SEA: heaving deck Hs=%.2f m  wander=±%.1f m (%d P-M components, seeded)\n", s.sea.Hs, s.sea.wander_amp[0], SEA_N);
     long n=0;
     while(sim_step(&s)){
         n++;
@@ -452,6 +454,7 @@ static int cmd_headless(int argc, char** argv){
     int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
     int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     double sea_hs=3.0;                            /* SEA sea-state Hs [m] (armed by --sea; MOD_SEA => OFF => byte-identical) */
+    double sea_wander=0.0;                        /* SEA Stage-1c ±horizontal wander [m] (--sea-wander; 0 => heave-only) */
     const char* policy_log=0;                    /* N1 S0 teacher tap (--policy-log; NULL => OFF => byte-identical) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
@@ -472,6 +475,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
         else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
         else if(!strcmp(argv[i],"--sea")){ modules|=MOD_SEA; if(i+1<argc && argv[i+1][0]!='-') sea_hs=strtod(argv[++i],0); }  /* SEA §4.4: heaving deck, optional Hs [m] (default 3.0) */
+        else if(!strcmp(argv[i],"--sea-wander")){ modules|=MOD_SEA; sea_wander=3.0; if(i+1<argc && argv[i+1][0]!='-') sea_wander=strtod(argv[++i],0); }  /* SEA §4.4 Stage-1c: ±wander [m] slow station-keeping (default 3.0) */
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
@@ -516,7 +520,7 @@ static int cmd_headless(int argc, char** argv){
         sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
         if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, (uint32_t)(r+1)); }
         if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
-        if(modules&MOD_SEA){ sim_arm_sea(&s, seed, (uint32_t)(r+1), sea_hs); }
+        if(modules&MOD_SEA){ sim_arm_sea(&s, seed, (uint32_t)(r+1), sea_hs, sea_wander); }
         sim_run(&s,&res,300.0);
         cnt[res.verdict<6?res.verdict:5]++; fault[res.fault<6?res.fault:0]++;
         if(res.verdict==V_CRASHED||res.verdict==V_TIPPED){
@@ -736,6 +740,7 @@ static int cmd_serve(int argc, char** argv){
     int eo_eng=-1, eo_rnd=0; double eo_t=0;      /* N0 engine-out (eng<0 => OFF => byte-identical) */
     int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     double sea_hs=3.0;                            /* SEA sea-state Hs [m] (armed by --sea; MOD_SEA => OFF => byte-identical) */
+    double sea_wander=0.0;                        /* SEA Stage-1c ±horizontal wander [m] (--sea-wander; 0 => heave-only) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
@@ -747,6 +752,7 @@ static int cmd_serve(int argc, char** argv){
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
         else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
         else if(!strcmp(argv[i],"--sea")){ modules|=MOD_SEA; if(i+1<argc && argv[i+1][0]!='-') sea_hs=strtod(argv[++i],0); }  /* SEA §4.4: heaving deck, optional Hs [m] (default 3.0) */
+        else if(!strcmp(argv[i],"--sea-wander")){ modules|=MOD_SEA; sea_wander=3.0; if(i+1<argc && argv[i+1][0]!='-') sea_wander=strtod(argv[++i],0); }  /* SEA §4.4 Stage-1c: ±wander [m] slow station-keeping (default 3.0) */
     }
 
     /* Same sim config as --run: turbulence module + hoverslam guidance. This does
@@ -755,7 +761,7 @@ static int cmd_serve(int argc, char** argv){
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
     if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
     if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
-    if(modules&MOD_SEA){ sim_arm_sea(&s, seed, run, sea_hs); }
+    if(modules&MOD_SEA){ sim_arm_sea(&s, seed, run, sea_hs, sea_wander); }
     if(g_peak!=0.0) fprintf(stderr,"serve: GUST armed peak=%.1f m/s @ %.0f m hw=%.0f dir=%.0f deg\n", g_peak, g_alt, g_hw, g_dir);
     if(modules&MOD_ENGINE_OUT) fprintf(stderr,"serve: ENGINE-OUT armed k=%d t=%.2f s%s\n", s.eo_engine, s.eo_time, eo_rnd?" (seeded)":"");
     if(modules&MOD_TARGET) fprintf(stderr,"serve: TARGET armed mode=%d amp=%.1f m omega=%.4f rad/s\n", s.tgt_mode, s.tgt_amp, s.tgt_omega);

@@ -18,6 +18,19 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-036 — Target Stage-1c: the SEA horizontal station wander (2026-07-20 night, byte-clean).** Completes the
+MOVING deck: D-035 gave the vertical heave, this adds the deck's slow ±wander horizontal station-keeping (canon
+§4.4), so the deck HEAVES + DRIFTS and the vehicle tracks all axes. `sea_init` seeds two slow (~40–80 s period)
+wander components from an amplitude arg; the `sim_step` SEA block feeds the deck's `target_x/y` into
+`gcmd.target_xy` (like MOD_TARGET) ⇒ the existing horizontal reactive law (`r_xy=y−target_xy`, D-034/§B.1)
+tracks it with NO new guidance edit. New `--sea-wander [amp]` (default 3.0 m). **Byte-clean:** wander off ⇒
+`target_xy=(0,0)` bit-exact ⇒ Stage-1b heave-only; the wander Philox draws use `RNG_SEA` lanes 1000/1001,
+leaving heave phases (0–47) untouched — PROVEN identical (heave-only aggregate exactly reproduces the D-035
+batch 43/33/38/43/37; leak GREEN). **Result:** the ±3 m wander costs only −2.2 pp (hoverslam Hs1.5 heave-only
+129 → heave+wander **125/180** = 69.4%) — slow station-keeping nearly free (Option-i, horizontal); det-pair
+42==42. **⇒ the deterministic moving deck is DONE (heave+drift+deck-relative legs+target verdict, byte-clean,
+replayable).** Remaining polish: tilted-normal contact (§F), MPPI deck-aware rollout, fast-wander target_vxy
+lead (§F.6), protocol `target_xy` marker (§C). No NP_VERSION bump. Full record: DECISIONS **D-036**.
 **★★★ D-035 — Target Stage-1b: the SEA heaving-deck (2026-07-20 night, byte-clean).** Built the canon-designated
 moving target: `core/sea.{h,c}` — a Pierson-Moskowitz sea state → deck pose as a PURE closed-form sum-of-sines
 (48 comp, equal-energy via the closed-form P-M CDF, seeded phases from a new `RNG_SEA=5` stream; replay-safe,

@@ -398,12 +398,18 @@ int sim_step(Sim* s){
      * deck only through the contact event — the honest "land on a moving deck" physics. Absent (MOD_SEA
      * unset) => se.deck_z stays the scenario scalar and deck_vz_live stays 0 => byte-identical. */
     if(s->modules & MOD_SEA){
-        double dz, dvz;
-        sea_deck_pose(&s->sea, st->t, &dz, &dvz, 0, 0, 0);
+        double dz, dvz, tx, ty;
+        sea_deck_pose(&s->sea, st->t, &dz, &dvz, 0, &tx, &ty);
         s->se.deck_z = dz;
         s->deck_vz_live = dvz;
         s->gcmd.deck_z = dz;      /* §A.4 Option-i: guidance nulls its height against the current deck pose */
         s->st.tgt.deck_z = dz;    /* §8.1 nav socket: deck pose is part of NavState (renderer/telemetry) */
+        /* Stage-1c (D-036) horizontal station: the deck's slow ±wander drives the guidance target, exactly
+         * like the MOD_TARGET seeded drift (hoverslam/MPPI null r_xy − target_xy). Wander off => tx=ty=0 =>
+         * gcmd.target_xy stays (0,0) => guidance nulls the origin => byte-identical to Stage-1b heave-only. */
+        s->gcmd.target_xy[0]=tx; s->gcmd.target_xy[1]=ty;
+        s->st.tgt.target_xy[0]=tx; s->st.tgt.target_xy[1]=ty;
+        s->st.tgt.target_src=TGT_SEEDED; s->st.tgt.target_valid=1; s->st.tgt.target_age=0.0;
     }
 
     /* §8.2 measurement layer (D-010): build the nav view ONCE per 50 Hz guidance tick (not at
