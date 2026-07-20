@@ -8,12 +8,12 @@
 // this path; the server journals every injection. The panel owns NO vehicle truth — it
 // only emits commands and shows transient local feedback.
 
-import { gustCmd, engineOutCmd } from "../net/commands";
+import { gustCmd, engineOutCmd, thrustLossCmd } from "../net/commands";
 
 export interface InjectPanel {
   root: HTMLElement;
   /** For tests / external drivers: fire a named action programmatically. */
-  fire(action: "gust" | "engineOut"): void;
+  fire(action: "gust" | "engineOut" | "thrustLoss"): void;
 }
 
 type Send = (bytes: ArrayBuffer) => void;
@@ -80,9 +80,11 @@ export function installInjectPanel(send: Send): InjectPanel {
 
   const GUST = "#6fb3ff";
   const EO = "#ff8a5c";
+  const THR = "#ffd166";
   const gustBtn = mkButton("💨 WIND GUST", GUST);
   const eoBtn = mkButton("🔥 ENGINE OUT", EO);
-  row.append(gustBtn, eoBtn);
+  const thrBtn = mkButton("📉 THRUST LOSS", THR);
+  row.append(gustBtn, eoBtn, thrBtn);
 
   function doGust(): void {
     // a RANDOM shear: peak 15–30 m/s from a random bearing (the server centers the
@@ -97,9 +99,16 @@ export function installInjectPanel(send: Send): InjectPanel {
     send(engineOutCmd(seq++, 0));
     flash(eoBtn, EO, "ENGINE OUT · side engine");
   }
+  function doThrustLoss(): void {
+    // a RANDOM sudden underperformance: engines drop to 50–75% of rated thrust, live.
+    const frac = 0.5 + Math.random() * 0.25;
+    send(thrustLossCmd(seq++, frac));
+    flash(thrBtn, THR, `THRUST LOSS · ${(frac * 100).toFixed(0)}% rated`);
+  }
 
   gustBtn.onclick = doGust;
   eoBtn.onclick = doEngineOut;
+  thrBtn.onclick = doThrustLoss;
 
   document.body.appendChild(root);
 
@@ -108,6 +117,7 @@ export function installInjectPanel(send: Send): InjectPanel {
     fire(action) {
       if (action === "gust") doGust();
       else if (action === "engineOut") doEngineOut();
+      else if (action === "thrustLoss") doThrustLoss();
     },
   };
 }

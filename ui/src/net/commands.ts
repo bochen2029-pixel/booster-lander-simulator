@@ -14,6 +14,7 @@ export const CMD_SIZE = 24;
 export enum CmdType {
   Gust = 1, // p[0]=peak m/s (0=>server default), p[1]=dir deg, p[2]=half-width m (0=>default)
   EngineOut = 2, // p[0]=engine (1|2 side; 0=>server picks a seeded side)
+  ThrustLoss = 3, // p[0]=thrust fraction 0.05..1 (0=>server default 0.65)
 }
 
 /** Encode a BlCmd into a 24-byte ArrayBuffer ready for TelemetryClient.send(). */
@@ -41,4 +42,10 @@ export function gustCmd(seq: number, peakMs = 0, dirDeg = 0, halfWidthM = 0): Ar
  *  seeded side. Fires on the next multi-engine burn. */
 export function engineOutCmd(seq: number, engine = 0): ArrayBuffer {
   return encodeCmd(CmdType.EngineOut, seq, [engine, 0, 0, 0]);
+}
+
+/** A thrust-loss injection: the engines drop to `frac` of rated thrust (0.05..1) live.
+ *  0 => the server default (0.65). Dramatic — the vehicle can suddenly under-decelerate. */
+export function thrustLossCmd(seq: number, frac = 0): ArrayBuffer {
+  return encodeCmd(CmdType.ThrustLoss, seq, [frac, 0, 0, 0]);
 }

@@ -65,9 +65,10 @@
  * DELIBERATELY WAIVES determinism (wall-clock-timed injections) — the run is journaled (sim-time +
  * command to the serve log) so it can be replayed. Absent --interactive, any client data frame is
  * dropped exactly as before (byte-identical, deterministic). Params are type-specific (see below). */
-#define BL_CMD_NONE       0u
-#define BL_CMD_GUST       1u  /* p[0]=peak m/s (0=>default), p[1]=dir deg, p[2]=half-width m (0=>default) */
-#define BL_CMD_ENGINE_OUT 2u  /* p[0]=engine (1|2 side; 0=>seeded side) — fires on the next multi-eng burn */
+#define BL_CMD_NONE        0u
+#define BL_CMD_GUST        1u  /* p[0]=peak m/s (0=>default), p[1]=dir deg, p[2]=half-width m (0=>default) */
+#define BL_CMD_ENGINE_OUT  2u  /* p[0]=engine (1|2 side; 0=>seeded side) — fires on the next multi-eng burn */
+#define BL_CMD_THRUST_LOSS 3u  /* p[0]=thrust fraction 0.05..1 (0=>default 0.65) — sudden engine underperformance */
 
 /* TLM.flags bitfield */
 #define BL_TLM_FLAG_SEA_ACTIVE     (1u << 0) /* deck_z/deck_quat valid                       */

@@ -748,6 +748,11 @@ static void apply_command(Sim* s, const BlCmd* c, uint32_t seed, uint32_t run){
         arm_engine_out(s, eng, s->st.t, 0, seed, run);          /* fires on the next >1-engine burn; EVT on fire */
         fprintf(stderr,"serve: [INJECT] t=%.2f ENGINE-OUT eng=%d (fires on next multi-eng burn) (seq=%u)\n",
                 s->st.t, eng, c->seq);
+    } else if(c->type==BL_CMD_THRUST_LOSS){
+        double frac = (c->p[0]>0.05f && c->p[0]<=1.0f)? (double)c->p[0] : 0.65;  /* sudden underperformance */
+        s->env.thrust_scale = frac;                             /* the live plant multiplier (same field MOD_INJECT uses) */
+        emit_evt(s, BL_EVT_FAULT, (float)MOD_INJECT, (float)frac);
+        fprintf(stderr,"serve: [INJECT] t=%.2f THRUST-LOSS scale=%.2f (seq=%u)\n", s->st.t, frac, c->seq);
     } else {
         fprintf(stderr,"serve: [INJECT] unknown cmd type=%u (seq=%u) — ignored\n", c->type, c->seq);
     }
