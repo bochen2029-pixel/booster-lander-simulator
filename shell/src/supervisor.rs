@@ -301,6 +301,10 @@ pub async fn spawn(app: &AppHandle, sup: &Arc<Supervisor>, launch: Launch, user_
         run,
         "--port".into(),
         port_s,
+        // Mode 2 (§M2): the shell IS the interactive demo — open the inbound command
+        // channel so the failure-mode buttons (WIND GUST / ENGINE OUT) inject live.
+        // Determinism is waived only if the user injects; the core journals each one.
+        "--interactive".into(),
     ];
     if !launch.gust.is_empty() {
         args.push("--gust".into());
