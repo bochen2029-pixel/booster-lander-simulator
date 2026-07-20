@@ -94,6 +94,11 @@ pub struct Launch {
     pub gust_dir: String,
     pub engine_out: String,
     pub target: String,
+    /// SEA mode (`--sea`): land on the heaving ASDS droneship in the ocean instead of the
+    /// static pad. Default ON for the demo — an autonomous-droneship recovery is the
+    /// CANONICAL Falcon-9 landing (most F9 boosters land at sea), and it lights the ocean +
+    /// droneship scene (scene/sea.ts) that is otherwise dormant. Off => the flat RTLS pad.
+    pub sea: bool,
 }
 
 impl Default for Launch {
@@ -106,6 +111,7 @@ impl Default for Launch {
             gust_dir: String::new(),
             engine_out: String::new(),
             target: String::new(),
+            sea: true,
         }
     }
 }
@@ -321,6 +327,11 @@ pub async fn spawn(app: &AppHandle, sup: &Arc<Supervisor>, launch: Launch, user_
     if !launch.target.is_empty() {
         args.push("--target".into());
         args.push(launch.target.clone());
+    }
+    if launch.sea {
+        // Arm the heaving droneship deck (MOD_SEA). The core sets BL_TLM_FLAG_SEA_ACTIVE
+        // so the frontend swaps the flat pad for the ocean + ASDS droneship (scene/sea.ts).
+        args.push("--sea".into());
     }
 
     tracing::info!("spawning core: {} {}", exe.display(), args.join(" "));

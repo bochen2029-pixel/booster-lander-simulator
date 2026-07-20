@@ -88,6 +88,7 @@ pub async fn relaunch_core(
     gust_dir: Option<String>,
     engine_out: Option<String>,
     target: Option<String>,
+    sea: Option<bool>,
 ) -> Result<u16, String> {
     // Defensive server-side validation (the capability arg-validators are the
     // real gate, but fail fast with a readable message here too).
@@ -113,7 +114,7 @@ pub async fn relaunch_core(
     supervisor::spawn(
         &app,
         &sup,
-        Launch { scenario, seed, run, gust, gust_dir, engine_out, target },
+        Launch { scenario, seed, run, gust, gust_dir, engine_out, target, sea: sea.unwrap_or(true) },
         true,
     )
     .await;

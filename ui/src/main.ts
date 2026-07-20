@@ -38,6 +38,8 @@ import { mountShell } from "./shell/mount"; // S0 LZ-COCKPIT chrome (self-contai
 import { installInjectPanel } from "./hud/injectPanel"; // Mode 2 failure-injection buttons (§M2)
 import { buildPostFx } from "./scene/postfx"; // §5.2 emissive/HDR bloom post-pass
 import { installFidelity } from "./hud/fidelity"; // GFX HIGH/LOW toggle
+import { installScreenshot } from "./hud/screenshot"; // in-app capture (P) + DEV self-verify hooks
+import { installCameraBar } from "./hud/cameraBar"; // visible camera-view selector (was hotkey-only)
 
 async function boot() {
   const { renderer, scene, camera, backend } = await createRenderer();
@@ -167,12 +169,51 @@ async function boot() {
   // `--serve --interactive` (the server drops the frames otherwise). The sim owns the
   // outcome; the panel only emits the closed-enum command + shows local feedback.
   const inject = installInjectPanel((bytes) => client.send(bytes));
-  if (import.meta.env.DEV) (globalThis as { __inject?: unknown }).__inject = inject;
+
+  // IN-APP SCREENSHOT (hotkey P) + a headless SELF-VERIFICATION harness. This is the
+  // "close the loop without a human" surface (operator directive): an agent driving the
+  // preview can shoot the real rendered frame, synthesize the same key events the user
+  // would press, fire the failure-mode buttons, switch cameras, and read the live sim
+  // state back — then eyeball its own screenshots and iterate. All renderer-side; never
+  // writes vehicle truth (the only upstream path is the inject channel, itself fenced
+  // behind core --interactive).
+  const shot = installScreenshot(renderer, scene, () => camera);
+  if (import.meta.env.DEV) {
+    const G = globalThis as Record<string, unknown>;
+    G.__inject = inject; // __inject.fire('gust'|'engineOut'|'thrustLoss')
+    G.__shotHandle = shot; // __shotHandle.capture(w,h,q) — live camera (also window.__shot)
+    // synthesize a real keydown (camera presets 1..4, 0/a AUTO, P screenshot)
+    G.__press = (key: string) => window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+    // drive the director camera directly (preset: PAD_LONG_LENS|ONBOARD_DOWN|CHASE|FREE_ORBIT)
+    G.__cam = (preset: CameraPreset) => director.select(preset, vehSim, vehVel);
+    // read the latest decoded sim state (for asserting an injection had an effect)
+    G.__telem = () => {
+      const s = devSample;
+      if (!s) return null;
+      return {
+        t: s.frame.t,
+        phase: s.frame.phase,
+        pos: [s.r.x, s.r.y, s.r.z],
+        vel: [s.v.x, s.v.y, s.v.z],
+        altM: s.r.z,
+        pAmb: s.frame.pAmb,
+        mach: s.frame.mach,
+        throttleCmd: s.frame.throttleCmd,
+        throttleAct: s.frame.throttleAct,
+        cam: director.preset,
+        seaActive: (s.frame.flags & 1) !== 0,
+      };
+    };
+  }
 
   // camera preset hotkeys (renderer-side only; never crosses the boundary)
   installCameraHotkeys(director, () => vehSim, () => vehVel);
+  // ...and the VISIBLE camera-view selector (top-right) so the presets — including the
+  // onboard hull-cam — are clickable, not just keys 1–4/0. Refreshed each frame below.
+  const cameraBar = installCameraBar(director, () => vehSim, () => vehVel);
 
   let sample: InterpSample | undefined;
+  let devSample: InterpSample | undefined; // DEV: latest sample, read by window.__telem()
   let lastWall = performance.now();
 
   renderer.setAnimationLoop(() => {
@@ -187,6 +228,7 @@ async function boot() {
       const s = interp.sample(newest.t, sample);
       if (s) {
         sample = s;
+        devSample = s;
         vehSim.set(s.r.x, s.r.y, s.r.z);
         vehVel.set(s.v.x, s.v.y, s.v.z);
 
@@ -234,6 +276,7 @@ async function boot() {
     }
     audio.tick(); // keep the causal crackle stream regenerating (never a loop)
     audio.updatePanel(); // refresh meters + "you are N s away" readout
+    cameraBar.refresh(); // keep the camera-view highlight in sync with hotkeys + auto-cuts
     if (bloomOn) postfx.render(); // §5.2 bloom chain (HIGH)
     else renderer.render(scene, camera); // LOW fidelity: skip the bloom post-pass
   });

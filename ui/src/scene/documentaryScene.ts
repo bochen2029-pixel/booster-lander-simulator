@@ -405,13 +405,18 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       // (pAmb ≈ 101325 Pa), thinning through the teens of km, near-black space by ~40 km.
       // Driven by the sim's own exponential atmosphere, so it's altitude-honest. The 0.4
       // power keeps the sky blue a bit longer on the way up (perceived brightness saturates).
-      const dayF = Math.min(1, Math.pow(Math.max(0, f.pAmb) / 101325, 0.4));
+      // 0.7 power: full blue at sea level, noticeably deeper by ~10 km, near-black by ~30 km
+      // (0.4 kept it washed-bright far too high — the "milky white at altitude" bug).
+      const dayF = Math.min(1, Math.pow(Math.max(0, f.pAmb) / 101325, 0.7));
       (scene.background as Color).lerpColors(_skySpace, _skyDay, dayF);
       if (scene.fog) {
         (scene.fog as Fog).color.lerpColors(_fogSpace, _fogDay, dayF);
-        // push the haze WAY out in space so the Earth globe (horizon ~270 km) is visible;
-        // pull it back to atmospheric-haze distance near the ground.
-        (scene.fog as Fog).far = 150_000 + (1 - dayF) * 1_850_000;
+        // Atmospheric haze belongs ONLY near the ground. At altitude the air is thin, so push
+        // the WHOLE fog band far past the vehicle+globe — otherwise the 600 km globe (and
+        // everything past 30 km) gets fogged to the light day-color = a white-out. Near scales
+        // up hard with altitude so space reads CLEAR + DARK, not milky.
+        (scene.fog as Fog).near = STUDIO_FOG_NEAR + (1 - dayF) * 1_500_000;
+        (scene.fog as Fog).far = STUDIO_FOG_FAR + (1 - dayF) * 3_000_000;
       }
       hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
       starMat.opacity = (1 - dayF) * 0.9; // stars fade in as the sky goes to space

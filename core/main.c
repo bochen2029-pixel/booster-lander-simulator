@@ -742,17 +742,60 @@ static void apply_command(Sim* s, const BlCmd* c, uint32_t seed, uint32_t run){
         fprintf(stderr,"serve: [INJECT] t=%.2f GUST peak=%.1f alt=%.0f hw=%.0f dir=%.0f (seq=%u)\n",
                 s->st.t, peak, alt, hw, dir, c->seq);
     } else if(c->type==BL_CMD_ENGINE_OUT){
+        /* Lose ONE engine of the several the booster is ACTUALLY firing — an asymmetric thrust
+         * deficit + induced torque, NEVER a blackout (the THRUST-LOSS button covers total loss).
+         * A Falcon-9-class landing burn is physically up to N_LANDING engines even though the sim
+         * collapses guidance to n_eng=1, so an engine-out is always a PARTIAL (N-1)/N shortfall. */
+        enum { N_LANDING = 3 };                                  /* assumed physical engines in a landing burn */
         int eng = (int)c->p[0];
         if(eng!=1 && eng!=2) eng = 1 + (int)(c->seq & 1u);       /* a SIDE engine (the dramatic case) */
         s->modules |= MOD_ENGINE_OUT;                           /* enable the fire path (fill_tlm flags it) */
-        arm_engine_out(s, eng, s->st.t, 0, seed, run);          /* fires on the next >1-engine burn; EVT on fire */
-        fprintf(stderr,"serve: [INJECT] t=%.2f ENGINE-OUT eng=%d (fires on next multi-eng burn) (seq=%u)\n",
-                s->st.t, eng, c->seq);
+        if(s->st.engine_on && s->st.n_eng > 1){
+            /* A multi-engine burn is live (e.g. the 3-engine entry burn): shed a SIDE engine NOW via
+             * the seeded mechanism — it drops n_eng (=> (n-1)/n thrust + mdot + allocation) and sets
+             * the survivor-centroid thrust_offset (the induced torque rides the existing arm_thr lever).
+             * The dramatic, recoverable case, byte-for-byte the same physics as the seeded EO. */
+            arm_engine_out(s, eng, s->st.t, 0, seed, run);      /* eo_time=now => fires this substep */
+            fprintf(stderr,"serve: [INJECT] t=%.2f ENGINE-OUT eng=%d fires NOW (%d-eng burn) (seq=%u)\n",
+                    s->st.t, eng, s->st.n_eng, c->seq);
+        } else if(s->st.engine_on){
+            /* Single-engine landing burn: guidance flies n_eng=1, but the physical booster is running
+             * N_LANDING engines — so losing one is a (N_LANDING-1)/N_LANDING thrust deficit PLUS a real
+             * asymmetric torque, not a total kill. Model both with the SAME hooks the seeded engine-out
+             * uses (sim.c): scale the live thrust multiplier (COMPOSES with any prior THRUST-LOSS — no
+             * clobber) and set the survivor-centroid thrust_offset so the off-axis thrust induces the
+             * dramatic-but-recoverable body torque via the existing arm_thr × Fthr lever in dynamics.c. */
+            double sc = (s->env.thrust_scale>0.0)? s->env.thrust_scale : 1.0;   /* current deficit (0 reads as nominal) */
+            s->env.thrust_scale = sc * ((double)(N_LANDING-1)/(double)N_LANDING); /* lose 1 of N: 3->2 => *2/3 */
+            double off = 0.5*ENG_RING_R;                         /* survivor centroid of a side-out: |R/2| */
+            s->env.thrust_offset[0] = (eng==1)? -off : +off;     /* signed like survivor_centroid's side cases */
+            s->env.thrust_offset[1] = 0.0;
+            emit_evt(s, BL_EVT_FAULT, (float)MOD_ENGINE_OUT, (float)eng);
+            fprintf(stderr,"serve: [INJECT] t=%.2f ENGINE-OUT eng=%d (1 of %d) -> thrust x%.3f + centroid off=%.3f m (seq=%u)\n",
+                    s->st.t, eng, N_LANDING, (double)(N_LANDING-1)/(double)N_LANDING, s->env.thrust_offset[0], c->seq);
+        } else {
+            /* Coasting (no burn live): nothing to shed yet. Arm the seeded mechanism so the failure
+             * fires on the NEXT multi-engine burn (eo_time=now => the sim_step gate trips as soon as
+             * n_eng>1), and journal that it is armed. */
+            arm_engine_out(s, eng, s->st.t, 0, seed, run);      /* eo_time=now => fires when the next burn lights */
+            fprintf(stderr,"serve: [INJECT] t=%.2f ENGINE-OUT eng=%d ARMED (no burn live — fires on next burn) (seq=%u)\n",
+                    s->st.t, eng, c->seq);
+        }
     } else if(c->type==BL_CMD_THRUST_LOSS){
         double frac = (c->p[0]>0.05f && c->p[0]<=1.0f)? (double)c->p[0] : 0.65;  /* sudden underperformance */
         s->env.thrust_scale = frac;                             /* the live plant multiplier (same field MOD_INJECT uses) */
         emit_evt(s, BL_EVT_FAULT, (float)MOD_INJECT, (float)frac);
         fprintf(stderr,"serve: [INJECT] t=%.2f THRUST-LOSS scale=%.2f (seq=%u)\n", s->st.t, frac, c->seq);
+    } else if(c->type==BL_CMD_TARGET){
+        /* §M2 the LIVE DRAG: set the operator target slot; sim_step's override makes guidance chase it
+         * (r_xy = y − target_xy) — the visceral moving-target demo, on the machinery from tonight's D-034→
+         * D-037. p[0..1]=world XY [m], p[2..3]=velocity [m/s] (renderer marker). Journaled for §10.8 replay. */
+        s->live_tgt[0]=(double)c->p[0]; s->live_tgt[1]=(double)c->p[1];
+        s->live_tgt_vxy[0]=(double)c->p[2]; s->live_tgt_vxy[1]=(double)c->p[3];
+        s->live_tgt_on=1;
+        emit_evt(s, BL_EVT_TARGET_CHANGED, c->p[0], c->p[1]);    /* renderer moves the pad marker on the reliable EVT channel */
+        fprintf(stderr,"serve: [INJECT] t=%.2f TARGET drag -> (%.1f, %.1f) v=(%.1f, %.1f) (seq=%u)\n",
+                s->st.t, (double)c->p[0], (double)c->p[1], (double)c->p[2], (double)c->p[3], c->seq);
     } else {
         fprintf(stderr,"serve: [INJECT] unknown cmd type=%u (seq=%u) — ignored\n", c->type, c->seq);
     }
