@@ -35,6 +35,7 @@ import { simToThreePosition } from "./net/frame";
 import { Vector3 } from "three/webgpu";
 import { mountAudio } from "./audio"; // S3 audio observer (self-contained, muted by default)
 import { mountShell } from "./shell/mount"; // S0 LZ-COCKPIT chrome (self-contained, dual-target)
+import { installInjectPanel } from "./hud/injectPanel"; // Mode 2 failure-injection buttons (§M2)
 
 async function boot() {
   const { renderer, scene, camera, backend } = await createRenderer();
@@ -141,6 +142,14 @@ async function boot() {
     shell.wsUrl // S0: stream on the supervisor-chosen port (default 8787 in a browser)
   );
   client.connect();
+
+  // FAILURE-MODE panel (Mode 2, canon §M2): buttons that inject a live wind gust /
+  // engine-out via the upstream command channel (client.send). This is the ONE place
+  // the renderer crosses the observer boundary, and a no-op unless core runs
+  // `--serve --interactive` (the server drops the frames otherwise). The sim owns the
+  // outcome; the panel only emits the closed-enum command + shows local feedback.
+  const inject = installInjectPanel((bytes) => client.send(bytes));
+  if (import.meta.env.DEV) (globalThis as { __inject?: unknown }).__inject = inject;
 
   // camera preset hotkeys (renderer-side only; never crosses the boundary)
   installCameraHotkeys(director, () => vehSim, () => vehVel);
