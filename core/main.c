@@ -727,6 +727,32 @@ static void emit_evt(const Sim* s, uint16_t code, float a0, float a1){
     ws_send_binary(&e, sizeof(e));
 }
 
+/* Mode 2 (§M2): apply a client-injected BlCmd to the LIVE running sim. This DELIBERATELY
+ * mutates the descent at wall-clock time (non-deterministic — the fenced interactive path,
+ * default OFF). Every injection is JOURNALED to stderr with the sim-time so the exact run
+ * can be replayed by re-injecting at the logged times. Only reached under --interactive. */
+static void apply_command(Sim* s, const BlCmd* c, uint32_t seed, uint32_t run){
+    if(c->type==BL_CMD_GUST){
+        double peak = (c->p[0]!=0.0f)? (double)c->p[0] : 18.0;   /* default a stiff 18 m/s shear */
+        double dir  = (double)c->p[1];
+        double alt  = s->st.y[S_RZ];                              /* band centered at the CURRENT altitude */
+        double hw   = (c->p[2]>0.0f)? (double)c->p[2] : 400.0;    /* band half-width [m] */
+        sim_set_gust(s, peak, alt, hw, dir);                     /* the vehicle is at band center => hits now */
+        emit_evt(s, BL_EVT_GUST, (float)peak, (float)dir);       /* announce on the reliable EVT channel */
+        fprintf(stderr,"serve: [INJECT] t=%.2f GUST peak=%.1f alt=%.0f hw=%.0f dir=%.0f (seq=%u)\n",
+                s->st.t, peak, alt, hw, dir, c->seq);
+    } else if(c->type==BL_CMD_ENGINE_OUT){
+        int eng = (int)c->p[0];
+        if(eng!=1 && eng!=2) eng = 1 + (int)(c->seq & 1u);       /* a SIDE engine (the dramatic case) */
+        s->modules |= MOD_ENGINE_OUT;                           /* enable the fire path (fill_tlm flags it) */
+        arm_engine_out(s, eng, s->st.t, 0, seed, run);          /* fires on the next >1-engine burn; EVT on fire */
+        fprintf(stderr,"serve: [INJECT] t=%.2f ENGINE-OUT eng=%d (fires on next multi-eng burn) (seq=%u)\n",
+                s->st.t, eng, c->seq);
+    } else {
+        fprintf(stderr,"serve: [INJECT] unknown cmd type=%u (seq=%u) — ignored\n", c->type, c->seq);
+    }
+}
+
 static int cmd_serve(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=1; unsigned short port=8080;
     int modules=MOD_TURB;
@@ -741,6 +767,7 @@ static int cmd_serve(int argc, char** argv){
     int tm=0; double t_amp=0,t_per=0,t_brg=0;    /* N0 seeded target (mode 0 => OFF => byte-identical) */
     double sea_hs=3.0;                            /* SEA sea-state Hs [m] (armed by --sea; MOD_SEA => OFF => byte-identical) */
     double sea_wander=0.0;                        /* SEA Stage-1c ±horizontal wander [m] (--sea-wander; 0 => heave-only) */
+    int interactive=0;                            /* Mode 2 (§M2): honor client-injected commands (default OFF = pure observer) */
     for(int i=2;i<argc;i++){
         if(!strcmp(argv[i],"--scenario")&&i+1<argc){ scen=scenario_from_name(argv[++i]); if(scen<0)scen=SCEN_TERMINAL; }
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
@@ -753,6 +780,7 @@ static int cmd_serve(int argc, char** argv){
         else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
         else if(!strcmp(argv[i],"--sea")){ modules|=MOD_SEA; if(i+1<argc && argv[i+1][0]!='-') sea_hs=strtod(argv[++i],0); }  /* SEA §4.4: heaving deck, optional Hs [m] (default 3.0) */
         else if(!strcmp(argv[i],"--sea-wander")){ modules|=MOD_SEA; sea_wander=3.0; if(i+1<argc && argv[i+1][0]!='-') sea_wander=strtod(argv[++i],0); }  /* SEA §4.4 Stage-1c: ±wander [m] slow station-keeping (default 3.0) */
+        else if(!strcmp(argv[i],"--interactive")) interactive=1;   /* Mode 2 (§M2): open the inbound command channel (gust/engine-out buttons) */
     }
 
     /* Same sim config as --run: turbulence module + hoverslam guidance. This does
@@ -767,6 +795,9 @@ static int cmd_serve(int argc, char** argv){
     if(modules&MOD_TARGET) fprintf(stderr,"serve: TARGET armed mode=%d amp=%.1f m omega=%.4f rad/s\n", s.tgt_mode, s.tgt_amp, s.tgt_omega);
 
     if(ws_serve_init(port)!=0){ fprintf(stderr,"serve: could not start WS server on port %u\n", port); return 4; }
+    ws_set_interactive(interactive);   /* Mode 2 gate: OFF => client data frames dropped (pure observer) */
+    if(interactive) fprintf(stderr,"serve: INTERACTIVE inbound channel ON (§M2 — determinism WAIVED; "
+                                   "injections journaled below as [INJECT])\n");
 
     /* One HELLO up front so the renderer can build the scene. */
     BlHello hello; fill_hello(&s, seed, run, &hello);
@@ -844,6 +875,15 @@ static int cmd_serve(int argc, char** argv){
 
             /* service client control frames (PING/CLOSE); never blocks */
             if(ws_poll_client()){ fprintf(stderr,"serve: client requested close\n"); break; }
+
+            /* Mode 2 (§M2): drain + apply a client-injected command (--interactive only).
+             * ws_poll_client stashed the frame; here we MUTATE the live sim. Default OFF =>
+             * ws_take_inbound returns 0 => no-op => the pure-observer stream is byte-identical. */
+            if(interactive){
+                BlCmd cmd;
+                if(ws_take_inbound(&cmd, (int)sizeof(cmd)) >= (int)sizeof(cmd) && cmd.magic==BL_MAGIC_CMD)
+                    apply_command(&s, &cmd, seed, run);
+            }
 
             /* pace this emitted frame to wall-clock so the descent plays at 1x */
             double target = frame_dt * (double)emitted;

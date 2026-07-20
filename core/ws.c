@@ -27,6 +27,11 @@ static SOCKET g_listen = INVALID_SOCKET;
 static SOCKET g_client = INVALID_SOCKET;
 static int    g_wsa_up = 0;   /* WSAStartup succeeded */
 static int    g_closed = 0;   /* CLOSE has been sent/observed */
+/* Mode 2 (--interactive): default OFF => client data frames are dropped (pure observer,
+ * byte-identical). When ON, ws_poll_client stashes the last data-frame payload here. */
+static int     g_interactive = 0;
+static uint8_t g_inbound[128];
+static int     g_inbound_len = 0;
 
 /* ------------------------------------------------------------------ SHA-1 ---- */
 /* Minimal SHA-1 (FIPS 180-1). Produces a 20-byte digest. */
@@ -279,11 +284,29 @@ int ws_poll_client(void){
 
         if(op==0x8){ /* CLOSE */ send_close_frame(); return 1; }
         else if(op==0x9){ /* PING */ send_pong(pay, pn); }
-        /* op==0xA PONG, 0x1/0x2 data, continuations: ignore (observer sink) */
+        else if((op==0x1 || op==0x2) && g_interactive){
+            /* Mode 2 (--interactive): stash the (already-unmasked) data-frame payload for
+             * main.c to parse as a BlCmd. Default OFF => this branch never runs => the
+             * observer sink is byte-identical to the pure-observer build. */
+            int n = (int)pn; if(n > (int)sizeof(g_inbound)) n = (int)sizeof(g_inbound);
+            memcpy(g_inbound, pay, (size_t)n); g_inbound_len = n;
+        }
+        /* op==0xA PONG, continuations, and data frames without --interactive: ignore */
 
         i = j + (int)plen;   /* advance past this frame */
     }
     return 0;
+}
+
+/* Mode 2 inbound API (see ws.h). ws.c stays protocol-agnostic — it stashes raw bytes;
+ * main.c interprets them as a BlCmd only under --interactive. */
+void ws_set_interactive(int on){ g_interactive = on ? 1 : 0; }
+int ws_take_inbound(void* out, int cap){
+    if(g_inbound_len <= 0 || cap <= 0) return 0;
+    int n = g_inbound_len; if(n > cap) n = cap;
+    memcpy(out, g_inbound, (size_t)n);
+    g_inbound_len = 0;   /* consume: one command per frame */
+    return n;
 }
 
 void ws_close(void){

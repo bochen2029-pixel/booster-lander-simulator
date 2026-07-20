@@ -58,6 +58,16 @@
 #define BL_MAGIC_TLM    0x304D4C54u /* 'TLM0' */
 #define BL_MAGIC_EVT    0x30545645u /* 'EVT0' */
 #define BL_MAGIC_STATS  0x30545453u /* 'STT0' */
+#define BL_MAGIC_CMD    0x30444D43u /* 'CMD0' — the ONE client->server frame (Mode 2 interactive) */
+
+/* Mode-2 INTERACTIVE COMMAND (client->server, canon §M2 — the fenced live-inject channel).
+ * The renderer is a PURE OBSERVER by default; --interactive OPTS IN to this inbound channel, which
+ * DELIBERATELY WAIVES determinism (wall-clock-timed injections) — the run is journaled (sim-time +
+ * command to the serve log) so it can be replayed. Absent --interactive, any client data frame is
+ * dropped exactly as before (byte-identical, deterministic). Params are type-specific (see below). */
+#define BL_CMD_NONE       0u
+#define BL_CMD_GUST       1u  /* p[0]=peak m/s (0=>default), p[1]=dir deg, p[2]=half-width m (0=>default) */
+#define BL_CMD_ENGINE_OUT 2u  /* p[0]=engine (1|2 side; 0=>seeded side) — fires on the next multi-eng burn */
 
 /* TLM.flags bitfield */
 #define BL_TLM_FLAG_SEA_ACTIVE     (1u << 0) /* deck_z/deck_quat valid                       */
@@ -89,6 +99,17 @@
 #define BL_CLOUD_MAX  128u  /* rollout terminal samples @10 Hz               */
 
 #pragma pack(push, 1)
+
+/* ---- CMD (client->server, Mode 2 interactive) — 24 bytes, masked on the wire ----
+ * The ONLY inbound frame. Fixed-size + magic-tagged like every other frame so the
+ * server can reject garbage. Honored ONLY under --interactive (else dropped). */
+typedef struct BlCmd {
+    uint32_t magic;   /* 0  BL_MAGIC_CMD                        */
+    uint16_t type;    /* 4  BL_CMD_*                            */
+    uint16_t seq;     /* 6  client command sequence (journal)   */
+    float    p[4];    /* 8  type-specific params                */
+    /* total 24 */
+} BlCmd;
 
 /* ---- TLM @125 Hz — fixed head, then plan[] then cloud[] tails ---------------
  * Offsets in comments are the running byte offset with pack(1). Keep them exact:
@@ -280,6 +301,7 @@ BL_STATIC_ASSERT(sizeof(BlCloudSample)== 12,  "cloud sample must be 12 bytes");
 BL_STATIC_ASSERT(sizeof(BlEvt)        == 48,  "EVT must be 48 bytes");
 BL_STATIC_ASSERT(sizeof(BlHello)      == 80,  "HELLO must be 80 bytes (v4: +world+np)");
 BL_STATIC_ASSERT(sizeof(BlStats)      == 48,  "STATS must be 48 bytes");
+BL_STATIC_ASSERT(sizeof(BlCmd)        == 24,  "CMD must be 24 bytes (client->server, Mode 2)");
 
 /* offsetof pins — these are what the TS decoder mirrors; a change here is an ADR */
 #include <stddef.h>

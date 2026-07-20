@@ -40,11 +40,21 @@ int  ws_poll_client(void);
  * WSACleanup(). Safe to call multiple times. */
 void ws_close(void);
 
+/* Mode 2 INTERACTIVE inbound (canon §M2, opted into by main.c's --interactive). OFF by
+ * default: a client data frame is drained and IGNORED (the pure-observer contract above,
+ * byte-identical). When enabled, ws_poll_client stashes the last client binary/text
+ * data-frame payload (already unmasked); ws_take_inbound copies + clears it. ws.c stays
+ * protocol-agnostic — main.c interprets the bytes as a BlCmd. */
+void ws_set_interactive(int on);
+int  ws_take_inbound(void* out, int cap);   /* bytes copied into out (0 if none) */
+
 #else  /* non-Windows: sockets not implemented — stubs so the tree still builds */
 static inline int  ws_serve_init(unsigned short port){ (void)port; return -1; }
 static inline int  ws_send_binary(const void* p, size_t n){ (void)p; (void)n; return -1; }
 static inline int  ws_poll_client(void){ return 1; }
 static inline void ws_close(void){ }
+static inline void ws_set_interactive(int on){ (void)on; }
+static inline int  ws_take_inbound(void* out, int cap){ (void)out; (void)cap; return 0; }
 #endif /* _WIN32 */
 
 #endif /* BL_WS_H */
