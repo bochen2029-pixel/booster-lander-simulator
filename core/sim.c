@@ -161,7 +161,7 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
         double ca=6.2831853071795864*u3;
         s->env.com_offset[0]=0.02*cos(ca); s->env.com_offset[1]=0.02*sin(ca);
     }
-    s->impact_v=s->impact_tilt=s->impact_lat=0.0;
+    s->impact_v=s->impact_tilt=s->impact_lat=0.0; s->impact_target_xy[0]=s->impact_target_xy[1]=0.0;
     s->max_qbar=0; s->peak_qdot=0; s->done=0; s->touched=0;
     s->gcmd.mode=guidance_mode; s->gcmd.n_eng=1;
     /* N0 §8.1 WIDE SOCKET nominal fill (memset zeroed everything; nominal needs valid=1, all engines
@@ -200,7 +200,10 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
 
 static void set_verdict(Sim* s){
     State* st=&s->st;
-    double lat = sqrt(st->y[S_RX]*st->y[S_RX]+st->y[S_RY]*st->y[S_RY]);
+    /* Target Stage-1 (D-034 §A.3): the on-pad test is target-relative — distance from the target pose
+     * latched at first contact (impact_target_xy). (0,0) for FIXED => sqrt(rx^2+ry^2) => byte-identical. */
+    double dlx=st->y[S_RX]-s->impact_target_xy[0], dly=st->y[S_RY]-s->impact_target_xy[1];
+    double lat = sqrt(dlx*dlx+dly*dly);
     double tilt = sim_body_tilt(st);
     double maxcrush=0; for(int i=0;i<4;i++) if(st->crush[i]>maxcrush)maxcrush=st->crush[i];
     double crush_frac=maxcrush/LEG_CRUSH_S;
@@ -586,7 +589,12 @@ int sim_step(Sim* s){
         s->touched=1;
         s->impact_v=sqrt(st->y[S_VX]*st->y[S_VX]+st->y[S_VY]*st->y[S_VY]+st->y[S_VZ]*st->y[S_VZ]);
         s->impact_tilt=sim_body_tilt(st);
-        s->impact_lat=sqrt(st->y[S_RX]*st->y[S_RX]+st->y[S_RY]*st->y[S_RY]);
+        /* Target Stage-1 (D-034 §A.3): latch the target pose at FIRST CONTACT and measure the touchdown
+         * offset from it (a moving pad is landed-on where it IS at contact). gcmd.target_xy is the current
+         * seeded target — (0,0) for FIXED => the sqrt(rx^2+ry^2) origin measure, byte-identical. */
+        s->impact_target_xy[0]=s->gcmd.target_xy[0]; s->impact_target_xy[1]=s->gcmd.target_xy[1];
+        { double dlx=st->y[S_RX]-s->impact_target_xy[0], dly=st->y[S_RY]-s->impact_target_xy[1];
+          s->impact_lat=sqrt(dlx*dlx+dly*dly); }
         if(st->phase<PH_TOUCHDOWN) st->phase=PH_TOUCHDOWN;
     }
 

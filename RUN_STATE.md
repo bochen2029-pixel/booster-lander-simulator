@@ -18,6 +18,17 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-034 — Target Stage-1a: the target-relative verdict (2026-07-20 night).** The D-020 known gap closed:
+the verdict + touchdown `impact_lat` scored the ORIGIN, so an armed-target run that landed ON the moving pad
+graded off-pad. Now (sim.c + sim.h, byte-clean) the target pose is LATCHED at first contact
+(`impact_target_xy = gcmd.target_xy`) and both `set_verdict`'s on-pad `lat` and the touchdown offset are
+measured from it. FIXED target = origin ⇒ `impact_target_xy=(0,0)` ⇒ `sqrt(rx²+ry²)` ⇒ byte-identical
+(leak GREEN: selftest PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48, AERO --mppi 44/60 all byte-exact).
+Proof: `--target line:30:10:0 --mppi` lands `td_lat 21.58 m` TARGET-relative (on-pad; was ~30 m origin
+off-pad); honest moving-target rate `--target circle:15:60 --neural` ×60 = 6/60 (policy is clean-trained on
+a FIXED origin ⇒ weak tracking = N3 curriculum §19.3, not a verdict bug). No NP_VERSION bump (no weights).
+Remaining Target Stage-1: SEA-deck `core/sea.{h,c}` + `deck_z(t)` (§A.1/A.2); protocol `target_xy` in TLM
+(§C, v4→v5). Full record: DECISIONS **D-034**.
 **★★★ D-032 — E2': the reactive-teacher EO DAgger ALSO nulls; distillation is EXHAUSTED for engine-out
 (2026-07-20 night).** D-031's null was diagnosed (MPPI teacher WORSE than the student); E2' distilled the
 BEST teacher (reactive/hoverslam 9–10/60) via a byte-clean `--shadow-reactive` mode. It ALSO regressed:

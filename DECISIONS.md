@@ -1872,3 +1872,29 @@ under the NAV_NOISY measurement layer (pos σ 0.5/0.5/0.3 m, vel σ 0.1 m/s, att
 Both degrade gracefully (−2, holds ~92–96%), comparable to MPPI's D-016 nav-noisy (ENTRY 95→90). The
 learned policy is robust to measurement noise — the headline rates are not a truth-state artifact.
 
+## D-034 — Target Stage-1a: the target-relative verdict (2026-07-20, night)
+
+The D-020 known gap closed: the verdict + touchdown capture scored the ORIGIN, so an armed-target run that
+lands ON the (moving) target graded off-pad. Now the on-pad test is target-relative (canon
+`target_sandbox_design.md` §A.3) — a clean, byte-clean sub-unit of Target Stage-1.
+
+**The change (sim.c + sim.h, byte-clean).** At first contact (`sim.c` touchdown capture) the target pose is
+LATCHED (`impact_target_xy = gcmd.target_xy`) and the touchdown offset `impact_lat` is measured from it;
+`set_verdict` computes its on-pad `lat` from the same latched pose. A moving pad is landed-on where it IS at
+contact. FIXED target = origin ⇒ `impact_target_xy=(0,0)` ⇒ `sqrt(rx²+ry²)` ⇒ byte-identical.
+
+**Leak GREEN (target off):** selftest PASS, TERMINAL 194/200 byte-exact, MPPI run-1 AERO s42 HARD 2.63/10.48
+exact, AERO `--mppi` ×60 44/60 byte-exact.
+
+**Verified working:** `--target line:30:10:0 --mppi` run 0 → the vehicle tracks the target and lands
+`td_lat = 21.58 m` TARGET-relative, td_v 3.07 (HARD, ON-pad) — previously ~30 m origin-relative (off-pad).
+The moving-target batch `--target circle:15:60 --neural` ×60 = 6/60 — the HONEST moving-target rate: the
+verdict now scores the target, but the policy is CLEAN-TRAINED on a FIXED origin (never a moving target),
+so its tracking is weak. That competence is the N3 curriculum (§19.3 target-motion randomization + likely
+`target_vxy` plumbing), not a verdict issue.
+
+**Scope.** This ships the §A.3 verdict — the core Stage-1a value (honest moving-target scoring). The rest of
+Target Stage-1 remains: the SEA-deck P-M spectrum `core/sea.{h,c}` + `deck_z(t)` contact coupling (§A.1/A.2),
+and the protocol `target_xy` in TLM for the renderer's estimate marker (§C, protocol v4→v5, the D-013
+playbook). No NP_VERSION bump (no weights).
+

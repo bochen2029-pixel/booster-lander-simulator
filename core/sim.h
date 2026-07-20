@@ -40,6 +40,7 @@ typedef struct {
     /* termination bookkeeping */
     int touched;
     double impact_v, impact_tilt, impact_lat;
+    double impact_target_xy[2];  /* Target Stage-1 (D-034 §A.3): target pose LATCHED at first contact; the verdict + td_lat measure distance from THIS, not the origin. (0,0) for FIXED => byte-identical. */
     double settle_timer, qbar_over_timer, qdot_over_timer, loc_timer;
     double max_qbar, peak_qdot;
     int done;
