@@ -256,6 +256,19 @@ static double entry_tgo_estimate(double h, double vz, double m){
  * the aero trim. */
 #define ENTRY_DIVERT_KR 2.0      /* position-closure gain (x the optimal -6r/tgo^2) */
 #define ENTRY_DIVERT_KV 3.5      /* velocity-null gain   (x the optimal -4v/tgo) — overdamped */
+/* D-030 engine-out entry-divert RE-AUTHORIZATION (applied ONLY when n_eng<3; n_eng==3 => 15°/KR/KV
+ * EXACTLY => the clean entry burn is byte-identical, the §13.6 leak gate). Rationale (D-029
+ * phase-attribution): the gross EO cluster is lost at the entry-burn CUT — the 2-engine ZEM/ZEV divert
+ * closes only ~830 m and carries +22.9 m/s OUTBOUND (under-driven AND under-damped-for-the-regime), its
+ * authority `amax = n_eng·thrust·sin(15°)/m` down to 2/3. The entry burn runs at LOW qbar (~0.2-40 kPa vs
+ * the ~80 kPa STRUCT line) => huge headroom to OPEN the bank cap. FROZEN sweep winner (neural EO ×60 s42
+ * 1/60 -> 8/60, reactive 0/60 -> 9/60, generalizes to held-out s7/s99): effective KR 8.0 / KV 8.75
+ * (near-critical) vs the baseline 2.0/3.5 (ratio 1.75, overdamped) — under 2-engine the divert needs
+ * FASTER closure with LESS over-damping to beat the qbar/fuel cut. (Tuned via a getenv sweep, then frozen
+ * here; more/less aggression both measured worse: 45/8/4 -> 4, 35/5/2 -> 0, 35/4/3 -> 3.) */
+#define EO_DIVERT_BANK_DEG 35.0   /* bank cap opened from 15° under n_eng<3 (low-qbar entry burn, STRUCT-safe) */
+#define EO_DIVERT_KR_MUL   4.0    /* × ENTRY_DIVERT_KR under n_eng<3 (faster position closure) */
+#define EO_DIVERT_KV_MUL   2.5    /* × ENTRY_DIVERT_KV under n_eng<3 (keep near-critical, not over-damped) */
 static void entry_divert_step(const State* st, GuidanceCmd* g){
     const double* y=st->y;
     MassProps mp; mass_props(y[S_MLOX],y[S_MRP1],0,0,&mp);
@@ -267,11 +280,15 @@ static void entry_divert_step(const State* st, GuidanceCmd* g){
      * it), so this == 3.0 exactly — verified by the ENTRY baseline reproducing 95/100. st->n_eng is the
      * §4.3-legal sensed firing count (nav pass-through), not privileged information. */
     double a_burn = (double)st->n_eng*engine_thrust(1.0, atm.p)/mp.m;   /* ~50 m/s^2 near-vacuum (3 eng) */
-    double amax = a_burn*sin(15.0*DEG2RAD);
+    /* D-030: under engine-out (n_eng<3) OPEN the bank cap (recover the lost sin-authority in the low-qbar
+     * entry burn) and stiffen the ZEM/ZEV gains. n_eng==3 => 15°/KR/KV exactly => byte-identical. */
+    double bank_deg = 15.0, kr = ENTRY_DIVERT_KR, kv = ENTRY_DIVERT_KV;
+    if(st->n_eng>0 && st->n_eng<3){ bank_deg = EO_DIVERT_BANK_DEG; kr = ENTRY_DIVERT_KR*EO_DIVERT_KR_MUL; kv = ENTRY_DIVERT_KV*EO_DIVERT_KV_MUL; }
+    double amax = a_burn*sin(bank_deg*DEG2RAD);
     double t_go = entry_tgo_estimate(y[S_RZ]-mp.com, y[S_VZ], mp.m);
     double rr[2]={y[S_RX],y[S_RY]}, vv[2]={y[S_VX],y[S_VY]};
     for(int ax=0; ax<2; ax++){
-        double a_cmd = ENTRY_DIVERT_KR*(-6.0*rr[ax]/(t_go*t_go)) + ENTRY_DIVERT_KV*(-4.0*vv[ax]/t_go);
+        double a_cmd = kr*(-6.0*rr[ax]/(t_go*t_go)) + kv*(-4.0*vv[ax]/t_go);
         if(a_cmd> amax) a_cmd= amax;
         if(a_cmd<-amax) a_cmd=-amax;
         g->a_lat[ax]=a_cmd;

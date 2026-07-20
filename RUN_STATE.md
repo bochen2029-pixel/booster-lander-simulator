@@ -18,6 +18,18 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★★ D-030 — E1.5: the 2-engine ENTRY-DIVERT re-authorization LIFTS engine-out recovery (2026-07-20
+night).** `entry_divert_step` under n_eng<3: bank cap 15°→35° + KR×4/KV×2.5 (byte-clean, frozen #defines;
+n_eng==3 untouched — leak GREEN: selftest PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48). EO recovery
+lifts MODE-INDEPENDENTLY (ENTRY `--engine-out random` ×60): reactive 0/1→**9/10** of 60, neural 1/0/0→
+**8/4/2** of 60 (held-out s7/s99 generalize — the D-012 cross-val discipline). Sweep-tuned then frozen
+(effective KR8/KV8.75 near-critical vs baseline 2/3.5 overdamped; under 2-engine the divert needs faster
+closure + less over-damping). **Pivotal: REACTIVE now BEATS NEURAL on EO (9–10 vs 2–8) — the clean-trained
+policy mishandles the hot 2-engine handoff (v_cut ~231 vs 114) ⇒ that gap is E2's mandate.** Partial fix
+(~8–10×); hardest gross draws + near-cluster terminal quality remain. **NEXT: E2 — EO DAgger, retrain the
+policy on the improved-entry-divert EO handoff → NP_VERSION 7 → gates → recovery-vs-frontier eval.** Full
+record: DECISIONS **D-030**.
+
 **★★★★ D-029 — E1: the composite operator is a NULL on engine-out (2026-07-20 night).** Built the
 expert-iteration composite (student-warm-started MPPI, `--mppi-warm-neural`; byte-clean leak gate — the
 GM_MPPI default path is bit-identical). ENTRY `--engine-out random` ×60 s42: **composite 1/60 == student

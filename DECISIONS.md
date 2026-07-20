@@ -1721,3 +1721,46 @@ Ships as its own ADR (D-030). Operator A remains reserved for the rollout-visibl
 (no weights export). Artifacts: `runs/e1_derisk.txt`, `runs/e1_validity.txt`, `runs/e1_comp_s42_full.txt`,
 `runs/e1_phase_attribution.txt`, `runs/eo_recovery_plan.md`.
 
+## D-030 — E1.5: 2-engine entry-divert re-authorization — the first engine-out recovery lever (2026-07-20, night)
+
+The D-029 redirect, delivered. The engine-out bottleneck is the 2-engine ENTRY DIVERT (D-029
+phase-attribution: the gross cluster is lost at the entry-burn cut, the divert closing only ~830 m and
+carrying +22.9 m/s OUTBOUND). Re-authorized it for the reduced-authority regime; recovery lifts
+mode-independently. A PARTIAL fix that precisely unblocks E2.
+
+**The change (byte-clean).** `entry_divert_step` (sim.c): under `n_eng<3` ONLY, open the bank cap
+15°→**35°** and stiffen the ZEM/ZEV gains (**KR ×4, KV ×2.5**). The entry burn runs at LOW qbar (~0.2–40
+kPa vs the ~80 kPa STRUCT line), so opening the bank cap is STRUCT-safe; `amax = n_eng·thrust·sin(bank)/m`.
+`n_eng==3` keeps 15°/KR=2.0/KV=3.5 EXACTLY ⇒ every clean golden reproduces. Leak gate GREEN: selftest
+PASS, TERMINAL ×200 194/200 byte-exact, MPPI run-1 AERO s42 HARD 2.63/10.48 exact.
+
+**The tuning (sweep on neural EO ×60 s42, then FROZEN to #defines — the build reproduces the swept
+numbers exactly).** Bank alone (23°, gains ×1) → 2/60 ⇒ the divert was GAIN-limited, not just
+authority-limited. Peak at **35°/KR×4/KV×2.5 → 8/60**; over-aggression measured worse (45/8/4 → 4;
+35/5/2 → 0 [KV too low ⇒ overshoot]; 35/4/3 → 3 [over-damped]). Effective KR 8.0 / KV 8.75 (ratio ~1.1,
+near-critical) vs the baseline 2.0/3.5 (1.75, overdamped): under 2-engine the divert needs FASTER closure
+with LESS over-damping to beat the qbar/fuel cut.
+
+**THE RESULT — EO recovery lifts mode-independently (ENTRY --engine-out random ×60; baseline in parens):**
+
+| ENTRY EO ×60 | s42 | s7 | s99 |
+|---|---|---|---|
+| reactive (GM_HOVERSLAM) + D-030 | **9/60** | **10/60** | — |
+| reactive, baseline | (0/60) | (1/60) | (1/60) |
+| neural (`--neural`) + D-030 | **8/60** | 4/60 | 2/60 |
+| neural, baseline | (1/60) | (0/60) | (0/60) |
+
+Generalizes to held-out s7/s99 (not s42-overfit — the D-012 cross-val discipline). MPPI-with-D-030 in
+flight (E2 teacher assessment).
+
+**The pivotal finding — REACTIVE now BEATS NEURAL on engine-out (9–10 vs 2–8).** The re-authorized entry
+divert closes the offset well (reactive proves it), but the CLEAN-TRAINED neural policy mishandles the hot
+2-engine handoff (v_cut ~231 vs 114 m/s — the policy never trained on EO). That gap IS E2's mandate.
+
+**Honest scope.** PARTIAL fix: EO recovery ~1/60 → ~8–10/60 (≈8–10×) by recovering the gross cluster's
+easier draws; the hardest gross draws (early failure × far offset) and the near cluster's terminal quality
+(td_v) remain. It UNBLOCKS E2 by handing the DAgger a teacher that recovers a real fraction (vs the 1/60
+that "would teach failure", D-025). **Next: E2 — an EO DAgger round retraining the neural policy on the
+improved-entry-divert EO handoff → NP_VERSION 7 → gates → EO recovery-vs-frontier eval.** No NP_VERSION
+bump in D-030 (no weights export). Artifacts: `runs/D030_draft.md`, `runs/e1_phase_attribution.txt`.
+
