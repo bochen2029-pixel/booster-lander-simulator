@@ -32,7 +32,7 @@
 ## PARALLEL-SAFE (any farm-free or frontend window)
 - ⬜ **Target Stage-1** (SEA deck z(t) + §A.3 target-relative verdict + asds_night) — unblocks the moving-target axis N3 needs (today the verdict scores the ORIGIN under an armed target).
 - ⬜ **Interactive ws command channel** (live inject/drag over the closed upstream enum, journaled §10.8 so improvised runs replay bit-exact) — the demo instrument; then UE 5.8 on the same wires.
-- ⬜ **`--neural --nav-noisy` honesty spot**; np_version plumbed into fill_hello/fill_tlm.
+- ✅ **`--neural --nav-noisy` honesty spot + np_version plumbing (D-033):** neural nav-noisy AERO 46→44, ENTRY 57→55 (graceful −2, robust — not a truth-state artifact); np_version now carried in HELLO/TLM under GM_NEURAL (byte-clean; goldens emit under hoverslam so unchanged).
 
 ## HARD LAWS (violating = quality loss; full text: handoff §4 · CLAUDE_v2 · `C:\Users\user\.claude\WINDOWS_SHELL_GUIDE.md`)
 - **Held-out law:** s42/s7/s99 NEVER in training data (trainer enforces). **KAT from the C pass, never numpy.** Every export = NP_VERSION bump = ADR + KAT + re-golden.

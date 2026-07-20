@@ -650,7 +650,7 @@ static void fill_tlm(const Sim* s, BlTlmFixed* p, uint32_t seq){
     /* engine-health BITMASK: bit i set iff engine i healthy; eng_n = engines available this run. */
     { uint8_t hb=0; int nh=0; for(int i=0;i<3;i++){ if(st->eng_health[i]){ hb|=(uint8_t)(1u<<i); nh++; } }
       p->eng_health = hb; p->eng_n = (uint8_t)st->n_eng; (void)nh; }
-    p->guidance_np_ver = 0;   /* N1 GM_NEURAL sets this; 0 = none */
+    p->guidance_np_ver = (uint16_t)((s->guidance_mode==GM_NEURAL) ? neural_policy_version() : 0);   /* N1: the EXACT flown policy (v4 provenance — a replay is attributable to it); 0 for non-NEURAL => every golden byte-identical (goldens emit under GM_HOVERSLAM) */
     /* v4 flags: target-movable / engine-out visibility for the client (nominal => neither set). */
     if(s->modules & MOD_TARGET)     p->flags |= BL_TLM_FLAG_TARGET_MOVABLE;
     if((s->modules & MOD_ENGINE_OUT) && (st->eng_health[0]==0||st->eng_health[1]==0||st->eng_health[2]==0))
@@ -697,7 +697,7 @@ static void fill_hello(const Sim* s, uint32_t seed, uint32_t run_idx, BlHello* h
      * replay is thereby attributable to the exact world and frozen policy that flew it. */
     h->world_id   = (uint8_t)WORLD_EARTH_ID;
     h->world_hash = (uint32_t)WORLD_EARTH_HASH;
-    h->np_version = 0;
+    h->np_version = (uint16_t)((s->guidance_mode==GM_NEURAL) ? neural_policy_version() : 0);   /* N1: the EXACT flown policy; 0 for non-NEURAL => golden byte-identical */
     h->_pad1      = 0;
 }
 

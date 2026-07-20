@@ -1850,3 +1850,25 @@ capability is kept default-off (D-018 preserve-the-null pattern; useful for RL w
 v7 checkpoints + EO datasets (`runs\s0eo2.pt`, `runs\s0eo3.pt`, `data\s0eo2_*`, `data\s0eo3_neural`) preserved.
 Artifacts: `runs\e2_gates.txt`.
 
+## D-033 — telemetry np_version provenance + the --neural --nav-noisy honesty spot (2026-07-20, night)
+
+Two small parallel-safe roadmap items, both byte-clean.
+
+**np_version provenance (fill_hello/fill_tlm, main.c).** The v4 protocol reserves `np_version` (HELLO@76)
+and `guidance_np_ver` (TLM@270) so a replay is attributable to the EXACT frozen policy that flew it — but
+both were stubbed at 0. Now set to `neural_policy_version()` when `guidance_mode==GM_NEURAL`, else 0.
+Byte-clean: the protocol goldens emit under GM_HOVERSLAM (`cmd_golden`), so np_ver stays 0 and all three
+goldens (HELLO/TLM/EVT hex) reproduce byte-identical (verified); TERMINAL 194/200 + MPPI run-1 2.63/10.48
+exact + selftest PASS. Under `--neural --serve` the stream now carries NP_VERSION (6).
+
+**--neural --nav-noisy honesty spot (v6).** The neural gates are quoted truth-state; the honest number is
+under the NAV_NOISY measurement layer (pos σ 0.5/0.5/0.3 m, vel σ 0.1 m/s, att σ 0.1°, gyro-bias walk):
+
+| s42 ×60 --neural | truth | nav-noisy |
+|---|---|---|
+| AERO clean | 46/60 | 44/60 |
+| ENTRY clean | 57/60 | 55/60 |
+
+Both degrade gracefully (−2, holds ~92–96%), comparable to MPPI's D-016 nav-noisy (ENTRY 95→90). The
+learned policy is robust to measurement noise — the headline rates are not a truth-state artifact.
+
