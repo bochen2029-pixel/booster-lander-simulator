@@ -2043,3 +2043,30 @@ not a one-liner. Reverted all code to D-037 (byte-clean; selftest PASS, TERMINAL
 slow-wander case (D-036) already tracks near-free WITHOUT any lead, so the deployed law is fine for the
 canonical SEA deck; the fast-target lead is deferred to a proper guidance ADR. No NP_VERSION bump.
 
+## D-039 — Mode 2 the LIVE interactive target-drag (§M2): the operator drags the pad, guidance chases it (2026-07-20, night)
+
+The interactive command channel (§M2) was already built — `--interactive` opens the inbound WebSocket frame,
+`ws_take_inbound` hands `main.c` a 24-B `BlCmd`, and `apply_command` honored GUST / ENGINE_OUT / THRUST_LOSS
+"disturbance buttons." Missing was the one that pairs with tonight's whole Target arc: the LIVE DRAG — the
+§M2 thesis "a human moves the pad and watches the guidance chase it." Added it.
+
+**The change.** New wire command `BL_CMD_TARGET=4` (protocol.h, append-only enum; `BlCmd` size unchanged at
+24 B): `p[0..1]`=target world XY, `p[2..3]`=velocity (renderer marker). A new `Sim` slot `live_tgt[2] /
+live_tgt_vxy[2] / live_tgt_on` (sim.h). `apply_command` (main.c) sets the slot + emits `BL_EVT_TARGET_CHANGED`
++ journals to stderr (§10.8 replay). `sim_step` (sim.c), AFTER the seeded-target/SEA blocks, OVERRIDES
+`gcmd.target_xy` from the live slot when `live_tgt_on` — so the operator-dragged pad wins and the existing
+reactive law nulls `r_xy = y − target_xy` against it (the D-034→D-037 machinery, no guidance edit).
+
+**Byte-clean.** `live_tgt_on=0` (memset) in every headless/gate path ⇒ the override never runs ⇒ byte-
+identical; `BL_CMD_TARGET` is honored ONLY under `--interactive` (serve-only, the fenced non-deterministic
+sandbox, determinism deliberately WAIVED per §M2 and journaled for replay). Leak GREEN: selftest PASS,
+TERMINAL 194/200, MPPI run-1 2.63/10.48.
+
+**Verified end-to-end (not asserted) by a live WebSocket capture** (`runs/d039_drag.txt`): served
+`--serve --interactive --scenario entry`, a `ClientWebSocket` sent a masked `BlCmd(BL_CMD_TARGET, p=[40,25])`;
+the sim's `target_est_xy` flipped **(0,0) src=TGT_FIXED → (40.0, 25.0) src=TGT_SEEDED** from t=0.14 s onward
+(every frame), and the serve journaled `[INJECT] t=0.03 TARGET drag -> (40.0, 25.0) (seq=1)`. The dragged pad
+reaches the live plant and streams back out; guidance chases it. This is the visceral demo the moving-target
+work was for. No NP_VERSION bump. (Next: the frontend drag-to-`BlCmd` wiring — in-flight in a parallel session
+on `ui/` + `shell/`; and the §10.8 replay journal → deterministic playback of an improvised run.)
+

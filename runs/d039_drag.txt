@@ -1,0 +1,14 @@
+D-039 -- live interactive target-drag (Mode 2, BL_CMD_TARGET) proven end-to-end.
+
+Server: booster-core --serve --interactive --scenario entry --seed 42 --port 8789
+Client: PowerShell ClientWebSocket sends a 24-B BlCmd(type=BL_CMD_TARGET=4, p=[40,25,0,0]),
+        masked binary frame; reads raw BlTlmFixed (target_est_xy@232 float x2, target_src@260 u8).
+
+BEFORE inject : target_est_xy=(0.0, 0.0)  src=0 (TGT_FIXED)
+serve stderr  : serve: [INJECT] t=0.03 TARGET drag -> (40.0, 25.0) v=(0.0, 0.0) (seq=1)
+AFTER inject  : target_est_xy=(40.0, 25.0) src=1 (TGT_SEEDED)  -- from t=0.14s onward, every frame
+
+=> The client-injected pad reaches the LIVE sim (sim.c live_tgt override) and streams back out in the
+   TLM; guidance nulls (r_xy - target_xy) against it, so the vehicle chases wherever the operator drags.
+   Off-gated: live_tgt_on=0 in every headless/gate path; CMD honored only under --interactive (serve).
+   Leak GREEN: selftest PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48.

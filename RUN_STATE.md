@@ -18,6 +18,17 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-039 — Mode 2 the LIVE interactive target-drag (§M2), 2026-07-20 night.** The §M2 command channel was
+already built (`--interactive` → `BlCmd` → `apply_command` for GUST/ENGINE_OUT/THRUST_LOSS buttons, a parallel
+session's FE/portable-app work); added the piece that pairs with tonight's Target arc — the LIVE DRAG. New wire
+cmd `BL_CMD_TARGET=4` (protocol.h, append-only; BlCmd still 24 B), a `Sim` slot `live_tgt/live_tgt_on` (sim.h),
+`apply_command` sets it + journals, and `sim_step` OVERRIDES `gcmd.target_xy` from it when on — so guidance
+nulls `r_xy=y−target_xy` against wherever the operator drags (the D-034→D-037 machinery, no guidance edit).
+Byte-clean: `live_tgt_on=0`/serve-only ⇒ every gate identical (selftest PASS, TERMINAL 194/200, MPPI 2.63/10.48).
+VERIFIED by a live WS capture (`runs/d039_drag.txt`): injected `BlCmd(BL_CMD_TARGET,[40,25])` → `target_est_xy`
+flipped `(0,0) src=FIXED → (40.0,25.0) src=SEEDED` from t=0.14 s, serve journaled `[INJECT] ... TARGET drag`.
+The visceral demo the moving-target work was for. No NP bump. Full record: DECISIONS **D-039**. (main.c also
+carries a parallel session's in-flight N_LANDING engine-out refinement + the FE/shell/ui work is theirs.)
 **★★★ D-038 — the §F.6 target-velocity LEAD is a NULL, reverted (2026-07-20 night).** Tried the design's suggested
 fix for "guidance lags a fast target": reactive velocity-null `−Kvd·v_xy` → `−Kvd·(v_xy−target_vxy)` (match the
 target's motion), fed by a closed-form deck/target velocity, `--no-vlead` A/B gate. Built byte-clean (target_vxy=0

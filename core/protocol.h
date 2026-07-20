@@ -69,6 +69,7 @@
 #define BL_CMD_GUST        1u  /* p[0]=peak m/s (0=>default), p[1]=dir deg, p[2]=half-width m (0=>default) */
 #define BL_CMD_ENGINE_OUT  2u  /* p[0]=engine (1|2 side; 0=>seeded side) — fires on the next multi-eng burn */
 #define BL_CMD_THRUST_LOSS 3u  /* p[0]=thrust fraction 0.05..1 (0=>default 0.65) — sudden engine underperformance */
+#define BL_CMD_TARGET      4u  /* p[0]=target x, p[1]=target y [m world]; p[2]=vx, p[3]=vy [m/s] (0=>static) — the LIVE dragged pad (§M2): guidance chases (r_xy − target_xy) */
 
 /* TLM.flags bitfield */
 #define BL_TLM_FLAG_SEA_ACTIVE     (1u << 0) /* deck_z/deck_quat valid                       */

@@ -412,6 +412,18 @@ int sim_step(Sim* s){
         s->st.tgt.target_src=TGT_SEEDED; s->st.tgt.target_valid=1; s->st.tgt.target_age=0.0;
     }
 
+    /* ---- Mode 2 (§M2) LIVE interactive target OVERRIDE (D-039): the operator-dragged pad WINS over the
+     * seeded target / SEA sources, so guidance chases wherever it is dragged (r_xy = y − target_xy). Set
+     * ONLY by apply_command under --interactive (serve-only, fenced non-deterministic). live_tgt_on=0 in
+     * every headless/gate path => no override => byte-identical (the sacred determinism is untouched). */
+    if(s->live_tgt_on){
+        s->gcmd.target_xy[0]=s->live_tgt[0];   s->gcmd.target_xy[1]=s->live_tgt[1];
+        s->gcmd.target_vxy[0]=s->live_tgt_vxy[0]; s->gcmd.target_vxy[1]=s->live_tgt_vxy[1];
+        s->st.tgt.target_xy[0]=s->live_tgt[0];  s->st.tgt.target_xy[1]=s->live_tgt[1];
+        s->st.tgt.target_vxy[0]=s->live_tgt_vxy[0]; s->st.tgt.target_vxy[1]=s->live_tgt_vxy[1];
+        s->st.tgt.target_src=TGT_SEEDED; s->st.tgt.target_valid=1; s->st.tgt.target_age=0.0;
+    }
+
     /* §8.2 measurement layer (D-010): build the nav view ONCE per 50 Hz guidance tick (not at
      * the 500 Hz physics rate). All guidance layers below consume `nav` instead of raw truth.
      * In NAV_TRUTH `nav` is a byte copy of `*st` -> the guidance path is bit-identical to

@@ -71,6 +71,13 @@ typedef struct {
     double tgt_amp;       /* drift amplitude [m] */
     double tgt_omega;     /* drift angular rate [rad/s] */
     double tgt_phase[2];  /* seeded phase / direction */
+    /* ---- Mode 2 (§M2) LIVE interactive target: the client-dragged pad. Set ONLY by apply_command under
+     * --interactive (serve-only, fenced non-deterministic). When on, it OVERRIDES the seeded target/SEA
+     * sources so guidance chases wherever the operator drags. Default off (memset 0) => never overrides
+     * => byte-identical (the sacred headless/gate paths never touch it). */
+    int    live_tgt_on;
+    double live_tgt[2];       /* dragged pad position, world XY [m] */
+    double live_tgt_vxy[2];   /* dragged pad velocity [m/s] (renderer marker; 0 => static) */
     /* ---- N1 S0 TEACHER TAP (--policy-log; GM_MPPI only). READ-ONLY (o,a) logging for the offline
      * distillation trainer. Disarmed by default (tap.f==NULL, memset in sim_init) => byte-identical.
      * Attached post-sim_init by the CLI handler (the FILE* is opened ONCE per process, shared across
