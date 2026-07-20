@@ -23,9 +23,13 @@
 // returns the preset the auto-director should be on. Smoothing/transition timing
 // lives in the DirectorRig class (an eased pose lerp), tested for monotonic ease.
 
-import { Vector3 } from "three/webgpu";
+import { Vector3, Quaternion } from "three/webgpu";
 import { EvtCode, type EvtFrame } from "../net/events";
 import { Phase } from "../net/decode";
+
+// scratch for the attached (body-frame) camera math — module-scoped, no per-frame alloc
+const _bodyUp = new Vector3();
+const _bodySide = new Vector3();
 
 export type CameraPreset = "PAD_LONG_LENS" | "ONBOARD_DOWN" | "CHASE" | "FREE_ORBIT";
 
@@ -120,7 +124,8 @@ export function presetPose(
   vehVel: Vector3,
   orbitT: number,
   out: CamPose,
-  opts?: OrbitOpts
+  opts?: OrbitOpts,
+  vehQuat?: Quaternion // body->world attitude, for the ATTACHED cameras (ONBOARD_DOWN)
 ): CamPose {
   out.target.copy(vehPos);
   switch (preset) {
@@ -136,11 +141,26 @@ export function presetPose(
       break;
     }
     case "ONBOARD_DOWN": {
-      // Mounted on the vehicle, looking straight down the axis at the pad/plume.
-      out.eye.copy(vehPos);
-      out.eye.z += 4; // just above the base
-      out.target.set(vehPos.x, vehPos.y, 0); // look down toward the ground
-      out.fov = 62; // wide fisheye-ish
+      // ATTACHED to the vehicle: a cam clamped high on the hull, standing off the side,
+      // looking DOWN the body past the legs + engines to the ground — the SpaceX
+      // "landing cam". It rides the vehicle ATTITUDE (via vehQuat), so it tilts with the
+      // booster during the entry/aero pitch-over. vehPos is the base plane.
+      const halfH = opts?.halfH ?? 23.5;
+      if (vehQuat) {
+        _bodyUp.set(0, 0, 1).applyQuaternion(vehQuat); // +Z body = nose direction (world)
+        _bodySide.set(1, 0, 0).applyQuaternion(vehQuat); // +X body = a hull side (world)
+      } else {
+        _bodyUp.set(0, 0, 1); // fallback: world-vertical (upright booster)
+        _bodySide.set(1, 0, 0);
+      }
+      // mount ~1.5·halfH up the body (near the top) and ~0.6·halfH out to the side...
+      out.eye
+        .copy(vehPos)
+        .addScaledVector(_bodyUp, halfH * 1.5)
+        .addScaledVector(_bodySide, halfH * 0.6);
+      // ...looking down the body toward the engines/base (and the ground beyond).
+      out.target.copy(vehPos).addScaledVector(_bodyUp, -halfH * 0.5);
+      out.fov = 58; // wide, GoPro-ish
       break;
     }
     case "CHASE": {
@@ -237,7 +257,7 @@ export class DirectorRig {
     this.fromTarget.copy(this.target);
     this.fromFov = this.fov;
     this.preset = p;
-    presetPose(p, vehPos, vehVel, this.orbitT, this.toPose, this.orbitOpts());
+    presetPose(p, vehPos, vehVel, this.orbitT, this.toPose, this.orbitOpts(), this.vehQuat);
     this.transT = 0;
     this.lastCutT = simT;
   }
@@ -248,7 +268,7 @@ export class DirectorRig {
 
     // the target pose is recomputed live (so a preset tracking the moving vehicle
     // keeps up); on a settled cam it just is the current preset pose.
-    presetPose(this.preset, vehPos, vehVel, this.orbitT, this._scratch, this.orbitOpts());
+    presetPose(this.preset, vehPos, vehVel, this.orbitT, this._scratch, this.orbitOpts(), this.vehQuat);
 
     if (this.transT < 1) {
       this.transT = Math.min(1, this.transT + dtSec / this.transDur);
@@ -273,6 +293,9 @@ export class DirectorRig {
   orbitEl = 0.08;
   orbitR = 150;
   vehHalfH = 23.5;
+  /** Vehicle attitude (body->world), set each frame by main.ts; used by the ATTACHED
+   *  cameras (ONBOARD_DOWN) so they ride the booster's pitch-over. */
+  readonly vehQuat = new Quaternion();
 
   private orbitOpts(): OrbitOpts {
     return { halfH: this.vehHalfH, az: this.orbitAz, el: this.orbitEl, r: this.orbitR };

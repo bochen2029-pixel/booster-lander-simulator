@@ -177,6 +177,8 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   let vehLen = 47.7;
   let vehDia = 3.66;
   let legSpan = 18;
+  let plumeProxyLen = 30; // base raymarch-box length/width (set in rebuildBooster); the
+  let plumeProxyWide = 6; // update() scales these by throttle so the plume grows/shrinks visibly
 
   // plume proxy (built once; re-scaled on HELLO). It is a box the RaymarchingBox
   // marches; local +Y is toward the bell, plume flows -Y (canon fx/plume.ts).
@@ -240,18 +242,28 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       finPivots.push(pivot);
     }
 
-    // 4 telescoping legs at the base, extended by deploy_frac (canon §B.2)
+    // 4 landing legs, hinged at the base rim (canon §B.2). STOWED (deploy_frac 0, high
+    // altitude) = folded UP along the hull; DEPLOYED (deploy_frac 1, landing) = swung
+    // out+down into the landing tripod. The pivot faces radially outward (rotation.y=-ang),
+    // so a rotation about its local Z swings the strut in the radial–vertical plane; the
+    // deploy_frac -> angle mapping lives in update() (was inverted — legs read extended at
+    // altitude, retracting on touchdown; now correct).
+    const legLen = legSpan * 0.55;
     for (let i = 0; i < 4; i++) {
       const ang = (i * Math.PI) / 2 + Math.PI / 4;
       const pivot = new Group();
-      pivot.position.set(Math.cos(ang) * R * 0.9, octaLen * 0.15, Math.sin(ang) * R * 0.9);
-      pivot.rotation.y = -ang;
-      const leg = new Mesh(new CylinderGeometry(0.18, 0.12, legSpan / 2, 8), legMat);
-      // leg hinges from the base outward+down; we rotate the pivot by deploy_frac
-      leg.position.set((legSpan / 2) * 0.35, -(legSpan / 4), 0);
-      leg.rotation.z = Math.PI / 2.6;
-      leg.castShadow = true;
-      pivot.add(leg);
+      pivot.position.set(Math.cos(ang) * R * 0.92, octaLen * 0.2, Math.sin(ang) * R * 0.92);
+      pivot.rotation.y = -ang; // local +X points radially outward
+      // strut: cylinder along local Y, TOP at the hinge, hanging DOWN (-Y) at rest
+      const strut = new Mesh(new CylinderGeometry(0.16, 0.11, legLen, 8), legMat);
+      strut.position.y = -legLen / 2;
+      strut.castShadow = true;
+      pivot.add(strut);
+      // foot pad at the strut's far end
+      const foot = new Mesh(new CylinderGeometry(0.6, 0.6, 0.16, 12), legMat);
+      foot.position.y = -legLen;
+      foot.castShadow = true;
+      pivot.add(foot);
       boosterPivot.add(pivot);
       legPivots.push(pivot);
     }
@@ -261,11 +273,11 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
     // marching space covers the near plume. Extend upward a bit for SRP envelope.
     const exitDia = R * 0.56;
     plume.exitDia.value = exitDia;
-    const proxyLen = Math.max(30, vehLen * 0.8);
-    const proxyWide = Math.max(exitDia * 8, 6);
-    plumeProxy.scale.set(proxyWide, proxyLen, proxyWide);
+    plumeProxyLen = Math.max(30, vehLen * 0.8);
+    plumeProxyWide = Math.max(exitDia * 8, 6);
+    plumeProxy.scale.set(plumeProxyWide, plumeProxyLen, plumeProxyWide);
     // center the proxy so +Y (top of box) sits ~at the bell exit, box hangs down
-    plumeProxy.position.set(0, bellY - proxyLen * 0.5 + proxyLen * 0.12, 0);
+    plumeProxy.position.set(0, bellY - plumeProxyLen * 0.5 + plumeProxyLen * 0.12, 0);
     plumeLight.position.set(0, bellY - 2, 0);
   }
 
@@ -294,6 +306,12 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const _p = new Vector3();
   const _q = new Quaternion();
   const _deckP = new Vector3();
+  // ATMOSPHERE-BY-ALTITUDE endpoints: at entry (~60 km) the sky is near-black space; it
+  // brightens into full day as the vehicle descends into the thick lower atmosphere.
+  const _skySpace = new Color(0x03060f);
+  const _skyDay = new Color(DAY_SKY);
+  const _fogSpace = new Color(0x05070e);
+  const _fogDay = new Color(DAY_FOG);
 
   return {
     world,
@@ -339,6 +357,16 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
         sea.update({ x: _deckP.x, y: _deckP.y, z: _deckP.z }, null, f.t);
       }
 
+      // --- ATMOSPHERE BY ALTITUDE: near-black SPACE at entry (~60 km) brightening to full
+      // DAY as the vehicle descends into the thick lower atmosphere. Sky + fog colour and
+      // the sky-fill light are driven by the vehicle altitude (world Z), so the operator
+      // reads the height at a glance and high-altitude burns pop against a black sky.
+      const altKm = s.r.z / 1000;
+      const dayF = Math.min(1, Math.max(0, (40 - altKm) / 38)); // 0 at ≥40 km (space) → 1 at ≤2 km (day)
+      (scene.background as Color).lerpColors(_skySpace, _skyDay, dayF);
+      if (scene.fog) (scene.fog as Fog).color.lerpColors(_fogSpace, _fogDay, dayF);
+      hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
+
       // --- pose the booster: sim r/q -> three (frame.ts is the ONLY conversion) -
       simToThreePosition(s.r.x, s.r.y, s.r.z, _p);
       simToThreeQuaternion(s.q.x, s.q.y, s.q.z, s.q.w, _q);
@@ -351,12 +379,15 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
         finPivots[i].rotation.z = defl; // deflect about the hinge
       }
 
-      // --- legs: telescope/rotate out by deploy_frac ---------------------------
+      // --- legs: swing from stowed (up along hull) to deployed (out+down) ------
+      // deploy_frac 0 => STOWED (~173° = strut folded up along the body, high altitude),
+      // 1 => DEPLOYED (~30° = strut swung out+down into the landing tripod). +θ about the
+      // pivot's local Z rotates the hanging (-Y) strut toward +X (radially outward).
       const deploy = f.deployFrac;
-      for (const p of legPivots) {
-        // 0 = stowed (tucked up along hull), 1 = deployed (splayed out+down)
-        p.rotation.z = -deploy * (Math.PI / 3);
-      }
+      const LEG_STOWED = Math.PI * 0.96;
+      const LEG_DEPLOYED = 0.52;
+      const legAngle = LEG_STOWED + (LEG_DEPLOYED - LEG_STOWED) * deploy;
+      for (const p of legPivots) p.rotation.z = legAngle;
 
       // --- plume: drive uniforms from throttle_act / p_chamber / p_amb / mach ---
       // C_T (thrust coefficient) is not on the wire; approximate the SRP-envelope
@@ -374,6 +405,16 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
         ct: ctProxy,
         nEng: f.nEng,
       });
+
+      // THROTTLE MADE VISIBLE: scale the raymarch box (plume length + width) with
+      // throttle so 40% reads as a short stub and 100% as a long torch — the modulation
+      // is now obvious instead of on/off (density + brightness already track throttle in
+      // fx/plume.ts). Off => collapse the box so nothing marches.
+      const thr = lit ? f.throttleAct : 0;
+      const lenScale = lit ? 0.28 + 0.72 * thr : 0.02;
+      const wideScale = lit ? 0.5 + 0.5 * thr : 0.3;
+      plumeProxy.scale.set(plumeProxyWide * wideScale, plumeProxyLen * lenScale, plumeProxyWide * wideScale);
+      plumeProxy.position.y = bellY - plumeProxyLen * lenScale * 0.5 + plumeProxyLen * lenScale * 0.12;
 
       // green flash decay + push to the plume uniform
       if (greenFlash > 0) greenFlash = Math.max(0, greenFlash - dtSec * 3.0); // ~0.33 s

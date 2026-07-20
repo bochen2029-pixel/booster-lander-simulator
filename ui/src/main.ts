@@ -198,6 +198,7 @@ async function boot() {
         // DIRECTOR: advance the rig, then place the camera through the floating
         // origin (camera-relative rendering, canon §11.1). Director poses are in
         // SIM-world; convert to three-world via frame.ts, then origin does rebase.
+        director.vehQuat.copy(s.q); // sim body->world attitude, for the ATTACHED onboard cam
         director.update(vehSim, vehVel, dtSec);
         simToThreePosition(director.eye.x, director.eye.y, director.eye.z, camEyeThree);
         simToThreePosition(director.target.x, director.target.y, director.target.z, camTargetThree);
