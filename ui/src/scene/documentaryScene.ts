@@ -57,6 +57,7 @@ import {
 import { buildMarkers, type MarkersHandle } from "./markers";
 import { buildTargetMarker, readTargetEst } from "./targetMarker";
 import { buildSea, type SeaEnv } from "./sea";
+import { buildEarth, type EarthEnv } from "./earth";
 import { TLM_FLAG_SEA_ACTIVE } from "../net/decode";
 
 // OPERATOR DOCTRINE (first light, verbatim): "it MUST always sunny and daytime by
@@ -332,6 +333,12 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const sea: SeaEnv = buildSea(30);
   world.add(sea.root);
 
+  // EARTH GLOBE: a stylized planet below (the "planet at altitude" curving to a real
+  // horizon). Shown in space (high altitude), hidden at sea level where the local ground
+  // owns the frame. Rebased with the world (floating-origin). Fades via the sky dayF.
+  const earth: EarthEnv = buildEarth();
+  world.add(earth.root);
+
   // green-flash decay state (EVT-pulsed uniform, decays on its own — canon §B.3)
   let greenFlash = 0;
 
@@ -393,12 +400,22 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       // DAY as the vehicle descends into the thick lower atmosphere. Sky + fog colour and
       // the sky-fill light are driven by the vehicle altitude (world Z), so the operator
       // reads the height at a glance and high-altitude burns pop against a black sky.
-      const altKm = s.r.z / 1000;
-      const dayF = Math.min(1, Math.max(0, (40 - altKm) / 38)); // 0 at ≥40 km (space) → 1 at ≤2 km (day)
+      // PHYSICS: the sky's "day-ness" tracks REAL air density — the streamed ambient
+      // pressure pAmb (Rayleigh scattering ∝ density). Full blue day at sea level
+      // (pAmb ≈ 101325 Pa), thinning through the teens of km, near-black space by ~40 km.
+      // Driven by the sim's own exponential atmosphere, so it's altitude-honest. The 0.4
+      // power keeps the sky blue a bit longer on the way up (perceived brightness saturates).
+      const dayF = Math.min(1, Math.pow(Math.max(0, f.pAmb) / 101325, 0.4));
       (scene.background as Color).lerpColors(_skySpace, _skyDay, dayF);
-      if (scene.fog) (scene.fog as Fog).color.lerpColors(_fogSpace, _fogDay, dayF);
+      if (scene.fog) {
+        (scene.fog as Fog).color.lerpColors(_fogSpace, _fogDay, dayF);
+        // push the haze WAY out in space so the Earth globe (horizon ~270 km) is visible;
+        // pull it back to atmospheric-haze distance near the ground.
+        (scene.fog as Fog).far = 150_000 + (1 - dayF) * 1_850_000;
+      }
       hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
       starMat.opacity = (1 - dayF) * 0.9; // stars fade in as the sky goes to space
+      earth.update(dayF, dtSec); // show the globe in space, hide it at sea level
 
       // --- pose the booster: sim r/q -> three (frame.ts is the ONLY conversion) -
       simToThreePosition(s.r.x, s.r.y, s.r.z, _p);

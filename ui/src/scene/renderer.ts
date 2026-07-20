@@ -84,7 +84,9 @@ export async function createRenderer(
     50,
     window.innerWidth / window.innerHeight,
     0.1, // near
-    200_000 // far: 200 km (entry starts at 62 km)
+    2_000_000 // far: 2000 km — the vehicle only reaches ~62 km, but the stylized Earth
+    // globe (scene/earth.ts, ~600 km radius, horizon ~270 km) needs the headroom.
+    // Reversed-z (WebGPU) keeps near precision fine over this range.
   );
 
   addEventListener("resize", () => {
