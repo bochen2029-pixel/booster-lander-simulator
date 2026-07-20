@@ -1,0 +1,19 @@
+D-037 — live WebSocket TLM capture proving the SEA moving deck reaches the renderer wire.
+
+Server: booster-core --serve --scenario terminal --seed 42 --sea 1.5 --sea-wander 3 --port 8787
+Client: PowerShell System.Net.WebSockets.ClientWebSocket, reading raw BlTlmFixed (328 B) frames.
+Fields read at the frozen v4 offsets: target_est_xy@232 (float x2), deck_z@304 (float), target_src@260 (u8).
+
+TLM t=0.01s  target_est_xy=(-2.927, 2.876)  deck_z=-0.193  target_src=1
+TLM t=0.02s  target_est_xy=(-2.926, 2.875)  deck_z=-0.192  target_src=1
+TLM t=0.02s  target_est_xy=(-2.926, 2.875)  deck_z=-0.190  target_src=1
+
+- target_est_xy is NON-ZERO and within the ±3 m wander => the deck's horizontal station is streamed.
+- deck_z is NON-ZERO and CHANGING frame-to-frame => the live heave is streamed (not a static value).
+- target_src=1 = TGT_SEEDED => the deck is flagged as a seeded moving target.
+
+=> The v4 wide socket (target_est_xy@232 + deck_z@304), populated by fill_tlm from the nav socket that
+   the Stage-1b/1c SEA block writes each step, already delivers the heaving + drifting deck to the
+   renderer. Stage-1d (the renderer marker) needs NO protocol bump. Target Stage-1 is COMPLETE.
+
+(The r@32 field is float[3], not double[3]; a double read there is garbage and irrelevant to this check.)

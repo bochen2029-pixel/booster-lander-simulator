@@ -18,6 +18,17 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-037 — Target Stage-1 COMPLETE: the moving deck reaches the renderer wire (2026-07-20 night).** The last
+open item (the §C renderer marker, "protocol target_xy in TLM") needs NO work and no protocol bump: the v4 WIDE
+SOCKET already carries `target_est_xy@232` + `deck_z@304`, and `fill_tlm` populates them from the nav socket
+(`main.c:658/686`) that the Stage-1b/1c SEA block writes each step. VERIFIED end-to-end (not asserted) by a
+live WebSocket TLM capture (served `--sea 1.5 --sea-wander 3`, read raw 328-B BlTlmFixed): `target_est_xy=
+(−2.927,2.876)` within the ±3 m wander, `deck_z=−0.193→−0.190` CHANGING (the live heave), `target_src=1`
+(TGT_SEEDED) — `runs/d037_wire_capture.txt`. **⇒ Target Stage-1 COMPLETE (1a verdict D-034 + 1b heave/Option-i
+D-035 + 1c wander D-036 + 1d wire D-037):** a deterministic, byte-clean, replayable moving deck streamed to the
+renderer over the unchanged v4 protocol — the moving-target axis the N3 compound showcase needs. Remaining is
+polish (tilted-normal contact §F, MPPI deck-aware rollout, fast-wander target_vxy §F.6, heave-phase terminal
+commit). Ledger-only (no code; the wire was already v4). Full record: DECISIONS **D-037**.
 **★★★ D-036 — Target Stage-1c: the SEA horizontal station wander (2026-07-20 night, byte-clean).** Completes the
 MOVING deck: D-035 gave the vertical heave, this adds the deck's slow ±wander horizontal station-keeping (canon
 §4.4), so the deck HEAVES + DRIFTS and the vehicle tracks all axes. `sea_init` seeds two slow (~40–80 s period)

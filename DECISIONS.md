@@ -1991,3 +1991,28 @@ loads + target-relative verdict, all byte-clean, replayable). **Remaining polish
 from deck pitch/roll (§F); MPPI rollout-level deck-awareness; a fast-wander `target_vxy` lead (§F.6); the
 protocol renderer marker streaming `target_xy` (§C, TLM already carries `deck_z`). No NP_VERSION bump.
 
+## D-037 — Target Stage-1 COMPLETE: the moving deck reaches the renderer wire (verification) (2026-07-20, night)
+
+The one Target Stage-1 item the roadmap still listed as open — the protocol renderer marker (§C, "protocol
+`target_xy` in TLM") — turns out to need **NO work and no protocol bump**: it is already carried by the v4
+WIDE SOCKET. The frozen v4 TLM layout has `target_est_xy@232`, `target_est_vxy@240`, `target_src@260`, and
+`deck_z@304` (protocol.h static-assert pins), and `fill_tlm` already populates them from the nav socket
+(`main.c:658` `p->target_est_xy = st->tgt.target_xy`; `:686` `p->deck_z = MOD_SEA ? se.deck_z : 0`). The
+Stage-1b/1c SEA block writes exactly that nav socket each step (`st->tgt.target_xy` = the deck's wander
+station, `st->tgt.deck_z`/`se.deck_z` = the live heave). So the three facts COMPOSE: the renderer receives
+the heaving + drifting deck at the pose the plant computed, with `src=TGT_SEEDED`.
+
+**Verified end-to-end (not asserted) by a live WebSocket capture** (`runs/d037_wire_capture.txt`): served
+`--sea 1.5 --sea-wander 3` and read raw 328-B `BlTlmFixed` frames with a `ClientWebSocket`. At the frozen v4
+offsets: `target_est_xy=(−2.927, 2.876)` (non-zero, within the ±3 m wander), `deck_z=−0.193→−0.192→−0.190`
+(non-zero, CHANGING frame-to-frame ⇒ the live heave, not a static value), `target_src=1` (TGT_SEEDED). The
+moving-deck showcase reaches the wire; the renderer can draw the ocean/deck phase-locked to the plant.
+
+**⇒ Target Stage-1 is COMPLETE** (1a verdict D-034 + 1b heave/Option-i D-035 + 1c wander D-036 + 1d wire
+D-037): a deterministic, byte-clean, replayable moving deck — heave + drift + deck-relative leg loads +
+target-relative verdict — streamed to the renderer over the unchanged v4 protocol. This is the moving-target
+axis the N3 compound showcase needs. **Remaining is polish, not the axis:** tilted-normal contact from deck
+pitch/roll (§F), MPPI rollout-level deck-awareness, a fast-wander `target_vxy` lead (§F.6), and a
+heave-phase-timed terminal commit (the D-035 hover-hunt caveat). Ledger-only ADR (no code change; the wire
+was already v4). No NP_VERSION bump.
+
