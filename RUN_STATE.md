@@ -18,6 +18,19 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-035 — Target Stage-1b: the SEA heaving-deck (2026-07-20 night, byte-clean).** Built the canon-designated
+moving target: `core/sea.{h,c}` — a Pierson-Moskowitz sea state → deck pose as a PURE closed-form sum-of-sines
+(48 comp, equal-energy via the closed-form P-M CDF, seeded phases from a new `RNG_SEA=5` stream; replay-safe,
+no integration). The deck moves in the PLANT (§A.2): `sim_step` overwrites `se.deck_z` with the live heave +
+feeds `deck_vz(t)` into `contact_wrench` (deck-relative closing rate `vz−deck_vz` ⇒ leg loads sea-phase-
+dependent). Added §A.4 Option-i deck-aware vertical guidance (`GuidanceCmd.deck_z`, `h_base=y_z−deck_z−com`,
+the vertical parallel to the horizontal target null; byte-safe at 0). `--sea [Hs]` on all 3 CLI paths. **Leak
+GREEN on BOTH builds** (selftest PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48, AERO --mppi 44/60); calm-floor
+`--sea 0.05` 58/60≈dry; det-pair 35==35. **Deck-aware Option-i lifts the heaving-deck landing rate ~9–13 pp**
+(identical per-run sea draws = clean before/after): hoverslam Hs3 95→114/180, Hs1.5 113→129, neural Hs1.5
+93→116; nominal run 0 flipped CRASHED(fuel=0,146 m/s)→GOOD(fuel=4201). Remaining Target Stage-1: ±3 m WANDER +
+`target_xy`→guidance (Stage-1c), tilted-normal contact (§F), MPPI deck-aware rollout, protocol marker (§C). No
+NP_VERSION bump. Full record: DECISIONS **D-035**; draft `runs/D035_draft.md`.
 **★★★ D-034 — Target Stage-1a: the target-relative verdict (2026-07-20 night).** The D-020 known gap closed:
 the verdict + touchdown `impact_lat` scored the ORIGIN, so an armed-target run that landed ON the moving pad
 graded off-pad. Now (sim.c + sim.h, byte-clean) the target pose is LATCHED at first contact

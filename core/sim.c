@@ -391,6 +391,21 @@ int sim_step(Sim* s){
         st->tgt.target_src=TGT_SEEDED; st->tgt.target_valid=1; st->tgt.target_age=0.0;
     }
 
+    /* ---- SEA (§4.4 / target_sandbox_design §A.2, D-035): the heaving ASDS deck moves in the PLANT.
+     * Each physics step, overwrite the (static scenario) deck level with the live closed-form heave
+     * deck_z(t) and expose deck_vz(t) for the deck-relative leg-load coupling (contact_substep below).
+     * Guidance does NOT read deck_z (§1.2: hoverslam uses height above z=0), so the vehicle feels the
+     * deck only through the contact event — the honest "land on a moving deck" physics. Absent (MOD_SEA
+     * unset) => se.deck_z stays the scenario scalar and deck_vz_live stays 0 => byte-identical. */
+    if(s->modules & MOD_SEA){
+        double dz, dvz;
+        sea_deck_pose(&s->sea, st->t, &dz, &dvz, 0, 0, 0);
+        s->se.deck_z = dz;
+        s->deck_vz_live = dvz;
+        s->gcmd.deck_z = dz;      /* §A.4 Option-i: guidance nulls its height against the current deck pose */
+        s->st.tgt.deck_z = dz;    /* §8.1 nav socket: deck pose is part of NavState (renderer/telemetry) */
+    }
+
     /* §8.2 measurement layer (D-010): build the nav view ONCE per 50 Hz guidance tick (not at
      * the 500 Hz physics rate). All guidance layers below consume `nav` instead of raw truth.
      * In NAV_TRUTH `nav` is a byte copy of `*st` -> the guidance path is bit-identical to
@@ -575,7 +590,7 @@ int sim_step(Sim* s){
     /* integrate: contact-substep near ground, else flight RK4 */
     int in_contact = near_ground(st, 0.5);
     double lo_before = lowest_point_z(st);
-    if(in_contact) contact_substep(st,&s->act,&s->env,s->se.deck_z,DT);
+    if(in_contact) contact_substep(st,&s->act,&s->env,s->se.deck_z,s->deck_vz_live,DT);
     else rk4_step(st,&s->act,&s->env,DT);
 
     /* diagnostics via a spare deriv eval */

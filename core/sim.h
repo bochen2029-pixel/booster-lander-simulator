@@ -8,6 +8,7 @@
 #include "guidance_mppi.h"
 #include "nav.h"
 #include "policy_tap.h"   /* N1 S0: the teacher (o,a) logging tap (--policy-log; GM_MPPI only) */
+#include "sea.h"          /* SEA module (§4.4): P-M droneship deck-motion spectrum (--sea; default OFF) */
 
 /* DIAL-A-GUST (canon §10.6 INJECT_DISTURBANCE type=gust; §4.3 layer-3 discrete 1-cosine).
  * A deterministic discrete wind-shear EVENT: a horizontal wind pulse the vehicle penetrates as it
@@ -33,6 +34,12 @@ typedef struct {
     EnvCtx      env;
     ScenarioEnv se;
     GustCfg     gust;   /* DIAL-A-GUST config (peak==0 => OFF => byte-identical). Set post-init. */
+    /* ---- SEA module (§4.4 / target_sandbox_design §A.2, D-035). Armed by --sea [Hs] (MOD_SEA). The
+     * heaving ASDS deck moves in the PLANT: sim_step overwrites se.deck_z with the live closed-form
+     * heave deck_z(t) and feeds deck_vz_live (the heave rate) to the contact solver for the deck-relative
+     * leg loads. Default OFF (memset 0 => sea never evaluated, deck_vz_live=0) => byte-identical. */
+    SeaState    sea;
+    double      deck_vz_live;   /* live deck heave rate deck_vz(t) [m/s]; 0 when SEA off */
     uint32_t seed;
     int modules;
     int scenario;

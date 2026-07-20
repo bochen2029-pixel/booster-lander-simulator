@@ -1898,3 +1898,59 @@ Target Stage-1 remains: the SEA-deck P-M spectrum `core/sea.{h,c}` + `deck_z(t)`
 and the protocol `target_xy` in TLM for the renderer's estimate marker (§C, protocol v4→v5, the D-013
 playbook). No NP_VERSION bump (no weights).
 
+## D-035 — Target Stage-1b: the SEA heaving-deck (P-M spectrum + deck-frame leg loads + Option-i) (2026-07-20, night)
+
+Stage-1a shipped the target-relative verdict (D-034); Stage-1b builds the canon-designated moving target
+itself — the ASDS droneship deck heaving on a seeded sea (canon §4.4, `target_sandbox_design` §A). Three
+byte-clean layers: the spectrum, the plant coupling, and the deck-aware vertical guidance.
+
+**1 — `core/sea.{h,c}` (NEW module).** A Pierson-Moskowitz sea state → the deck pose, as a PURE closed-form
+sum-of-sines: 48 components, EQUAL-ENERGY binned via the closed-form P-M CDF `F(ω)=exp(−β(ω0/ω)⁴)` (verified
+`dF/dω=S(ω)/m0`, so the quantiles invert as `ω=ω0·(β/−ln q)^¼`), seeded phases from a new Philox stream
+`RNG_SEA=5`. `sea_deck_pose(t)` returns `deck_z(t)=Σ amp·cos(ωt+φ)` (heave), `deck_vz(t)` (its closed-form
+derivative), a small pitch/roll `deck_quat`, and the horizontal station. NO time integration ⇒ identical
+`(seed,Hs,t)`→bit-identical pose (replay-safe by construction, cleaner than the stateful wind). Parametrized
+by the operator-facing **Hs** (significant wave height): `U19.5,ω0` back out from `Hs=0.2092·U19.5²/g`.
+
+**2 — the deck moves in the PLANT (§A.2), not a renderer trick.** Each physics step under `MOD_SEA`,
+`sim_step` overwrites the static `se.deck_z` with the live `deck_z(t)` (⇒ the contact solver + the touchdown
+threshold + the D-034 verdict all track the heaving surface) and feeds `deck_vz(t)` into `contact_wrench`:
+the leg spring-damper now closes at the DECK-RELATIVE rate `vz−deck_vz`. A touchdown on a RISING deck loads
+the legs harder, on a FALLING deck softer — leg crush + tipover become sea-phase-dependent (the honest new
+physics). `--sea [Hs]` arms it on all three CLI paths; `sim_arm_sea` seeds the deck per (seed,run).
+
+**3 — deck-aware vertical guidance (§A.4 Option-i, the design's recommended default).** `GuidanceCmd` gains
+`deck_z`; the hoverslam height reference becomes `h_base = y_z − deck_z − com` — the exact VERTICAL parallel
+to the horizontal `r_xy = y − target_xy`. The reactive law (and GM_NEURAL, whose vertical comes from
+hoverslam) re-aims at where the deck IS each 50 Hz tick — NO future oracle. MPPI's rollout ranking stays
+deck-blind (its executed command goes through hoverslam, so it inherits the deck-aware vertical anyway).
+
+**Byte-clean (SEA off ⇒ byte-identical).** Every coupling is gated on `deck_z`/`deck_vz`==0 (static-pad
+default): `vz−0.0`, `y_z−0.0−com` are bit-exact; `RNG_SEA=5` is purely additive; all three `hoverslam_step`
+callers pass the memset-zeroed `s->gcmd`. **Leak GREEN on BOTH builds** (plant + Option-i): selftest PASS,
+TERMINAL 194/200, MPPI run-1 AERO s42 HARD 2.63/10.48, AERO `--mppi` ×60 44/60 — all byte-exact. Calm floor
+`--sea 0.05` = 58/60 (≈ dry TERMINAL 97%): the machinery breaks nothing. Determinism pair 35/60==35/60.
+
+**The result — landing on a heaving deck (TERMINAL isolates the heave; IDENTICAL per-run sea draws ⇒ a clean
+controlled before/after).** Deck-aware Option-i lifts the rate ~9–13 pp across ALL seeds and both sea states:
+
+| controller | Hs | deck-blind /180 | deck-aware /180 | lift |
+|---|---|---|---|---|
+| hoverslam | 3.0 (rough) | 95 (52.8%) | **114 (63.3%)** | +10.5 pp |
+| hoverslam | 1.5 (moderate) | 113 (62.8%) | **129 (71.7%)** | +8.9 pp |
+| neural | 1.5 | 93 (51.7%) | **116 (64.4%)** | +12.8 pp |
+
+Mechanism seen directly: the nominal run 0 flipped **CRASHED (fuel=0, td_v 146 m/s) → GOOD (fuel=4201, td_v
+2.56, lat 6.24)** — deck-blind burned full throttle hovering at z=0 while the deck sat below it (fuel
+depletion); deck-aware follows the deck down and touches when it meets it. Hs=3 is canon-rough (heave ±1.5 m,
+deck velocity ±~2.5 m/s — rivals the ~2 m/s landing target). **Honest caveat:** some deck-aware runs
+hover-hunt to the sim cap (t=200 s) chasing the oscillating deck before committing — a terminal-commit
+refinement (heave-phase-timed final descent / §A.4 Option-ii forecast) is future work; the rate already
+improves without it.
+
+**Scope / remaining (Target Stage-1).** Ships §A.1 spectrum + §A.2 heave/deck_vz plant coupling + §A.4
+Option-i vertical guidance; verdict reused from D-034. **Remaining:** the ±3 m horizontal station-keeping
+WANDER + feeding `target_xy` to guidance (Stage-1c; the SeaState fields exist, defaulted 0); tilted-normal
+contact from deck pitch/roll (SEA-polish §F); MPPI rollout-level deck-awareness; the protocol renderer marker
+(§C — TLM already carries `deck_z`). No NP_VERSION bump (no weights). Draft: `runs/D035_draft.md`.
+

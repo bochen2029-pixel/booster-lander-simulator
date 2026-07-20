@@ -29,7 +29,7 @@ BL_HD double lowest_point_z(const State* st){
 }
 BL_HD int near_ground(const State* st, double band){ return lowest_point_z(st) < band; }
 
-BL_HD int contact_wrench(const State* st, double deck_z, double Fc[3], double Tc[3], double crush_rate[4]){
+BL_HD int contact_wrench(const State* st, double deck_z, double deck_vz, double Fc[3], double Tc[3], double crush_rate[4]){
     MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
     const double* q=&st->y[S_QX];
     double v[3]={st->y[S_VX],st->y[S_VY],st->y[S_VZ]};
@@ -45,7 +45,7 @@ BL_HD int contact_wrench(const State* st, double deck_z, double Fc[3], double Tc
         if(pen<=0.0) continue;
         nc++;
         double fv[3]; double cr[3]; v3_cross(cr,om_w,rw); v3_add(fv,v,cr);
-        double vz=fv[2];
+        double vz=fv[2]-deck_vz;   /* SEA §A.2: deck-relative closing rate (deck_vz==0 => byte-identical) */
         double elastic = pen - st->crush[i]; if(elastic<0)elastic=0;
         double avail = LEG_CRUSH_S - st->crush[i];
         double Fn;
@@ -71,11 +71,11 @@ BL_HD int contact_wrench(const State* st, double deck_z, double Fc[3], double Tc
     return nc;
 }
 
-BL_HD void contact_substep(State* st, const Actuators* act, const EnvCtx* env, double deck_z, double dt){
+BL_HD void contact_substep(State* st, const Actuators* act, const EnvCtx* env, double deck_z, double deck_vz, double dt){
     const int NS=8; double h=dt/NS;
     for(int s=0;s<NS;s++){
         double dyf[NSTATE]; dynamics_deriv(st,act,env,dyf,0);
-        double Fc[3],Tc[3],cr[4]; contact_wrench(st,deck_z,Fc,Tc,cr);
+        double Fc[3],Tc[3],cr[4]; contact_wrench(st,deck_z,deck_vz,Fc,Tc,cr);
         MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
         double q[4]={st->y[S_QX],st->y[S_QY],st->y[S_QZ],st->y[S_QW]};
         /* accel: flight + contact */

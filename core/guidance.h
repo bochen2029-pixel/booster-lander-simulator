@@ -18,6 +18,11 @@ typedef struct {
      * ZERO by default (memset / FIXED-at-origin) => TERMINAL/AERO/ENTRY byte-identical. */
     double target_xy[2];  /* target position, world XY [m] (0 => pad at origin, v1 behavior) */
     double target_vxy[2]; /* target velocity, world XY [m/s] (0 for a static/slow target) */
+    /* SEA (§4.4 / §A.4 Option-i, D-035): the deck's CURRENT vertical pose deck_z(t_now), the §8.1-legal
+     * quantity the reactive vertical law nulls its height against (h_base becomes y_z − deck_z − com), so
+     * the vehicle tracks the heaving deck instead of the static z=0. sim.c fills it each step under
+     * MOD_SEA; ZERO by default (memset / static pad) => TERMINAL/AERO/ENTRY byte-identical (− 0.0). */
+    double deck_z;        /* current deck height, world Z [m] (0 => static pad at z=0, v1 behavior) */
     /* plan tail for telemetry (filled by mppi later) */
 } GuidanceCmd;
 

@@ -17,6 +17,7 @@ set(BL_C_COMMON
     main.c
     scenario.c
     sim.c
+    sea.c               # SEA module (§4.4): deterministic P-M droneship deck heave (D-035; pure math, host-side)
     nav.c
     ws.c
     guidance_hoverslam.c

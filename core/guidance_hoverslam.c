@@ -79,7 +79,7 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     const double* y=st->y;
     MassProps mp; mass_props(y[S_MLOX],y[S_MRP1],0,0,&mp);
     double m=mp.m;
-    double h_base = y[S_RZ]-mp.com;
+    double h_base = y[S_RZ]-g->deck_z-mp.com;   /* SEA §A.4 Option-i: height above the CURRENT deck (g->deck_z=0 => static pad, byte-identical) */
     double vz = y[S_VZ];
     /* N0 MOVABLE TARGET (§4.5, target_sandbox_design §B.1): null the offset to the TARGET, not the
      * world origin. r_xy becomes (r − target_xy); the ENTIRE downstream reactive law — r_mag, v_rad,

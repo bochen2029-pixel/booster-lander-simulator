@@ -10,7 +10,7 @@
 #include "vmath.h"
 
 /* Stream ids */
-enum { RNG_WIND=1, RNG_DISPERSION=2, RNG_MPPI=3, RNG_NAV=4 };
+enum { RNG_WIND=1, RNG_DISPERSION=2, RNG_MPPI=3, RNG_NAV=4, RNG_SEA=5 };
 
 BL_HD static inline void philox_mulhilo(uint32_t a, uint32_t b, uint32_t* hi, uint32_t* lo){
     uint64_t p = (uint64_t)a * (uint64_t)b;

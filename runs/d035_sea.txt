@@ -1,0 +1,21 @@
+D-035 SEA - 05:51:31
+== leak anchor #4 (must be byte-identical: AERO --mppi x60 = 44/60) ==
+AERO mppi x60 : LANDED: 44/60 = 73.3%  (Wilson95: 61.0..82.9%)
+== heaving-deck landing rate — HOVERSLAM (tier-0, deck-blind), Hs=3 (canon rough ~+-1.5m) ==
+SEA hoverslam s42 Hs3 : LANDED: 36/60 = 60.0%  (Wilson95: 47.4..71.4%)
+SEA hoverslam s7  Hs3 : LANDED: 25/60 = 41.7%  (Wilson95: 30.1..54.3%)
+SEA hoverslam s99 Hs3 : LANDED: 34/60 = 56.7%  (Wilson95: 44.1..68.4%)
+== heaving-deck landing rate — HOVERSLAM, Hs=1.5 (moderate ~+-0.75m) ==
+SEA hoverslam s42 Hs1.5 : LANDED: 35/60 = 58.3%  (Wilson95: 45.7..69.9%)
+SEA hoverslam s7  Hs1.5 : LANDED: 41/60 = 68.3%  (Wilson95: 55.8..78.7%)
+SEA hoverslam s99 Hs1.5 : LANDED: 37/60 = 61.7%  (Wilson95: 49.0..72.9%)
+== heaving-deck landing rate — NEURAL (learned policy, also deck-blind), Hs=1.5 ==
+SEA neural s42 Hs1.5 : LANDED: 29/60 = 48.3%  (Wilson95: 36.2..60.7%)
+SEA neural s7  Hs1.5 : LANDED: 37/60 = 61.7%  (Wilson95: 49.0..72.9%)
+SEA neural s99 Hs1.5 : LANDED: 27/60 = 45.0%  (Wilson95: 33.1..57.5%)
+== calm-sea sanity: Hs=0.05 (floor) should ~= dry TERMINAL 194/200-class ==
+SEA hoverslam s42 Hs0.05 : LANDED: 58/60 = 96.7%  (Wilson95: 88.6..99.1%)
+== SEA determinism pair (run twice; LANDED must be identical) ==
+SEA det A : LANDED: 35/60 = 58.3%  (Wilson95: 45.7..69.9%)
+SEA det B : LANDED: 35/60 = 58.3%  (Wilson95: 45.7..69.9%)
+D-035-SEA-DONE

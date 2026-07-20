@@ -12,7 +12,7 @@
 5. **Update this file (check boxes, add notes) AND the handoff live-log at every state change.** Keep the perpetual map current — that is the whole point.
 
 ## STATUS (update on every ADR)
-- **HEAD: D-034 (2026-07-20 night; EO arc concluded for distillation → pivoted to Target Stage-1).** Canon = `CLAUDE_v2.md`. **NP_VERSION 6** (sha b4734b48).
+- **HEAD: D-035 (2026-07-20 night; Target Stage-1b — the SEA heaving-deck, byte-clean).** Canon = `CLAUDE_v2.md`. **NP_VERSION 6** (sha b4734b48).
 - Learned policy: AERO clean **46** (teacher+2), gust **45** (teacher+7), **ENTRY clean 57/56/58** (teacher parity). No forgetting ×7.
 - **D-027 + E0/E0b:** engine-out collapse is a **CONTROLLER SHORTFALL** (gilded on all 4 axes) — whole random-EO draw in-frontier ⇒ ~59/60 claimable. **v6 EO baseline = 1/0/0 (= MPPI); E1 is the real work.**
 - **E1 NULL (D-029) → E1.5/D-030 DONE: the 2-engine entry-divert re-authorization LIFTS EO recovery** (reactive 0/1→**9/10**, neural 1/0/0→**8/4/2** of 60; byte-clean). Pivotal: reactive now beats neural on EO. → **E2 (MPPI teacher, D-031) AND E2' (reactive teacher, D-032) BOTH NULL — distillation is EXHAUSTED for the EO axis (both regress v6's 14/180 to 11/180; the shared policy can't absorb the EO a_lat). Neural EO plateaus at v6+D-030's 8–10/60; the ~59/60 frontier is RL-class. NP_VERSION 7 rejected both times, reverted to v6. NEXT: RL (reserved, multi-session) OR pivot to a parallel-safe showcase axis (Target Stage-1 / interactive ws channel).**
@@ -32,7 +32,7 @@
 ## PARALLEL-SAFE (any farm-free or frontend window)
 - 🟨 **Target Stage-1** — unblocks the moving-target axis N3 needs.
   - ✅ **Stage-1a — §A.3 target-relative verdict (D-034):** verdict + touchdown `impact_lat` now measure from the target pose LATCHED at first contact (`impact_target_xy=gcmd.target_xy`), not the origin. FIXED target = (0,0) ⇒ byte-identical (leak GREEN). Proof: `--target line:30:10:0 --mppi` lands `td_lat 21.58 m` target-relative (on-pad; was ~30 m origin off-pad); honest moving-target rate `--target circle:15:60 --neural` ×60 = 6/60 (policy is clean-trained on a FIXED origin ⇒ weak tracking = N3 curriculum, not a verdict bug). No NP_VERSION bump.
-  - ⬜ **Stage-1b — SEA deck** (`core/sea.{h,c}` P-M spectrum + `deck_z(t)` contact coupling, §A.1/A.2) + **asds_night**.
+  - ✅ **Stage-1b — SEA deck (D-035):** `core/sea.{h,c}` P-M spectrum (48 comp, equal-energy, `RNG_SEA`) + `deck_z(t)`/`deck_vz(t)` deck-frame leg loads (§A.2) + **§A.4 Option-i deck-aware guidance** (`h_base=y_z−deck_z−com`). Byte-clean (leak GREEN both builds; calm-floor 58/60, det-pair identical). Heaving-deck landing rate lifts ~9–13 pp deck-blind→deck-aware across seeds/Hs: hoverslam Hs3 95→**114**/180, Hs1.5 113→**129**, neural Hs1.5 93→**116**. Nominal run 0 flipped CRASHED(fuel)→GOOD. Remaining: ±3 m WANDER + `target_xy`→guidance (Stage-1c), tilted-normal contact (§F polish), MPPI deck-aware rollout, protocol marker (§C). No NP bump.
   - ⬜ **Stage-1c — protocol `target_xy` in TLM** for the renderer estimate marker (§C, protocol v4→v5, the D-013 playbook).
 - ⬜ **Interactive ws command channel** (live inject/drag over the closed upstream enum, journaled §10.8 so improvised runs replay bit-exact) — the demo instrument; then UE 5.8 on the same wires.
 - ✅ **`--neural --nav-noisy` honesty spot + np_version plumbing (D-033):** neural nav-noisy AERO 46→44, ENTRY 57→55 (graceful −2, robust — not a truth-state artifact); np_version now carried in HELLO/TLM under GM_NEURAL (byte-clean; goldens emit under hoverslam so unchanged).
