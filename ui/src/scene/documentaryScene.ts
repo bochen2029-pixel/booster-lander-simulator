@@ -52,6 +52,8 @@ import {
 } from "../fx/plume";
 import { buildMarkers, type MarkersHandle } from "./markers";
 import { buildTargetMarker, readTargetEst } from "./targetMarker";
+import { buildSea, type SeaEnv } from "./sea";
+import { TLM_FLAG_SEA_ACTIVE } from "../net/decode";
 
 // OPERATOR DOCTRINE (first light, verbatim): "it MUST always sunny and daytime by
 // default." The dark studio is retired as the default (it survives only as a future
@@ -73,6 +75,8 @@ export interface DocumentaryScene {
   boosterPivot: Group;
   markers: MarkersHandle;
   plume: PlumeUniforms;
+  /** The SEA environment (ocean + droneship deck); dormant until the SEA flag. */
+  sea: SeaEnv;
   /** Rebuild geometry from HELLO once it arrives (veh_len/dia/leg_span/pad_radius). */
   applyHello(h: HelloFrame): void;
   /** Fire the TEA-TEB green flash (called by the EVT scheduler). */
@@ -88,6 +92,12 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const world = new Group();
   scene.add(world);
 
+  // The LAND environment (ground + pad + markings + grid) lives in one group so the
+  // SEA environment can replace it wholesale when the droneship deck is active (an
+  // identity group — transform-transparent, so the land renders exactly as before).
+  const landGroup = new Group();
+  world.add(landGroup);
+
   // --- ground: DAYTIME scrubland to the horizon + concrete pad (LZ-1 grammar) --
   // (was near-black night-studio; and the 4 km disc ended mid-view — extend to the
   // fog so ground meets sky at the horizon like the real coastline footage)
@@ -95,7 +105,7 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const ground = new Mesh(new CircleGeometry(60000, 96), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
-  world.add(ground);
+  landGroup.add(ground);
 
   // the landing pad disc (Ø from HELLO pad_radius; default 30 m radius circle-X)
   const padMat = new MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.85, metalness: 0.05 });
@@ -103,7 +113,7 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   pad.rotation.x = -Math.PI / 2;
   pad.position.y = 0.02;
   pad.receiveShadow = true;
-  world.add(pad);
+  landGroup.add(pad);
   // circle-X pad marking (two crossed bars) — WHITE on concrete, per LZ-1 footage
   const markMat = new MeshBasicMaterial({ color: 0xe8ecef, transparent: true, opacity: 0.9, side: DoubleSide });
   for (const rot of [Math.PI / 4, -Math.PI / 4]) {
@@ -111,7 +121,7 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
     bar.rotation.x = -Math.PI / 2;
     bar.rotation.z = rot;
     bar.position.y = 0.04;
-    world.add(bar);
+    landGroup.add(bar);
   }
 
   const grid = new GridHelper(3000, 60, 0x6e6a5e, 0x7c776a);
@@ -119,7 +129,7 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const gridMat = grid.material as LineBasicMaterial;
   gridMat.transparent = true;
   gridMat.opacity = 0.4;
-  world.add(grid);
+  landGroup.add(grid);
 
   // --- lighting rig: SUNNY DAYTIME (operator doctrine — the default, not a mode).
   // Hemisphere = bright sky bounce + warm ground bounce; sun = strong warm key.
@@ -271,17 +281,26 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const targetMarker = buildTargetMarker();
   world.add(targetMarker.root);
 
+  // SEA environment (Target Stage-1 moving deck — core D-035..D-037): a Gerstner ocean
+  // + the ASDS droneship deck, posed EXACTLY from the streamed deck_z (heave) /
+  // target_est_xy (station drift) / (deck_quat later). Dormant until a TLM frame sets
+  // the SEA-active flag, then it REPLACES the land group (only one environment shows).
+  const sea: SeaEnv = buildSea(30);
+  world.add(sea.root);
+
   // green-flash decay state (EVT-pulsed uniform, decays on its own — canon §B.3)
   let greenFlash = 0;
 
   const _p = new Vector3();
   const _q = new Quaternion();
+  const _deckP = new Vector3();
 
   return {
     world,
     boosterPivot,
     markers,
     plume,
+    sea,
 
     applyHello(h: HelloFrame) {
       if (h.vehLen > 0) vehLen = h.vehLen;
@@ -291,10 +310,11 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
         // pc_ref is the chamber-pressure reference; plume pressureRatio uses live
         // p_chamber/p_amb from TLM, so nothing to store here beyond geometry.
       }
-      // rebuild pad radius
+      // rebuild pad radius (land pad + the droneship deck bullseye)
       if (h.padRadius > 0) {
         pad.geometry.dispose();
         pad.geometry = new CircleGeometry(h.padRadius, 64);
+        sea.setPadRadius(h.padRadius);
       }
       rebuildBooster();
     },
@@ -305,6 +325,19 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
 
     update(s: InterpSample, dtSec: number) {
       const f = s.frame;
+
+      // --- SEA vs LAND: when the droneship deck is active (TLM flag), swap the land
+      // environment for the ocean + droneship and pose the deck EXACTLY from the wire.
+      // The deck's horizontal station is target_est_xy (sim world XY) and its height is
+      // deck_z (sim world Z); frame.ts is the ONLY converter. deck_quat (tilt) is a
+      // follow-up — the sim does not stream deck attitude yet, so the deck stays level.
+      const seaOn = (f.flags & TLM_FLAG_SEA_ACTIVE) !== 0;
+      landGroup.visible = !seaOn;
+      sea.setActive(seaOn);
+      if (seaOn) {
+        simToThreePosition(f.targetEstXy[0], f.targetEstXy[1], f.deckZ, _deckP);
+        sea.update({ x: _deckP.x, y: _deckP.y, z: _deckP.z }, null, f.t);
+      }
 
       // --- pose the booster: sim r/q -> three (frame.ts is the ONLY conversion) -
       simToThreePosition(s.r.x, s.r.y, s.r.z, _p);

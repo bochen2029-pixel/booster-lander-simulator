@@ -41,6 +41,10 @@ async function boot() {
   document.body.appendChild(renderer.domElement);
 
   const doc = buildDocumentaryScene(scene);
+  // DEV-only: expose the scene for headless inspection (eval), since a WebGPU canvas
+  // can't be screenshot in the CI/headless env (frontend reports §5.2). Tree-shaken out
+  // of production builds. Renderer-only; never crosses the telemetry boundary.
+  if (import.meta.env.DEV) (globalThis as { __doc?: unknown }).__doc = doc;
   const origin = new FloatingOrigin();
   const interp = new InterpBuffer(/* runSeconds */ 600);
   const director = new DirectorRig();
