@@ -36,16 +36,23 @@ import { Vector3 } from "three/webgpu";
 import { mountAudio } from "./audio"; // S3 audio observer (self-contained, muted by default)
 import { mountShell } from "./shell/mount"; // S0 LZ-COCKPIT chrome (self-contained, dual-target)
 import { installInjectPanel } from "./hud/injectPanel"; // Mode 2 failure-injection buttons (§M2)
+import { buildPostFx } from "./scene/postfx"; // §5.2 emissive/HDR bloom post-pass
 
 async function boot() {
   const { renderer, scene, camera, backend } = await createRenderer();
   document.body.appendChild(renderer.domElement);
 
   const doc = buildDocumentaryScene(scene);
-  // DEV-only: expose the scene for headless inspection (eval), since a WebGPU canvas
-  // can't be screenshot in the CI/headless env (frontend reports §5.2). Tree-shaken out
-  // of production builds. Renderer-only; never crosses the telemetry boundary.
-  if (import.meta.env.DEV) (globalThis as { __doc?: unknown }).__doc = doc;
+  // §5.2 bloom post-pass: the HDR plume + green-flash + hot markers glow. Replaces the
+  // direct renderer.render() in the loop below (PostProcessing applies AgX + sRGB at output).
+  const postfx = buildPostFx(renderer, scene, camera);
+  // DEV-only: expose the scene + bloom tuner for headless inspection (eval), since a WebGPU
+  // canvas can't be screenshot in the CI/headless env (frontend reports §5.2). Tree-shaken
+  // out of production. Renderer-only; never crosses the telemetry boundary.
+  if (import.meta.env.DEV) {
+    (globalThis as { __doc?: unknown }).__doc = doc;
+    (globalThis as { __postfx?: unknown }).__postfx = postfx; // __postfx.set(strength,radius,threshold)
+  }
   const origin = new FloatingOrigin();
   const interp = new InterpBuffer(/* runSeconds */ 600);
   const director = new DirectorRig();
@@ -215,7 +222,7 @@ async function boot() {
     }
     audio.tick(); // keep the causal crackle stream regenerating (never a loop)
     audio.updatePanel(); // refresh meters + "you are N s away" readout
-    renderer.render(scene, camera);
+    postfx.render(); // §5.2 bloom chain (was renderer.render(scene, camera))
   });
 }
 
