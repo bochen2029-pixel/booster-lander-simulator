@@ -68,7 +68,7 @@ export function buildEarth(): EarthEnv {
       // MUTUALLY EXCLUSIVE with the flat local ground (documentaryScene toggles the land
       // group with the same threshold): the GLOBE owns the frame at altitude (dayF<0.45,
       // ~above 13 km), the flat ground owns it below — so you never see two grounds at once.
-      root.visible = dayF < 0.45;
+      root.visible = dayF < 0.62; // keep the globe (its curvature) down to ~9 km — more of the descent
       atmoMat.opacity = 0.16 * spaceF; // faint limb haze (was 0.35 — it washed the globe gray)
       earth.rotation.z += dtSec * 0.0005; // a slow, subtle spin
     },

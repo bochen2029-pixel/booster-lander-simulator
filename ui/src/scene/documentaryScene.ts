@@ -419,7 +419,7 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       // ...and the flat local ground owns it below — MUTUALLY EXCLUSIVE with the globe
       // (same 0.45 threshold), so the "two overlapping earths" can never happen. (SEA
       // hides the land group entirely; the globe is fine over the ocean.)
-      landGroup.visible = !seaOn && dayF >= 0.45;
+      landGroup.visible = !seaOn && dayF >= 0.62;
 
       // --- pose the booster: sim r/q -> three (frame.ts is the ONLY conversion) -
       simToThreePosition(s.r.x, s.r.y, s.r.z, _p);
