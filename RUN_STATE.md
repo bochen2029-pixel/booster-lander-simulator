@@ -18,6 +18,16 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-038 — the §F.6 target-velocity LEAD is a NULL, reverted (2026-07-20 night).** Tried the design's suggested
+fix for "guidance lags a fast target": reactive velocity-null `−Kvd·v_xy` → `−Kvd·(v_xy−target_vxy)` (match the
+target's motion), fed by a closed-form deck/target velocity, `--no-vlead` A/B gate. Built byte-clean (target_vxy=0
+in all gates ⇒ identical). But it REGRESSES tracking: hoverslam circle ×60 s42 WITH lead vs without — slow
+(3.1 m/s) 55 vs 56, fast (6.3 m/s) **0 vs 12**. The deployed law is a velocity servo whose `vdes` seek is faded by
+`lat_scale` near the deck while the added `target_vxy` is not ⇒ near touchdown it carries the full target velocity
+with no balancing seek and overshoots. The §F.6 one-liner is wrong for this seek+damp structure (a correct lead
+augments the `vdes` SEEK, faded + re-tuned = a real ADR). Reverted to D-037 (selftest PASS, TERMINAL 194/200).
+Slow SEA wander already tracks near-free without it (D-036), so the deployed law is fine for the canonical deck.
+No NP_VERSION bump. Full record: DECISIONS **D-038**.
 **★★★ D-037 — Target Stage-1 COMPLETE: the moving deck reaches the renderer wire (2026-07-20 night).** The last
 open item (the §C renderer marker, "protocol target_xy in TLM") needs NO work and no protocol bump: the v4 WIDE
 SOCKET already carries `target_est_xy@232` + `deck_z@304`, and `fill_tlm` populates them from the nav socket

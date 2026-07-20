@@ -2016,3 +2016,30 @@ pitch/roll (§F), MPPI rollout-level deck-awareness, a fast-wander `target_vxy` 
 heave-phase-timed terminal commit (the D-035 hover-hunt caveat). Ledger-only ADR (no code change; the wire
 was already v4). No NP_VERSION bump.
 
+## D-038 — the §F.6 target-velocity LEAD is a NULL (reverted): the naive one-liner REGRESSES tracking (2026-07-20, night)
+
+Tried the design's suggested §F.6 fix for the "guidance lags a fast-moving target" caveat: change the reactive
+velocity-null from `−Kvd·v_xy` to `−Kvd·(v_xy − target_vxy)` (null velocity RELATIVE to the target = match its
+motion), fed by a new closed-form deck/target velocity (`sea_deck_pose` wander derivative + the existing
+MOD_TARGET `target_vxy`), gated at the host source by `--no-vlead` for a clean A/B. Built, byte-clean (selftest
+PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48 — `target_vxy==0` in every gate path ⇒ `v_xy−0.0` bit-exact).
+
+**But it REGRESSES moving-target tracking** (hoverslam, TERMINAL, circle target ×60 s42, WITH lead vs
+`--no-vlead`):
+
+| target | WITH lead | NO lead (pre-D-038) |
+|---|---|---|
+| slow `circle:20:40` (≈3.1 m/s) | 55/60 | 56/60 |
+| fast `circle:20:20` (≈6.3 m/s) | **0/60** | **12/60** |
+
+Neutral-to-slightly-worse when slow; **catastrophic (0/60) when fast**. Mechanism: the deployed reactive law is
+a velocity servo `a_lat = Kvel·vdes·lat_scale − Kvd·v_xy` whose steady state is `v_xy ≈ (Kvel/Kvd)·vdes·lat_scale`.
+Subtracting `target_vxy` from the DAMPING shifts the steady state to `…+ target_vxy` — but the `vdes` seek is
+faded by `lat_scale` near the deck while the added `target_vxy` is NOT, so near touchdown the vehicle is driven
+to carry the full (fast, direction-slewing for a circle) target velocity with no seek to balance it ⇒ it
+overshoots / never settles. **The §F.6 "one-liner" is wrong for this seek+damp structure.** A correct lead must
+augment the `vdes` SEEK command (and fade consistently with `lat_scale`), then be re-tuned — a real sub-project,
+not a one-liner. Reverted all code to D-037 (byte-clean; selftest PASS, TERMINAL 194/200). Honest null: the
+slow-wander case (D-036) already tracks near-free WITHOUT any lead, so the deployed law is fine for the
+canonical SEA deck; the fast-target lead is deferred to a proper guidance ADR. No NP_VERSION bump.
+
