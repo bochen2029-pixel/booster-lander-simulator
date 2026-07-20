@@ -18,6 +18,16 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-031 — E2: the ENTRY engine-out DAgger round is a NULL (2026-07-20 night).** Full pipeline ran
+clean (teacher farm s0eo2_mppi MPPI+D-030 EO ~10%, shadow farm s0eo2_neural, 8-dataset retrain 9.01M rows,
+NP_VERSION 7 sha 79ae7283, KAT v7 pinned, selftest PASS). But NP_VERSION 7 EO = **6/0/5** of 60 = 11/180,
+WORSE than v6+D-030's 8/4/2 = 14/180 (gust-A also slipped 45→44). The MPPI teacher (~10%) is NOT better than
+the student on EO (v6 8/60) ⇒ distillation just reshuffled (D-025's "can't distill past a same-level teacher",
+now measured directly). REJECTED → reverted to v6 (git checkout; KAT v6 PASS, EO s42 8/60 restored).
+**Distillation-era EO ceiling MAPPED: all controllers ~8–10/60 vs the ~59/60 D-027 frontier — the gap is
+RL-class.** Next: reactive-shadow DAgger (→~9–10, marginal) or RL/learned-entry-divert (reserved, →frontier).
+v7 ckpt `runs\s0eo2.pt` + datasets `data\s0eo2_*` preserved. Full record: DECISIONS **D-031**.
+
 **★★★★★ D-030 — E1.5: the 2-engine ENTRY-DIVERT re-authorization LIFTS engine-out recovery (2026-07-20
 night).** `entry_divert_step` under n_eng<3: bank cap 15°→35° + KR×4/KV×2.5 (byte-clean, frozen #defines;
 n_eng==3 untouched — leak GREEN: selftest PASS, TERMINAL 194/200, MPPI run-1 2.63/10.48). EO recovery

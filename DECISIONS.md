@@ -1764,3 +1764,46 @@ that "would teach failure", D-025). **Next: E2 — an EO DAgger round retraining
 improved-entry-divert EO handoff → NP_VERSION 7 → gates → EO recovery-vs-frontier eval.** No NP_VERSION
 bump in D-030 (no weights export). Artifacts: `runs/D030_draft.md`, `runs/e1_phase_attribution.txt`.
 
+## D-031 — E2: the ENTRY engine-out DAgger round is a NULL — distillation can't exceed a teacher no better than the student (2026-07-20, night)
+
+E2 (ROADMAP): an EO DAgger round on the D-030 entry divert, to teach the clean-trained policy the hot
+2-engine handoff (D-030 revealed reactive 9–10 beats neural 8 on EO). The full pipeline ran clean; the
+honest verdict is a NULL — the retrained policy did NOT improve EO recovery — and it precisely bounds the
+distillation approach. Recorded per the report-the-null tradition (D-018/D-022/D-029); NP_VERSION 7
+REJECTED and reverted to v6.
+
+**The round (all fresh, D-030 regime).** Teacher farm `data\s0eo2_mppi` (12 seeds ×15, MPPI+D-030, ENTRY
+`--engine-out random`): MPPI-with-D-030 EO landed 18/180 ≈ 10%. On-policy shadow farm `data\s0eo2_neural`
+(12 seeds ×15, v6 flies EO+D-030, MPPI shadow-labels the states it visits). Merged retrain over 8 datasets
+(D-028's set with the EO regime swapped to D-030): 9,009,749 rows / 1,800 runs, 543 s CUDA, lateral
+val-MSE 0.059/0.060. Exported NP_VERSION 7 (sha 79ae728395cd60d7); KAT re-pinned from the C pass (selftest
+PASS). All ceremony correct.
+
+**THE VERDICT — no improvement, a slight regression (ENTRY --engine-out random ×60):**
+
+| ENTRY EO ×60 | s42 | s7 | s99 | total |
+|---|---|---|---|---|
+| neural v7 (E2 retrain) | 6/60 | 0/60 | 5/60 | 11/180 |
+| neural v6 + D-030 (baseline) | 8/60 | 4/60 | 2/60 | 14/180 |
+| reactive + D-030 (best controller) | 9/60 | 10/60 | — | — |
+
+The retrain RESHUFFLED (s99 up, s42/s7 down) for a NET LOSS (14→11/180). No-regression also slipped:
+gust-A 45→44 (below the floor by 1); AERO clean 46 held, ENTRY clean 57 held; leak byte-clean (TERMINAL
+194/200, MPPI run-1 2.63/10.48); determinism pair identical (6/60).
+
+**WHY it is null (the finding).** The MPPI+D-030 teacher (~10%) is NOT better than the student on EO
+(v6 = 8/60 ≈ 13%). Distillation converges to the teacher's per-state action distribution — a teacher no
+better than the student cannot lift it (D-025's exact warning, now measured directly). And the BEST EO
+controller, REACTIVE (9–10/60), was NOT distilled (the DAgger shadow taps MPPI, not hoverslam).
+
+**Consequence — the distillation-era EO ceiling is mapped.** Every current EO controller plateaus at
+~8–10/60 (reactive 9–10, neural 8, MPPI ~10) — far from the D-027 frontier (~59/60). The achievable
+distillation-era win is D-030's 1→8–10/60 (mode-independent, shipped). Exceeding it needs a controller
+BETTER than the current teachers, which distillation alone cannot supply. Two honest levers for the next
+arc: (1) distill the BEST teacher — a reactive/hoverslam-shadow DAgger (a shadow-tap change; expected to
+reach ~9–10, i.e. match the hand law in one policy — a marginal, clean gain); (2) the reserved RL lane
+(N3/S2) or a learned/MPPI-planned entry divert, to exceed the hand-controller ceiling toward the frontier.
+NP_VERSION 7 rejected and reverted to v6 (selftest KAT v6 PASS, EO s42 8/60 restored). The v7 checkpoint
+(`runs\s0eo2.pt`) + fresh EO datasets (`data\s0eo2_*`) are preserved for a better-teacher round.
+Artifacts: `runs\e2_gates.txt`, `runs\D031_draft.md`.
+

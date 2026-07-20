@@ -1,0 +1,15 @@
+E2 GATES (NP_VERSION 7) - 04:05:27
+== leak / byte anchors (must be byte-identical: selftest PASS, TERMINAL 194/200, run-1 2.63/10.48) ==
+selftest : SELFTEST: PASS
+TERMINAL x200 : LANDED: 194/200 = 97.0%  (Wilson95: 93.6..98.6%)
+MPPI run-1 : RESULT: HARD  fault=none  td_v=2.63 m/s  lat=10.48 m  tilt=0.23 deg  fuel=4444 kg  t=58.6 s  maxq=35438 Pa
+== no-regression floors (target: AERO>=46, gust-A>=45, ENTRY-clean>=57) ==
+AERO clean s42 : LANDED: 46/60 = 76.7%  (Wilson95: 64.6..85.6%)
+gust-A s42 : LANDED: 44/60 = 73.3%  (Wilson95: 61.0..82.9%)
+ENTRY clean s42 : LANDED: 57/60 = 95.0%  (Wilson95: 86.3..98.3%)
+== THE HEADLINE: EO recovery eval (target: beat D-030 neural 8/4/2, toward reactive 9-10) ==
+EO neural s42 : LANDED: 6/60 = 10.0%  (Wilson95: 4.7..20.1%)
+EO neural s7 : LANDED: 0/60 = 0.0%  (Wilson95: -0.0..6.0%)
+EO neural s99 : LANDED: 5/60 = 8.3%  (Wilson95: 3.6..18.1%)
+EO neural s42 (determinism pair) : LANDED: 6/60 = 10.0%  (Wilson95: 4.7..20.1%)
+E2-GATES-DONE
