@@ -35,7 +35,16 @@ export function buildEarth(): EarthEnv {
   root.visible = false;
 
   const tex = makeEarthTexture();
-  const earthMat = new MeshStandardMaterial({ map: tex, roughness: 0.96, metalness: 0.0 });
+  // self-lit via emissiveMap so the globe reads its blue/green even where the sun isn't
+  // facing it (the hemisphere fill is dimmed in space) — otherwise it renders flat gray.
+  const earthMat = new MeshStandardMaterial({
+    map: tex,
+    emissiveMap: tex,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.4,
+    roughness: 0.96,
+    metalness: 0.0,
+  });
   const earth = new Mesh(new SphereGeometry(EARTH_R, 96, 96), earthMat);
   root.add(earth);
 
@@ -56,8 +65,11 @@ export function buildEarth(): EarthEnv {
     root,
     update(dayF, dtSec) {
       const spaceF = 1 - dayF; // 0 at sea level, 1 in space
-      root.visible = spaceF > 0.02;
-      atmoMat.opacity = 0.35 * spaceF;
+      // MUTUALLY EXCLUSIVE with the flat local ground (documentaryScene toggles the land
+      // group with the same threshold): the GLOBE owns the frame at altitude (dayF<0.45,
+      // ~above 13 km), the flat ground owns it below — so you never see two grounds at once.
+      root.visible = dayF < 0.45;
+      atmoMat.opacity = 0.16 * spaceF; // faint limb haze (was 0.35 — it washed the globe gray)
       earth.rotation.z += dtSec * 0.0005; // a slow, subtle spin
     },
     dispose() {
@@ -124,14 +136,14 @@ function makeEarthTexture(): CanvasTexture {
       let b: number;
       if (n > 0.52) {
         const h = (n - 0.52) / 0.48; // 0..1 inland
-        r = 58 + 95 * h;
-        g = 96 + 68 * h;
-        b = 44 + 30 * h; // greens → browns
+        r = 66 + 104 * h;
+        g = 130 + 42 * h;
+        b = 58 + 34 * h; // vivid green coasts → tan interior
       } else {
         const dep = (0.52 - n) / 0.52; // 0 shallow .. 1 deep
-        r = 10 + 22 * (1 - dep);
-        g = 38 + 46 * (1 - dep);
-        b = 78 + 78 * (1 - dep); // deep navy → shallow teal
+        r = 22 + 44 * (1 - dep);
+        g = 72 + 74 * (1 - dep);
+        b = 128 + 96 * (1 - dep); // deep blue → bright cyan shallows (was dark navy = gray)
       }
       // ice caps toward the poles
       if (iceFade > 0) {

@@ -415,7 +415,11 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       }
       hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
       starMat.opacity = (1 - dayF) * 0.9; // stars fade in as the sky goes to space
-      earth.update(dayF, dtSec); // show the globe in space, hide it at sea level
+      earth.update(dayF, dtSec); // globe owns the frame at altitude (dayF<0.45)
+      // ...and the flat local ground owns it below — MUTUALLY EXCLUSIVE with the globe
+      // (same 0.45 threshold), so the "two overlapping earths" can never happen. (SEA
+      // hides the land group entirely; the globe is fine over the ocean.)
+      landGroup.visible = !seaOn && dayF >= 0.45;
 
       // --- pose the booster: sim r/q -> three (frame.ts is the ONLY conversion) -
       simToThreePosition(s.r.x, s.r.y, s.r.z, _p);
