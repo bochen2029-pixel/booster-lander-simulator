@@ -1,0 +1,6 @@
+v6 ENTRY --engine-out random x60 (neural vs mppi, held-out) — 23:01:59
+s42 neural: LANDED: 1/60 = 1.7%  (Wilson95: 0.3..8.9%)
+s7 neural: LANDED: 0/60 = 0.0%  (Wilson95: -0.0..6.0%)
+s99 neural: LANDED: 0/60 = 0.0%  (Wilson95: -0.0..6.0%)
+s42 mppi(teacher): LANDED: 1/60 = 1.7%  (Wilson95: 0.3..8.9%)
+EO-BASELINE-DONE

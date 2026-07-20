@@ -14,12 +14,13 @@
 ## STATUS (update on every ADR)
 - **HEAD: 79fa8c0 (D-028).** Canon = `CLAUDE_v2.md`. **NP_VERSION 6** (sha b4734b48).
 - Learned policy: AERO clean **46** (teacher+2), gust **45** (teacher+7), **ENTRY clean 57/56/58** (teacher parity). No forgetting ×7.
-- **D-027:** engine-out collapse is a **CONTROLLER SHORTFALL** — the whole random-EO draw is in-frontier ⇒ claimable.
+- **D-027 + E0/E0b:** engine-out collapse is a **CONTROLLER SHORTFALL** (gilded on all 4 axes) — whole random-EO draw in-frontier ⇒ ~59/60 claimable. **v6 EO baseline = 1/0/0 (= MPPI); E1 is the real work.**
+- **NEXT BOX = E1** (the expert-iteration EO teacher build). Perpetual-plan setup DONE: ROADMAP.md + `.claude/settings.json` SessionStart/PostCompact hook force resume onto this map.
 - Model: **Opus 4.8** (Fable weekly maxed — stay on Opus). Machine sleeps; detached jobs resume on wake.
 
 ## THE MAP — the engine-out arc → N3 showcase (the operator's ORIGINAL wow)
-- ⬜ **E0 — v6 EO baseline** (`runs\eo_baseline_v6.txt`, in flight): free-competence ENTRY `--engine-out random` ×60 ×3 + MPPI comparator. On done → log to handoff; it sets the bar E1/E2 must beat.
-- ⬜ **E0b — oracle gilding** (cheap, farm-free): one `--engine-out 1@11 --mppi` verbose ENTRY replay logging wmag/gimbal/dist_pad(t) → closes the single axis D-027 *bounded* (the 6-DOF attitude transient). Append to `runs\eo_frontier_report.md`.
+- ✅ **E0 — v6 EO baseline** (`runs\eo_baseline_v6.txt`): v6 on `--engine-out random` ×60 = **1/60 · 0/60 · 0/60** (s42/s7/s99) = dead parity with MPPI 1/60. ENTRY competence does NOT transfer to EO for free; ~59/60 claimable headroom. E1/E2 confirmed necessary.
+- ✅ **E0b — oracle gilding** (`runs\eo_gild_1at11.txt`, report §8): `1@11 --mppi` = CRASHED lat 118.85 m **tilt 0.02°** fault=none → attitude held, NO tumble; pure lateral-CLOSURE failure. D-027 verdict now gilded on all 4 axes.
 - ⬜ **E1 — expert-iteration EO TEACHER build** (`guidance_mppi.c` neural-warm-start mode; default-off byte-clean; design = `runs\expert_iteration_design.md` cbc89fe). Ship its own ADR with **validity tables** (composite-vs-student AND composite-vs-teacher on ENTRY engine-out) BEFORE it labels a single training row. EO is rollout-visible ⇒ the composite operator is valid. **Do while exe is farm-free (LNK1104).**
 - ⬜ **E2 — ENTRY engine-out DAgger rounds**: teacher farm (the better teacher) + on-policy shadow → merged retrain → **NP_VERSION 7** → KAT ceremony (C pass) → full gates + no-regression floors (AERO 46 / gust 45 / ENTRY-clean ≥57) → ENTRY `--engine-out random` ×60 ×3 eval, **scored recovery-vs-frontier** (D-027 oracle = the honest denominator). Expect a ladder like ENTRY clean's 0→52→57.
 - ⬜ **E3 — pairwise**: gust + engine-out together. Mixed-rung ⇒ operators in SERIES, verdict arbitrates (cbc89fe routing).

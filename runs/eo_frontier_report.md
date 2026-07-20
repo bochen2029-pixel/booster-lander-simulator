@@ -300,3 +300,27 @@ are untouched; nothing in `core/` or the goldens was modified; nothing committed
 | D-020 smoke: in-burn 1@20 --mppi CRASHED 1787 m off | `DECISIONS.md:1299` |
 | clean ENTRY frontier 25 590 m + phase decomposition | `runs/sandbox/entrydiv.c`, `entrydiv_out.txt:24-34` |
 | engineout_design §8.2: frontier shrinks, ~60 % cone on trim, LOC honest failure | `runs/engineout_design.md:376-383` |
+
+---
+
+## §8. GILDING MEASUREMENT (main session, E0b — 2026-07-19 night)
+
+The one axis a *static decoupled* oracle bounded rather than closed — the coupled 6-DOF
+attitude-during-divert transient — is now measured. A single `--engine-out 1@11 --mppi` ENTRY
+verbose run (seed 42, run 3; `runs/eo_gild_1at11.txt`):
+
+`RESULT: CRASHED  fault=none  td_v=5.30 m/s  lat=118.85 m  tilt=0.02 deg  t=121.6 s`
+
+**Verdict CORROBORATED.** The vehicle touched down **dead upright (tilt 0.02°)** with **fault=none**
+(no LOC/STRUCT/THERMAL) — the attitude loop held cleanly through the engine-out; there is **no
+tumble**. The crash is a pure **lateral-closure failure** (lat 118.85 m > 26 m pad radius, arriving
+soft at 5.30 m/s). This is the closed-loop confirmation that MPPI's engine-out losses are
+reach/closure shortfalls, not attitude loss — so the "CONTROLLER SHORTFALL, not physics" verdict
+now holds on all four axes (lateral reach, static attitude hold, deployed-law achievability, and
+the live 6-DOF transient). The expert-iteration EO teachers' territory stands at the full
+in-frontier distribution.
+
+**E0 companion baseline (main session):** v6 (ENTRY-competent, EO-untrained) on `--engine-out
+random` ×60 = **1/60 s42 · 0/60 s7 · 0/60 s99**, at dead parity with MPPI's 1/60 — ENTRY-clean
+competence does NOT transfer to engine-out for free, confirming E1/E2 (the EO teachers) are the
+necessary next work, with ~59/60 of claimable headroom.
