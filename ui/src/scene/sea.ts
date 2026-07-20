@@ -136,12 +136,14 @@ export function buildSea(padRadius = 30): SeaEnv {
   // --- far ocean: a flat blue disc to the fog horizon (fills the distance) -----
   const farMat = new MeshStandardMaterial({
     color: SEA_DEEP,
-    roughness: 0.35,
+    roughness: 0.55, // matte enough that the sun doesn't burn a blooming specular band
     metalness: 0.0,
-    emissive: SEA_DEEP, // a blue floor so the water never washes to the tan ground-bounce
-    emissiveIntensity: 0.28,
+    emissive: SEA_DEEP, // faint blue floor so the water never washes to the tan ground-bounce
+    emissiveIntensity: 0.08,
   });
-  const farOcean = new Mesh(new CircleGeometry(60_000, 96), farMat);
+  // reaches well past the fog horizon so its edge never shows and the Earth globe can't peek
+  // out behind it at altitude (that gap was the white haze band on the sea horizon).
+  const farOcean = new Mesh(new CircleGeometry(250_000, 96), farMat);
   farOcean.rotation.x = -Math.PI / 2;
   farOcean.position.y = -0.15; // just under the near grid so the grid reads on top
   farOcean.receiveShadow = false;
@@ -170,16 +172,18 @@ export function buildSea(padRadius = 30): SeaEnv {
   const hullMat = new MeshStandardMaterial({ color: HULL_STEEL, roughness: 0.78, metalness: 0.32 });
   const trimMat = new MeshStandardMaterial({ color: DECK_TRIM, roughness: 0.7, metalness: 0.4 });
 
-  // hull body (dark steel sides; top face is the landing deck at y=0)
+  // hull body (dark steel sides; top face is the landing deck at y=0). A lighter deck-plate
+  // slab is inset just BELOW the top and the bullseye rides ABOVE it, so no two faces share a
+  // plane (coincident faces at y=0 were z-fighting into a crosshatch moiré).
   const hull = new Mesh(new BoxGeometry(deckLen, hullH, deckWid), hullMat);
-  hull.position.y = -hullH / 2;
+  hull.position.y = -hullH / 2 - 0.4; // top at y=-0.4, under the deck plate
   hull.castShadow = true;
   hull.receiveShadow = true;
   deck.add(hull);
 
-  // lighter deck plating slab on top so the landing surface reads distinct from the hull
-  const plate = new Mesh(new BoxGeometry(deckLen * 0.99, 0.7, deckWid * 0.99), deckMat);
-  plate.position.y = -0.35;
+  // lighter deck plating: a slab sitting ON the hull, its top the landing surface (y≈0)
+  const plate = new Mesh(new BoxGeometry(deckLen * 0.99, 0.8, deckWid * 0.99), deckMat);
+  plate.position.y = -0.4; // top at y=0, bottom on the hull top (y=-0.8)
   plate.receiveShadow = true;
   deck.add(plate);
 
@@ -347,11 +351,11 @@ function buildOceanGrid(span: number, seg: number): OceanGrid {
 
   const mat = new MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.2, // glossy water; the sun key gives a specular sheet
+    roughness: 0.42, // semi-gloss: a soft sun sheen, not a blown-out mirror band
     metalness: 0.0,
     side: DoubleSide,
-    emissive: SEA_DEEP, // blue floor: down-facing wave slopes keep the ocean color, not tan
-    emissiveIntensity: 0.22,
+    emissive: SEA_DEEP, // faint blue floor so wave slopes keep the ocean color, not tan
+    emissiveIntensity: 0.07,
   });
   const mesh = new Mesh(geo, mat);
   mesh.receiveShadow = true;

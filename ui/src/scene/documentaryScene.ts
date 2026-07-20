@@ -420,7 +420,10 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       }
       hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
       starMat.opacity = (1 - dayF) * 0.9; // stars fade in as the sky goes to space
-      earth.update(dayF, dtSec); // globe owns the frame at altitude (dayF<0.45)
+      // The stylized Earth globe is for the LAND/RTLS entry view. In SEA mode the ocean disc
+      // is the surface, so HIDE the globe (passing dayF=1 keeps it hidden) — otherwise the
+      // globe + its atmosphere peek out behind the ocean at altitude as a white haze band.
+      earth.update(seaOn ? 1.0 : dayF, dtSec); // globe owns the frame at altitude (land only)
       // ...and the flat local ground owns it below — MUTUALLY EXCLUSIVE with the globe
       // (same 0.45 threshold), so the "two overlapping earths" can never happen. (SEA
       // hides the land group entirely; the globe is fine over the ocean.)
