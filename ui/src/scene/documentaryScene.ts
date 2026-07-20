@@ -39,6 +39,10 @@ import {
   GridHelper,
   LineBasicMaterial,
   DoubleSide,
+  Points,
+  PointsMaterial,
+  BufferGeometry,
+  BufferAttribute,
 } from "three/webgpu";
 import type { Scene } from "three/webgpu";
 import { simToThreePosition, simToThreeQuaternion } from "../net/frame";
@@ -149,6 +153,34 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const rim = new DirectionalLight(0x6f9bff, 0.7);
   rim.position.set(-70, 50, -60);
   scene.add(rim);
+
+  // --- STARS: a faint field that fades IN with the darkening sky at altitude (the space
+  // backdrop for the entry / high-altitude regime; invisible in bright day). Upper
+  // hemisphere only (above the horizon). In the rebased `world` so it shares the
+  // floating-origin frame; radius within the 200 km far plane. Opacity driven in update().
+  const STAR_N = 2600;
+  const STAR_R = 120000;
+  const starPos = new Float32Array(STAR_N * 3);
+  for (let i = 0; i < STAR_N; i++) {
+    const z = Math.random(); // cos(theta) in [0,1] => above-horizon hemisphere
+    const s = Math.sqrt(1 - z * z);
+    const ph = Math.random() * Math.PI * 2;
+    starPos[i * 3] = STAR_R * s * Math.cos(ph);
+    starPos[i * 3 + 1] = STAR_R * s * Math.sin(ph);
+    starPos[i * 3 + 2] = STAR_R * z + 400; // world Z-up, lifted off the horizon line
+  }
+  const starGeo = new BufferGeometry();
+  starGeo.setAttribute("position", new BufferAttribute(starPos, 3));
+  const starMat = new PointsMaterial({
+    color: 0xdfe8ff,
+    size: 1.6,
+    sizeAttenuation: false, // screen-space pixels => crisp star points at any range
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  const stars = new Points(starGeo, starMat);
+  world.add(stars);
 
   // --- plume light (canon §B.3 "plume as light, first among equals") ----------
   // A point light at the bell whose intensity/color track throttle. At night this
@@ -366,6 +398,7 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
       (scene.background as Color).lerpColors(_skySpace, _skyDay, dayF);
       if (scene.fog) (scene.fog as Fog).color.lerpColors(_fogSpace, _fogDay, dayF);
       hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
+      starMat.opacity = (1 - dayF) * 0.9; // stars fade in as the sky goes to space
 
       // --- pose the booster: sim r/q -> three (frame.ts is the ONLY conversion) -
       simToThreePosition(s.r.x, s.r.y, s.r.z, _p);
