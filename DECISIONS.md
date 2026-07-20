@@ -1629,3 +1629,40 @@ rollout-visible so the composite operator applies) are now UNBLOCKED with maxima
 ENTRY round-3 farm (seeds 3300–3311, NP_VERSION 5 flying) is in flight in parallel toward D-028.
 Oracle artifacts committed with this entry.
 
+## D-028 — ENTRY round-3: the student REACHES its teacher on ENTRY clean (2026-07-19, night)
+
+**NP_VERSION 6** (weights_sha256[:16]=b4734b4838c4d1b0; 8,979,546 rows / 1,980 runs across EIGHT
+datasets — clean r0+r1, gusty ×2, engine-out ×2, ENTRY clean ×2 rounds; 659 s CUDA; KAT re-pinned
+from the C pass: −2.9905087230062684 / 2.8676126619562528 / 0.40000000368630478).
+
+**THE RESULT — teacher parity on ENTRY clean, in two DAgger rounds from zero:**
+
+| ENTRY clean ×60 (held-out) | s42 | s7 | s99 | total |
+|---|---|---|---|---|
+| `--neural` v6 (round-3) | **57/60** | **56/60** | **58/60** | **171/180 = 95.0%** |
+| `--neural` v5 (round-2, D-026) | 52/60 | 52/60 | 52/60 | 156/180 = 86.7% |
+| MPPI teacher | 57/60 (same s42 ×60) | 91/100 | 93/100 | (D-016 per-100) |
+
+Dead parity with MPPI on the IDENTICAL s42 ×60 batch (57 == 57); AHEAD on s7/s99 by rate
+(93.3/96.7% vs 91/93%). The ladder: **0/60 (v4) → 52/60 (v5) → 57/60 (v6)** — teacher-matched in
+two on-policy rounds. Determinism pair on s42 bit-identical (57/60; landed means td_v 2.80,
+lat 8.17, tilt 2.45, fuel 2418). Landers stay tight.
+
+**No forgetting, SEVENTH consecutive time:** AERO clean 46/60 (teacher+2), gust-A 45/60
+(teacher+7) — both bit-match v5. One 37,379-param net now carries FOUR regimes (AERO clean, gust,
+engine-out exposure, ENTRY clean across two scenario families) from an 8.98M-row curriculum with
+zero degradation.
+
+Gates green: selftest (KAT v6 pinned from the C pass — the temp-printf ceremony, never numpy);
+TERMINAL ×200 byte-exact vs golden; MPPI run-1 HARD 2.63/10.48 exact; ENTRY s42 determinism pair
+identical; held-out law intact (train seeds 1000s/2000s/3000s/3200s/3300s; eval s42/s7/s99 never
+trained).
+
+**Milestone effect:** ENTRY clean is now a SOLVED regime for the learned policy at teacher parity
+— the last competence prerequisite for engine-out recovery. The D-025/D-027 blocking pair is
+HALF-cleared (D-027: the whole random-EO distribution is in-frontier ⇒ claimable). Next: build the
+expert-iteration EO teachers (cbc89fe) → ENTRY engine-out DAgger rounds → pairwise → the compound
+N3 showcase. Process nulls recorded honestly (HANDOFF live-log): a PID-reuse monitor miss (~26 min)
+and a Start-Job-isn't-detached eval miss — both now trap-ledgered (detached = Start-Process; watch
+the artifact, never a PID). Artifacts: runs/d028_entry_eval.txt.
+

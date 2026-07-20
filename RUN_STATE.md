@@ -18,6 +18,18 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★★★ D-028 — ENTRY ROUND-3: THE STUDENT REACHES ITS TEACHER (2026-07-19 night): ENTRY clean
+57/56/58 of 60 held-out (171/180 = 95.0%) — DEAD PARITY with MPPI on the identical s42 batch
+(57==57), AHEAD on s7/s99 (93.3/96.7% vs 91/93%).** The ladder 0→52→57 in two DAgger rounds.
+NP_VERSION 6 (8.98M rows / 8 datasets; sha b4734b48; KAT v6 pinned from the C pass). Determinism
+pair identical (td_v 2.80, lat 8.17). No forgetting, 7th time: AERO clean 46, gust-A 45 bit-stable.
+All gates green (selftest, TERMINAL byte, run-1 exact, held-out law). ENTRY clean is now a SOLVED
+regime at teacher parity — the last competence prereq before engine-out recovery. **Next: the
+expert-iteration EO teachers (cbc89fe; D-027 proved the whole random-EO draw is in-frontier =
+claimable) → ENTRY engine-out DAgger → pairwise → N3 compound showcase.** Two process nulls logged
+(PID-reuse monitor miss; Start-Job-not-detached) → trap rules: detached=Start-Process, watch the
+artifact never a PID. Full record: DECISIONS **D-028**.
+
 **★★★★★ D-027 — THE 2-ENGINE FRONTIER ORACLE VERDICT (2026-07-19 evening): MPPI's engine-out
 collapse is a CONTROLLER SHORTFALL, not physics.** `runs/sandbox/ceiling_eo.c` (entrydiv.c's
 dt-converged 62 km ENTRY machinery + ground-truthed EO physics: side engine, t_fail~U[4,18]s,

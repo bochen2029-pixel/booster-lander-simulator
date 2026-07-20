@@ -1,0 +1,5 @@
+D-028 ENTRY clean x60 --neural (NP_VERSION 6) — 22:45:52
+s42: LANDED: 57/60 = 95.0%  (Wilson95: 86.3..98.3%)
+s7: LANDED: 56/60 = 93.3%  (Wilson95: 84.1..97.4%)
+s99: LANDED: 58/60 = 96.7%  (Wilson95: 88.6..99.1%)
+ENTRY-EVAL-DONE
