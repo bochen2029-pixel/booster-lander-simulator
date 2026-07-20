@@ -37,6 +37,7 @@ import { mountAudio } from "./audio"; // S3 audio observer (self-contained, mute
 import { mountShell } from "./shell/mount"; // S0 LZ-COCKPIT chrome (self-contained, dual-target)
 import { installInjectPanel } from "./hud/injectPanel"; // Mode 2 failure-injection buttons (§M2)
 import { buildPostFx } from "./scene/postfx"; // §5.2 emissive/HDR bloom post-pass
+import { installFidelity } from "./hud/fidelity"; // GFX HIGH/LOW toggle
 
 async function boot() {
   const { renderer, scene, camera, backend } = await createRenderer();
@@ -53,6 +54,16 @@ async function boot() {
     (globalThis as { __doc?: unknown }).__doc = doc;
     (globalThis as { __postfx?: unknown }).__postfx = postfx; // __postfx.set(strength,radius,threshold)
   }
+
+  // GRAPHICS FIDELITY toggle (HIGH/LOW, top-right, persisted): LOW renders at 1× pixel
+  // ratio and BYPASSES the bloom pass (the two biggest costs beside the volumetric plume)
+  // — a big win on weak GPUs. `bloomOn` gates the render path in the loop below.
+  let bloomOn = true;
+  installFidelity((level) => {
+    const low = level === "LOW";
+    renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
+    bloomOn = !low;
+  });
   const origin = new FloatingOrigin();
   const interp = new InterpBuffer(/* runSeconds */ 600);
   const director = new DirectorRig();
@@ -223,7 +234,8 @@ async function boot() {
     }
     audio.tick(); // keep the causal crackle stream regenerating (never a loop)
     audio.updatePanel(); // refresh meters + "you are N s away" readout
-    postfx.render(); // §5.2 bloom chain (was renderer.render(scene, camera))
+    if (bloomOn) postfx.render(); // §5.2 bloom chain (HIGH)
+    else renderer.render(scene, camera); // LOW fidelity: skip the bloom post-pass
   });
 }
 
