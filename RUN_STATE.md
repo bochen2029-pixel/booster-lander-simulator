@@ -18,6 +18,21 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★★ D-027 — THE 2-ENGINE FRONTIER ORACLE VERDICT (2026-07-19 evening): MPPI's engine-out
+collapse is a CONTROLLER SHORTFALL, not physics.** `runs/sandbox/ceiling_eo.c` (entrydiv.c's
+dt-converged 62 km ENTRY machinery + ground-truthed EO physics: side engine, t_fail~U[4,18]s,
+profile RE-INTEGRATED, trim debit swept 40/60/80%; self-tests ALL PASS 0.000%): **in-frontier
+fraction ≈ 1.000** — lateral D_phys_2eng ≥ 12,656 m worst-case vs 3,000 m offsets; attitude
+statically holdable (trim_frac 0.51 of the gimbal cone, ~11 s to LOC vs 3 s dwell); the shipped
+reactive divert itself closes 3 km → 12–15 m under 2-engine authority. Clincher: MPPI's D-020
+crash at 1,787 m == the burn-cut offset band (closure failure, not tumble); fuel non-binding.
+⇒ EO teachers (cbc89fe) UNBLOCKED with the ENTIRE random-draw distribution as claimable
+territory; showcase §G.2 framing corrected (honest adjacent failure must be MANUFACTURED —
+6–8 km, center-out, or two-out). Queued gilding measurement: one 6-DOF `--engine-out 1@11
+--mppi` replay (farm-free window). **ENTRY round-3 farm in flight** (seeds 3300–3311, v5
+policy, deadline 21:45) toward NP_VERSION 6 / D-028. Full record: DECISIONS **D-027**,
+runs/eo_frontier_report.md.
+
 **★★★★★ D-026 — ENTRY ROUND-2 (2026-07-19 ~19:40): 0/60 → 52/60 IN ONE ON-POLICY ROUND —
 IDENTICAL 52/60 ON ALL THREE HELD-OUT SEEDS (156/180 = 86.7%).** NP_VERSION 5 (8.00M rows /
 1,800 runs, seven datasets; sha f12edc76…; KAT re-pinned from the C pass). The v4 near-miss

@@ -1582,3 +1582,50 @@ if desired (52→teacher-parity), then THE TWO BLOCKING ITEMS for the engine-out
 without it) and the expert-iteration teachers (cbc89fe) for the in-frontier subset — then
 pairwise → the joint compound (N3, the showcase + the M4 attempt).
 
+## D-027 — The 2-engine frontier oracle: MPPI's engine-out collapse is a CONTROLLER SHORTFALL, not physics (2026-07-19, evening)
+
+The D-025 BLOCKING item, delivered. `runs/sandbox/ceiling_eo.c` (+ `.exe`, `ceiling_eo_out.txt`;
+full record `runs/eo_frontier_report.md`) — sandbox precompute per directive 11, sim tree and
+goldens untouched. Built on `runs/sandbox/entrydiv.c`'s dt-converged 62 km ENTRY machinery (NOT
+the AERO-specific ceiling.c — the honest scope call), with the engine-out physics ground-truthed
+against the plant: SIDE engine at t_fail ~ U[4,18] s (`main.c:346,350`), n_eng 3→2 with the
+vertical profile RE-INTEGRATED (not patched), survivor-centroid trim debit swept 40/60/80%.
+Self-tests ALL PASS at 0.000% (bang-bang closed form; t_fail-past-burn-end and no-op limits both
+reproduce the clean frontier 25 590.5 m byte-faithfully).
+
+**THE VERDICT — in-frontier fraction ≈ 1.000: essentially EVERY random engine-out draw leaves
+the vehicle inside the shrunken reachable set.** Three independent axes concur:
+1. **Lateral reach:** D_phys_2eng(t_fail) ≥ **12 656 m** worst-case (earliest failure × 80%
+   debit) vs the 3 000 m offset (4σ ≈ 4 123 m). The frontier shrinks monotonically exactly as
+   engineout_design §8.2 predicted — and never comes within 3× of the offsets flown.
+2. **Attitude/LOC:** trim_frac ≈ 0.51 of the ±5° gimbal cone (matching §8.2's ~60% estimate) —
+   statically holdable with margin; time-to-LOC ≈ 11 s ≫ the 3 s dwell. No guaranteed-LOC
+   anywhere in the failure window.
+3. **Achievability by the DEPLOYED law:** the shipped KR=2.0/KV=3.5 divert under 2-engine
+   authority (pessimistic 60% debit) closes 3 km → **12–15 m on-pad** at every in-window t_fail.
+
+**The clincher (D-020 corroboration):** the closed-loop trace shows ~1 680–1 926 m off-pad at
+burn-cut, and D-020's smoke (`1@20 --mppi`) crashed at 1 787 m — inside that band. A controller
+landing 1 787 m out when the reachable set closes to 15 m failed to CLOSE, not to survive. Fuel
+is non-binding (2-engine burns qbar-cut at HIGHER reserve: 7 020–8 582 kg vs 6 999 clean).
+
+**Implications adopted:**
+- **The expert-iteration EO teachers' target subset = the ENTIRE random-draw distribution** —
+  56 of MPPI's 57 lost descents are territory to claim. Prime suspects for the collapse
+  mechanism (report §7): the hotter 2-engine handoff (v_cut 231 vs 114 m/s) interacting with the
+  D-009 terminal-null fade residual, and MPPI's rollout not modeling the entry burn (§C.4).
+- **Showcase framing corrected (canon §G.2):** the in-frontier hero run is honest and ABUNDANT
+  (no cherry-picking needed); the adjacent out-of-frontier honest failure must be MANUFACTURED
+  (6–8 km offset, a center-engine landing-burn failure, or two-out). Never claim "the frontier
+  shrank beyond recovery" — falsified here.
+- **Honest scope:** a static decoupled oracle BOUNDS (not closes) the coupled 6-DOF
+  attitude-during-divert transient; margins (51% cone, 11 s LOC) + the D-020 closure-failure
+  signature make the transient explanation of 95%→1.7% very unlikely. The gilding measurement —
+  one 6-DOF `--engine-out 1@11 --mppi` ENTRY replay logging wmag/gimbal/dist_pad(t) — is queued
+  for the next farm-free window (it needs the exe).
+
+**Milestone effect:** the expert-iteration EO teachers (cbc89fe operators; engine-out IS
+rollout-visible so the composite operator applies) are now UNBLOCKED with maximal territory;
+ENTRY round-3 farm (seeds 3300–3311, NP_VERSION 5 flying) is in flight in parallel toward D-028.
+Oracle artifacts committed with this entry.
+

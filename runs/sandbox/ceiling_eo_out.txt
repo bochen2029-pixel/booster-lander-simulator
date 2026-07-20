@@ -1,0 +1,122 @@
+================================================================================
+ 2-ENGINE FRONTIER ORACLE (ceiling_eo.c) — ENTRY engine-out (D-025 BLOCKING)
+================================================================================
+Engine: T_vac=931897.2 N  thrust3(1,0)=2795691.5  thrust2(1,0)=1863794.3 N
+ENG_RING_R=1.098 m  side-out centroid=R/2=0.549 m  gimbal_max=5.0 deg
+ENTRY IC (scenario.c:18): h0=62000 vz0=-1500 offset=3000 prop0=30000 (com0=12.43)
+Random draw (main.c:346,350): SIDE engine, t_fail ~ U[4,18] s ; offset mean 3000 sigma 250/axis
+LOC gate (sim.c:566): wmag>2 rad/s sustained >3 s -> F_LOC
+
+--- SELF-TESTS (closed-form limits) ---
+  ST1 bang-bang: solver=1200.00 cf=1200.00 (err 0.000%) ; vcap: solver=791.67 cf=791.67 (err 0.000%) -> PASS
+  ST2 t_fail=60s (after ~25s cut): D=25590.5  vs clean D=25590.5  (err 0.0000%) -> PASS
+  ST3 t_fail=1s but n_eng_after=3 & steer=1.0 (no-op): D=25590.5 vs clean D=25590.5 (err 0.0000%) -> PASS
+  SELF-TEST: ALL PASS
+
+--- dt-convergence: D_phys_2eng at t_fail=11s, steer_frac=0.5 (60% debit) ---
+   dt(s)     D_phys_2eng(m)   D_burn_only(m)   v_cut(m/s)   fuel_after(kg)
+   0.0040         22781.0           2134.0        231.1          7632
+   0.0020         22775.2           2133.7        231.3          7635
+   0.0010         22775.0           2133.5        231.3          7635
+   0.0005         22774.1           2133.5        231.3          7635
+
+--- CLEAN 3-engine reference (parity vs entrydiv.c) ---
+ D_phys_clean (vcap250, whole-traj) = 25590.5 m  (entrydiv.c reported 25590) ; burn-only=2627.7 m
+ v_cut=114.2 m/s  fuel_after_entry=6999 kg  vert_ok=1
+
+================= D_phys_2eng(t_fail) — the SHRUNKEN FRONTIER =================
+ One SIDE engine dies at t_fail (n_eng 3->2). Whole-trajectory vcap250 divert.
+ steer_frac = fraction of the +-5deg gimbal cone left for STEERING after the survivor-
+ centroid trim debit (0.60=60% debit, 0.40=40%, 0.20=80%). Offset to close = 3000 m.
+
+   t_fail(s)   D_2eng[debit40%,sf=.60]  D_2eng[debit60%,sf=.40]  D_2eng[debit80%,sf=.20]   v_cut(m/s)  fuel(kg)
+       4.0                18711.0               16140.1               12656.2       336.0      8582
+       5.0                19375.3               17118.0               13756.0       320.8      8442
+       6.0                20016.6               18099.7               14873.4       305.8      8304
+       7.0                20633.3               19079.9               16005.8       291.0      8170
+       8.0                21235.3               20063.9               17160.9       275.8      8033
+       9.0                21815.1               21031.2               18331.1       260.8      7896
+      10.0                22366.0               21937.2               19508.3       246.0      7765
+      11.0                22890.7               22606.8               20688.4       231.3      7635
+      12.0                23398.4               23203.6               21872.2       216.4      7502
+      13.0                23869.4               23748.7               23019.5       201.9      7377
+      14.0                24310.4               24247.5               24055.8       187.6      7253
+      16.0                25082.5               25080.1               25073.0       159.9      7020
+      18.0                25306.4               25306.4               25306.4       148.5      6999
+
+ Interpretation: if EVERY cell >> 3000 m, the LATERAL 2-engine reachable set is NOT the
+ binding constraint -> MPPI's 1/60 is NOT a lateral-frontier (directive-6) failure.
+
+================= LOC / ATTITUDE RECOVERABILITY (the axis lateral reach misses) =================
+ Induced torque tau=F_surv*R/2 ; alpha=tau/I_tr ; max counter-gimbal M=com*F_surv*sin(5deg).
+ trim_frac=tau/M (>=1 => gimbal CANNOT null => guaranteed LOC). t_to_wmag2 = 2/alpha (rad/s
+ reached if UNcorrected; the F_LOC dwell is 3 s). Evaluated at each failure instant.
+
+   t_fail(s)  h_fail(m)  m(kg)   com(m)   I_tr(kg m^2)  tau(N m)   alpha(rad/s^2)  M_gim(N m)  trim_frac  t_wmag2(s)  HOLDABLE
+       4.0     56333   51932   12.38    6.115e+06  1.023e+06        0.167    2.010e+06     0.509     11.952   yes
+       5.0     55026   51017   12.37    6.071e+06  1.023e+06        0.169    2.008e+06     0.509     11.866   yes
+       6.0     53763   50100   12.35    6.027e+06  1.023e+06        0.170    2.007e+06     0.510     11.780   yes
+       7.0     52547   49183   12.34    5.983e+06  1.023e+06        0.171    2.005e+06     0.510     11.694   yes
+       8.0     51377   48267   12.33    5.939e+06  1.023e+06        0.172    2.003e+06     0.511     11.609   yes
+       9.0     50256   47350   12.32    5.895e+06  1.023e+06        0.174    2.002e+06     0.511     11.524   yes
+      10.0     49183   46432   12.32    5.852e+06  1.023e+06        0.175    2.000e+06     0.511     11.439   yes
+      11.0     48161   45516   12.31    5.809e+06  1.023e+06        0.176    1.999e+06     0.512     11.355   yes
+      12.0     47192   44599   12.30    5.765e+06  1.023e+06        0.177    1.998e+06     0.512     11.270   yes
+      13.0     46275   43683   12.29    5.722e+06  1.023e+06        0.179    1.997e+06     0.512     11.186   yes
+      14.0     45413   42766   12.29    5.680e+06  1.023e+06        0.180    1.996e+06     0.513     11.103   yes
+      16.0     43857   40933   12.28    5.594e+06  1.023e+06        0.183    1.994e+06     0.513     10.936   yes
+      18.0     42536   39099   12.27    5.509e+06  1.023e+06        0.186    1.993e+06     0.513     10.771   yes
+
+ Interpretation: trim_frac<1 everywhere => the 2-engine gimbal CAN statically hold the
+ survivor-centroid trim (attitude is recoverable), leaving (1-trim_frac) of the cone to
+ steer. t_wmag2 >> the 3 s dwell => even the transient before the loop catches does not
+ trip F_LOC. If trim_frac>=1 at any t_fail => THAT failure is an honest guaranteed LOC.
+
+================= PLANT-FAITHFUL CLOSED-LOOP DIVERT (sim.c KR=2.0/KV=3.5, 2-engine) =================
+ The ACTUAL entry_divert_step law under 2-engine authority from the 3000 m offset. This is what
+ MPPI's E3 supervisor commands. Shows whether the reachability is ACHIEVED (td_lat small, soft vxy),
+ not merely inside the theoretical frontier. (Pure lateral guidance; no attitude-transient coupling
+ -- that is the one axis this static oracle cannot close; see the report.)
+
+   t_fail(s)  steer_frac  td_lat(m)  vxy_td(m/s)  peak|v_lat|  lat@cut(m)   ON-PAD(<=26m)?
+       4.0       0.40      15.29      -7.283         51.7      1679.4    YES
+       5.0       0.40      15.03      -7.206         51.3      1701.4    YES
+       6.0       0.40      14.78      -7.132         50.9      1723.7    YES
+       7.0       0.40      14.53      -7.057         50.5      1745.3    YES
+       8.0       0.40      14.27      -6.977         50.2      1765.8    YES
+       9.0       0.40      14.01      -6.894         50.2      1785.1    YES
+      10.0       0.40      13.75      -6.807         50.2      1803.6    YES
+      11.0       0.40      13.47      -6.714         50.2      1821.1    YES
+      12.0       0.40      13.18      -6.617         50.2      1837.4    YES
+      13.0       0.40      12.90      -6.516         50.2      1853.0    YES
+      14.0       0.40      12.59      -6.410         50.2      1867.6    YES
+      16.0       0.40      11.99      -6.185         50.2      1894.4    YES
+      18.0       0.40      11.64      -6.039         50.2      1926.1    YES
+
+ Interpretation: if td_lat is small (<= a few hundred m, closable by the aero+landing tail) the
+ deployed 2-engine divert REACHES the pad laterally -> the 1/60 is not a lateral-guidance limit.
+ (D-020 smoke: in-burn 1@20 under --mppi CRASHED 1787 m off -> a controller that flew nowhere near
+ the 12+km frontier, corroborating shortfall, not physics.)
+
+================= RANDOM-DRAW IN-FRONTIER FRACTION (the CEILING on landed rate) =================
+ Draw model (sim.c/main.c): t_fail ~ U[4,18] s (all in-burn), SIDE engine; ENTRY offset
+ effective radius R_off = sqrt((3000+eps_x)^2 + eps_y^2), eps ~ N(0,250) (scenario.c:18,53).
+ A draw is IN-frontier iff R_off <= D_phys_2eng(t_fail). Report per debit level.
+
+ debit 40% (steer_frac=0.60): D_2eng over window = [min 18711, mean 22232, max 25306] m
+   in-frontier fraction of the OFFSET distribution: at D_min=1.000  at D_mean=1.000  at D_max=1.000
+ debit 60% (steer_frac=0.40): D_2eng over window = [min 16140, mean 21359, max 25306] m
+   in-frontier fraction of the OFFSET distribution: at D_min=1.000  at D_mean=1.000  at D_max=1.000
+ debit 80% (steer_frac=0.20): D_2eng over window = [min 12656, mean 19408, max 25306] m
+   in-frontier fraction of the OFFSET distribution: at D_min=1.000  at D_mean=1.000  at D_max=1.000
+
+ NOTE: this fraction is the LATERAL-reach ceiling ONLY. The TRUE ceiling on landed rate is
+ min(lateral-in-frontier, attitude-recoverable, terminal-null-achievable). See the LOC table
+ (attitude) and the report for the terminal-null axis. If lateral-in-frontier ~ 1.0 AND
+ attitude is holdable everywhere, then MPPI's 1/60 is a CONTROLLER shortfall, not physics.
+
+================================================================================
+ VERDICT: see D_phys_2eng table (lateral), LOC table (attitude), in-frontier fraction.
+          Report: runs/eo_frontier_report.md
+================================================================================
+(done)
