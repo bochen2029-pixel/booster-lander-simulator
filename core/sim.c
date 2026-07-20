@@ -28,6 +28,12 @@ int g_mppi_use_cuda = 0;
  * expert_iteration_design.md §2). Set from the CLI in main.c (--mppi-warm-neural); copied into
  * MppiState.warm_neural at sim_init. 0 => byte-identical (the §13.6 leak gate). */
 int g_mppi_warm_neural = 0;
+/* E2' (D-032): when 1 (and --policy-log under GM_NEURAL), the DAgger shadow logs the REACTIVE
+ * (hoverslam) divert a_lat as the teacher label instead of running the MPPI shadow — for distilling
+ * the BEST engine-out teacher. D-031 found the MPPI teacher (~10%) is WORSE than the student on EO
+ * (v6 8/60 ≈ 13%) so distilling it regressed; reactive (hoverslam+D-030) is 9–10/60, the best. Set
+ * from main.c (--shadow-reactive). 0 => the MPPI shadow (D-023) => byte-identical. */
+int g_shadow_reactive = 0;
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -488,10 +494,16 @@ int sim_step(Sim* s){
              * stream the flight consumes are untouched, so --neural with and without the tap are
              * byte-identical trajectories (gated). CPU mppi_step only (bit-parity with CUDA anyway). */
             if(s->tap.f){
-                GuidanceCmd shadow = s->gcmd;   /* carries target_xy + hoverslam-set triggers, as GM_MPPI's gcmd would */
-                if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, &nav, &s->env, &shadow);
-                else                                        mppi_execute(&s->mppi, &nav, &shadow);
-                s->mppi.gtick++;
+                GuidanceCmd shadow = s->gcmd;   /* carries target_xy + the HOVERSLAM divert a_lat (set by hoverslam_step above) */
+                /* E2' (D-032): reactive-shadow mode logs hoverslam's OWN a_lat — which `shadow` already
+                 * holds from the hoverslam_step above — distilling the reactive divert (the best EO
+                 * teacher, D-031). Default: the MPPI shadow OVERWRITES shadow.a_lat with the planner's
+                 * answer (D-023). g_shadow_reactive==0 => byte-identical to the D-023 MPPI shadow. */
+                if(!g_shadow_reactive){
+                    if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, &nav, &s->env, &shadow);
+                    else                                        mppi_execute(&s->mppi, &nav, &shadow);
+                    s->mppi.gtick++;
+                }
                 policy_tap_write(&s->tap, &nav, &shadow);
             }
             neural_policy_step(&nav, &s->gcmd);   /* pi_theta(legal obs) -> a_lat[2] + throttle */

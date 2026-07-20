@@ -1807,3 +1807,46 @@ NP_VERSION 7 rejected and reverted to v6 (selftest KAT v6 PASS, EO s42 8/60 rest
 (`runs\s0eo2.pt`) + fresh EO datasets (`data\s0eo2_*`) are preserved for a better-teacher round.
 Artifacts: `runs\e2_gates.txt`, `runs\D031_draft.md`.
 
+## D-032 — E2': the reactive-teacher EO DAgger ALSO nulls — distillation is exhausted for the engine-out axis (2026-07-20, night)
+
+D-031's null was correctly diagnosed (the MPPI teacher ~10% is WORSE than the student v6 13% on EO). E2'
+tests the fix: distill the BEST teacher — REACTIVE (hoverslam+D-030, 9–10/60 = 15–17%, genuinely better than
+the student). Built the reactive-shadow (byte-clean); the round ran clean; it ALSO nulls. Two teachers, both
+fail ⇒ a decisive negative result (D-018-class): distillation cannot lift the neural engine-out recovery.
+
+**The change (byte-clean, kept default-off).** `--shadow-reactive` (sim.c `g_shadow_reactive`): in the
+GM_NEURAL DAgger shadow, SKIP the MPPI overwrite so the tap logs hoverslam's OWN divert a_lat (already in
+`shadow` from the `hoverslam_step` above) — distilling the reactive teacher. Default 0 ⇒ the D-023 MPPI
+shadow ⇒ byte-identical (leak GREEN; verified the reactive tap DIFFERS from the MPPI tap). Reactive-shadow
+farm `data\s0eo3_neural` (12 seeds, FAST — no MPPI rollouts). Merged retrain over 7 datasets (non-EO +
+reactive-EO only, dropping the wrong-teacher `s0eo2`): 7,906,579 rows, 482 s CUDA. NP_VERSION 7
+(sha 04cee372592bec8d), KAT re-pinned from the C pass, selftest PASS.
+
+**THE VERDICT — the reactive-teacher round ALSO regresses (ENTRY --engine-out random ×60):**
+
+| ENTRY EO ×60 | s42 | s7 | s99 | total |
+|---|---|---|---|---|
+| neural v7 (E2, MPPI teacher) | 6/60 | 0/60 | 5/60 | 11/180 |
+| **neural v7 (E2', reactive teacher)** | **2/60** | **5/60** | **4/60** | **11/180** |
+| neural v6 + D-030 (baseline — the best) | 8/60 | 4/60 | 2/60 | 14/180 |
+| reactive + D-030 (the teacher) | 9/60 | 10/60 | — | — |
+
+Both distillation rounds land 11/180 — WORSE than v6's 14/180. No-regression actually IMPROVED under E2'
+(gust-A 46, ENTRY clean 58, AERO 46; leak byte-clean; determinism pair identical) — so the reactive-EO data
+helped clean/gust/ENTRY slightly but HURT EO s42 (8→2).
+
+**The finding (decisive).** Adding fresh EO training data — from EITHER the MPPI teacher OR the
+genuinely-better reactive teacher — REGRESSES the neural engine-out recovery. The clean-trained v6 policy
+under the D-030 entry divert is already at its distillation ceiling; the shared 37,379-param Tier-A' policy
+cannot absorb the EO a_lat without a compromise that hurts EO (clean-optimal and EO-optimal a_lat conflict,
+and the DAgger covariate shift — labeling the weak policy's states — doesn't transfer the teacher's
+closed-loop rate). **Distillation is EXHAUSTED for the engine-out axis.** The neural EO plateaus at
+v6+D-030's 8–10/60 (14/180); the gap to the D-027 frontier (~59/60) is an RL-class problem — the reserved
+N2/N3 RL lane (canon §19: "reserve RL for the joint/compounding frontier"), or a learned/MPPI-planned entry
+divert that raises the best-controller ceiling above ~10/60 before any distillation can chase it.
+
+NP_VERSION 7 REJECTED and reverted to v6 (selftest KAT v6 PASS, EO s42 8/60 restored). The `--shadow-reactive`
+capability is kept default-off (D-018 preserve-the-null pattern; useful for RL warm-start experiments). The
+v7 checkpoints + EO datasets (`runs\s0eo2.pt`, `runs\s0eo3.pt`, `data\s0eo2_*`, `data\s0eo3_neural`) preserved.
+Artifacts: `runs\e2_gates.txt`.
+

@@ -18,6 +18,17 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★ D-032 — E2': the reactive-teacher EO DAgger ALSO nulls; distillation is EXHAUSTED for engine-out
+(2026-07-20 night).** D-031's null was diagnosed (MPPI teacher WORSE than the student); E2' distilled the
+BEST teacher (reactive/hoverslam 9–10/60) via a byte-clean `--shadow-reactive` mode. It ALSO regressed:
+NP_VERSION 7 (reactive) EO = **2/5/4** of 60 = 11/180, again WORSE than v6+D-030's 14/180 (s42 8→2) — even
+though no-regression IMPROVED (gust-A 46, ENTRY clean 58, AERO 46). BOTH teachers fail ⇒ adding fresh EO
+data (from ANY current teacher) regresses the neural EO: the shared 37k-param Tier-A' policy can't absorb
+the EO a_lat without a clean-vs-EO compromise, and DAgger covariate shift doesn't transfer the teacher's
+closed-loop rate. Reverted to v6 (KAT v6 PASS, EO s42 8/60). **The neural EO plateaus at v6+D-030's
+8–10/60; the ~59/60 D-027 frontier is RL-class** (reserved N2/N3, or a learned entry divert).
+`--shadow-reactive` kept default-off; v7 ckpts + EO datasets preserved. Full record: DECISIONS **D-032**.
+
 **★★★ D-031 — E2: the ENTRY engine-out DAgger round is a NULL (2026-07-20 night).** Full pipeline ran
 clean (teacher farm s0eo2_mppi MPPI+D-030 EO ~10%, shadow farm s0eo2_neural, 8-dataset retrain 9.01M rows,
 NP_VERSION 7 sha 79ae7283, KAT v7 pinned, selftest PASS). But NP_VERSION 7 EO = **6/0/5** of 60 = 11/180,

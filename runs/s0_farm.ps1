@@ -29,7 +29,10 @@ param(
   # Arc A (D-024): per-seed DETERMINISTIC gust randomization — the disturbance enters the
   # curriculum as a dial (canon §H.0: gust needs zero interface work). Spec derived from the
   # seed so every farmed batch is exactly replayable/documentable.
-  [switch]$GustFromSeed
+  [switch]$GustFromSeed,
+  # E2' (D-032): -ShadowReactive appends --shadow-reactive so the GM_NEURAL DAgger shadow logs the
+  # HOVERSLAM divert a_lat (the reactive teacher — the best EO teacher, D-031) instead of the MPPI shadow.
+  [switch]$ShadowReactive
 )
 
 $ErrorActionPreference = "Stop"
@@ -59,6 +62,7 @@ for ($i = 0; $i -lt $Seeds; $i++) {
   $bin = Join-Path $dataDir ("{0}_s{1}.bin" -f $Scenario, $seed)
   $t0 = Get-Date
   $eoArgs = @(); if ($EngineOutRandom) { $eoArgs = @("--engine-out","random") }
+  $shadowArgs = @(); if ($ShadowReactive) { $shadowArgs = @("--shadow-reactive") }
   $gustArgs = @()
   if ($GustFromSeed) {
     $peak = 8 + ($seed % 5) * 4        # 8..24 m/s
@@ -69,7 +73,7 @@ for ($i = 0; $i -lt $Seeds; $i++) {
     $gustArgs = @("--gust", $spec, "--gust-dir", "$dir")
     Log "FARM-GUST seed=$seed spec=$spec dir=$dir"
   }
-  & $exe --headless --scenario $Scenario --seed $seed --runs $RunsPer $modeFlag @eoArgs @gustArgs $TapFlag $bin 2>&1 |
+  & $exe --headless --scenario $Scenario --seed $seed --runs $RunsPer $modeFlag @eoArgs @gustArgs @shadowArgs $TapFlag $bin 2>&1 |
     Select-String "LANDED:" | ForEach-Object { $_.Line } | Set-Variable -Name landedLine
   # Success = the tap file exists and is non-trivial. The headless EXIT CODE reflects the
   # LANDED rate, which is deliberately terrible for early DAgger rounds (-Mode neural flies
