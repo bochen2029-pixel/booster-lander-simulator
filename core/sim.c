@@ -22,6 +22,12 @@
  * The flag exists in BOTH builds: in a CPU-only (no-CUDA) build main.c refuses --mppi-cuda at the
  * CLI, so this stays 0 and the GPU branch below is compiled out entirely. */
 int g_mppi_use_cuda = 0;
+/* E1 (D-029): when 1 AND the run uses the MPPI planner (GM_MPPI, or the GM_NEURAL DAgger shadow),
+ * the planner warm-starts its mean from the STUDENT policy instead of the hoverslam recipe — the
+ * expert-iteration COMPOSITE operator (the neural-warm-start teacher for the engine-out axis,
+ * expert_iteration_design.md §2). Set from the CLI in main.c (--mppi-warm-neural); copied into
+ * MppiState.warm_neural at sim_init. 0 => byte-identical (the §13.6 leak gate). */
+int g_mppi_warm_neural = 0;
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -180,7 +186,10 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
      * TEACHER (D-023): with --policy-log armed, the neural block runs MPPI in shadow to label
      * the states the POLICY visits (neural_policy_design §B.1). Init alone touches only
      * s->mppi (no other stream/state), so an un-tapped --neural flight is byte-identical. */
-    if(guidance_mode==GM_MPPI || guidance_mode==GM_NEURAL) mppi_init(&s->mppi, seed, scenario);
+    if(guidance_mode==GM_MPPI || guidance_mode==GM_NEURAL){
+        mppi_init(&s->mppi, seed, scenario);
+        s->mppi.warm_neural = g_mppi_warm_neural;   /* E1 (D-029): composite warm-start arm; 0 => byte-identical */
+    }
 }
 
 static void set_verdict(Sim* s){

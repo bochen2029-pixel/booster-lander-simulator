@@ -1,0 +1,72 @@
+E1 DE-RISK - engine-out recovery anatomy (v6 exe, NP_VERSION 6) - 23:38:55
+
+== [1] REACTIVE (GM_HOVERSLAM) --engine-out random x60 (the UNTESTED cell) ==
+  reactive s42: LANDED: 0/60 = 0.0%  (Wilson95: -0.0..6.0%)
+  reactive s7: LANDED: 1/60 = 1.7%  (Wilson95: 0.3..8.9%)
+  reactive s99: LANDED: 1/60 = 1.7%  (Wilson95: 0.3..8.9%)
+
+== [2] --neural --engine-out random x60 s42 (baseline recheck, aggregate) ==
+  neural s42: LANDED: 1/60 = 1.7%  (Wilson95: 0.3..8.9%)
+
+== [3] --neural EO s42 PER-RUN RESULT (off-pad miss distribution = fixable-fraction anatomy) ==
+  run 0: RESULT: CRASHED  fault=none  td_v=9.58 m/s  lat=46.48 m  tilt=1.59 deg  fuel=3579 kg  t=110.8 s  maxq=47052 Pa
+  run 1: RESULT: CRASHED  fault=none  td_v=26.19 m/s  lat=1801.69 m  tilt=3.35 deg  fuel=2375 kg  t=126.0 s  maxq=50497 Pa
+  run 2: RESULT: CRASHED  fault=none  td_v=10.93 m/s  lat=52.92 m  tilt=1.73 deg  fuel=3541 kg  t=105.7 s  maxq=49968 Pa
+  run 3: RESULT: CRASHED  fault=none  td_v=27.24 m/s  lat=2257.17 m  tilt=4.00 deg  fuel=2883 kg  t=120.8 s  maxq=53183 Pa
+  run 4: RESULT: CRASHED  fault=none  td_v=32.48 m/s  lat=2032.92 m  tilt=1.80 deg  fuel=2251 kg  t=122.0 s  maxq=50945 Pa
+  run 5: RESULT: CRASHED  fault=none  td_v=8.29 m/s  lat=20.53 m  tilt=3.79 deg  fuel=3505 kg  t=118.8 s  maxq=45767 Pa
+  run 6: RESULT: CRASHED  fault=none  td_v=26.53 m/s  lat=697.66 m  tilt=3.90 deg  fuel=3588 kg  t=104.5 s  maxq=51656 Pa
+  run 7: RESULT: CRASHED  fault=none  td_v=27.89 m/s  lat=928.99 m  tilt=3.86 deg  fuel=2917 kg  t=115.6 s  maxq=51125 Pa
+  run 8: RESULT: CRASHED  fault=none  td_v=20.81 m/s  lat=2756.97 m  tilt=8.14 deg  fuel=2449 kg  t=123.7 s  maxq=53828 Pa
+  run 9: RESULT: CRASHED  fault=none  td_v=16.56 m/s  lat=726.33 m  tilt=4.63 deg  fuel=3459 kg  t=112.2 s  maxq=47978 Pa
+  run 10: RESULT: CRASHED  fault=none  td_v=23.05 m/s  lat=1061.37 m  tilt=3.63 deg  fuel=2629 kg  t=130.0 s  maxq=50542 Pa
+  run 11: RESULT: CRASHED  fault=none  td_v=22.74 m/s  lat=1316.04 m  tilt=4.54 deg  fuel=3161 kg  t=107.9 s  maxq=52921 Pa
+  run 12: RESULT: CRASHED  fault=none  td_v=20.25 m/s  lat=1343.40 m  tilt=3.06 deg  fuel=3196 kg  t=116.1 s  maxq=50036 Pa
+  run 13: RESULT: CRASHED  fault=none  td_v=5.80 m/s  lat=83.76 m  tilt=0.10 deg  fuel=3406 kg  t=113.9 s  maxq=46576 Pa
+  run 14: RESULT: CRASHED  fault=none  td_v=30.07 m/s  lat=1383.54 m  tilt=4.74 deg  fuel=2914 kg  t=121.5 s  maxq=50331 Pa
+  run 15: RESULT: CRASHED  fault=none  td_v=24.63 m/s  lat=629.07 m  tilt=3.79 deg  fuel=3123 kg  t=117.1 s  maxq=50708 Pa
+  run 16: RESULT: CRASHED  fault=none  td_v=30.21 m/s  lat=2582.05 m  tilt=2.33 deg  fuel=2530 kg  t=125.4 s  maxq=53628 Pa
+  run 17: RESULT: CRASHED  fault=none  td_v=29.56 m/s  lat=1341.07 m  tilt=3.05 deg  fuel=2895 kg  t=123.6 s  maxq=48201 Pa
+  run 18: RESULT: CRASHED  fault=none  td_v=2.58 m/s  lat=75.20 m  tilt=0.41 deg  fuel=4045 kg  t=109.7 s  maxq=45432 Pa
+  run 19: RESULT: CRASHED  fault=none  td_v=26.17 m/s  lat=1678.56 m  tilt=4.09 deg  fuel=2868 kg  t=120.1 s  maxq=52917 Pa
+  run 20: RESULT: CRASHED  fault=none  td_v=26.78 m/s  lat=773.22 m  tilt=3.87 deg  fuel=2757 kg  t=110.6 s  maxq=51090 Pa
+  run 21: RESULT: CRASHED  fault=none  td_v=26.67 m/s  lat=3381.91 m  tilt=3.28 deg  fuel=2050 kg  t=130.7 s  maxq=58457 Pa
+  run 22: RESULT: CRASHED  fault=none  td_v=17.50 m/s  lat=1326.03 m  tilt=4.39 deg  fuel=3185 kg  t=121.9 s  maxq=49124 Pa
+  run 23: RESULT: CRASHED  fault=none  td_v=21.22 m/s  lat=25.10 m  tilt=1.72 deg  fuel=3166 kg  t=109.5 s  maxq=50132 Pa
+  run 24: RESULT: CRASHED  fault=none  td_v=31.76 m/s  lat=1487.32 m  tilt=2.01 deg  fuel=3402 kg  t=105.8 s  maxq=53054 Pa
+  run 25: RESULT: CRASHED  fault=none  td_v=4.19 m/s  lat=2671.84 m  tilt=0.26 deg  fuel=2541 kg  t=136.9 s  maxq=51060 Pa
+  run 26: RESULT: CRASHED  fault=none  td_v=20.75 m/s  lat=764.00 m  tilt=5.52 deg  fuel=2440 kg  t=131.3 s  maxq=47855 Pa
+  run 27: RESULT: CRASHED  fault=none  td_v=26.84 m/s  lat=1381.83 m  tilt=3.59 deg  fuel=2808 kg  t=118.3 s  maxq=51464 Pa
+  run 28: RESULT: CRASHED  fault=none  td_v=16.69 m/s  lat=1285.49 m  tilt=4.48 deg  fuel=2429 kg  t=121.8 s  maxq=51637 Pa
+  run 29: RESULT: CRASHED  fault=none  td_v=15.05 m/s  lat=3261.04 m  tilt=8.57 deg  fuel=2393 kg  t=129.8 s  maxq=53567 Pa
+  run 30: RESULT: CRASHED  fault=none  td_v=23.65 m/s  lat=1195.72 m  tilt=3.67 deg  fuel=3088 kg  t=122.3 s  maxq=48225 Pa
+  run 31: RESULT: CRASHED  fault=none  td_v=8.15 m/s  lat=144.26 m  tilt=4.09 deg  fuel=3354 kg  t=115.2 s  maxq=49803 Pa
+  run 32: RESULT: CRASHED  fault=none  td_v=20.88 m/s  lat=2757.43 m  tilt=2.37 deg  fuel=1983 kg  t=134.0 s  maxq=55520 Pa
+  run 33: RESULT: CRASHED  fault=none  td_v=13.95 m/s  lat=526.26 m  tilt=10.41 deg  fuel=4104 kg  t=103.5 s  maxq=49693 Pa
+  run 34: RESULT: CRASHED  fault=none  td_v=28.89 m/s  lat=57.22 m  tilt=1.72 deg  fuel=2705 kg  t=122.4 s  maxq=47346 Pa
+  run 35: RESULT: CRASHED  fault=none  td_v=28.75 m/s  lat=2374.58 m  tilt=1.65 deg  fuel=2202 kg  t=135.0 s  maxq=52557 Pa
+  run 36: RESULT: CRASHED  fault=none  td_v=19.90 m/s  lat=117.69 m  tilt=4.61 deg  fuel=3261 kg  t=109.3 s  maxq=50470 Pa
+  run 37: RESULT: CRASHED  fault=none  td_v=25.75 m/s  lat=1802.12 m  tilt=4.17 deg  fuel=2985 kg  t=109.9 s  maxq=53258 Pa
+  run 38: RESULT: CRASHED  fault=none  td_v=10.35 m/s  lat=3367.30 m  tilt=2.99 deg  fuel=2318 kg  t=135.3 s  maxq=51267 Pa
+  run 39: RESULT: CRASHED  fault=none  td_v=2.36 m/s  lat=70.95 m  tilt=0.10 deg  fuel=4590 kg  t=100.4 s  maxq=47018 Pa
+  run 40: RESULT: CRASHED  fault=none  td_v=32.78 m/s  lat=1729.86 m  tilt=1.67 deg  fuel=2688 kg  t=122.5 s  maxq=52784 Pa
+  run 41: RESULT: NONE  fault=LOC  td_v=0.00 m/s  lat=0.00 m  tilt=5.57 deg  fuel=2645 kg  t=116.8 s  maxq=51312 Pa
+  run 42: RESULT: CRASHED  fault=none  td_v=22.79 m/s  lat=3056.40 m  tilt=3.71 deg  fuel=2424 kg  t=126.8 s  maxq=53504 Pa
+  run 43: RESULT: CRASHED  fault=none  td_v=16.72 m/s  lat=1148.24 m  tilt=5.39 deg  fuel=3454 kg  t=122.9 s  maxq=48399 Pa
+  run 44: RESULT: CRASHED  fault=none  td_v=29.09 m/s  lat=958.35 m  tilt=2.60 deg  fuel=2528 kg  t=127.6 s  maxq=50766 Pa
+  run 45: RESULT: CRASHED  fault=none  td_v=32.31 m/s  lat=2020.25 m  tilt=4.30 deg  fuel=2624 kg  t=119.3 s  maxq=53533 Pa
+  run 46: RESULT: CRASHED  fault=none  td_v=29.40 m/s  lat=2148.22 m  tilt=1.70 deg  fuel=2127 kg  t=124.3 s  maxq=52791 Pa
+  run 47: RESULT: GOOD  fault=none  td_v=2.44 m/s  lat=6.53 m  tilt=0.16 deg  fuel=3882 kg  t=108.4 s  maxq=47338 Pa
+  run 48: RESULT: CRASHED  fault=FUEL  td_v=97.40 m/s  lat=1262.05 m  tilt=15.62 deg  fuel=0 kg  t=163.6 s  maxq=51067 Pa
+  run 49: RESULT: CRASHED  fault=none  td_v=8.31 m/s  lat=44.52 m  tilt=10.47 deg  fuel=3680 kg  t=101.2 s  maxq=50221 Pa
+  run 50: RESULT: CRASHED  fault=none  td_v=22.93 m/s  lat=2382.64 m  tilt=8.49 deg  fuel=2464 kg  t=119.7 s  maxq=53799 Pa
+  run 51: RESULT: CRASHED  fault=none  td_v=36.81 m/s  lat=1480.36 m  tilt=1.99 deg  fuel=2976 kg  t=128.6 s  maxq=48104 Pa
+  run 52: RESULT: CRASHED  fault=none  td_v=4.60 m/s  lat=51.54 m  tilt=0.09 deg  fuel=3549 kg  t=114.3 s  maxq=48978 Pa
+  run 53: RESULT: CRASHED  fault=none  td_v=29.98 m/s  lat=2569.95 m  tilt=3.34 deg  fuel=1997 kg  t=131.4 s  maxq=56902 Pa
+  run 54: RESULT: CRASHED  fault=none  td_v=25.11 m/s  lat=1361.58 m  tilt=2.31 deg  fuel=2551 kg  t=117.8 s  maxq=51394 Pa
+  run 55: RESULT: CRASHED  fault=none  td_v=20.21 m/s  lat=3416.05 m  tilt=4.32 deg  fuel=2045 kg  t=130.6 s  maxq=57615 Pa
+  run 56: RESULT: CRASHED  fault=none  td_v=32.33 m/s  lat=1396.99 m  tilt=2.71 deg  fuel=2928 kg  t=122.8 s  maxq=49912 Pa
+  run 57: RESULT: CRASHED  fault=none  td_v=28.11 m/s  lat=647.48 m  tilt=1.88 deg  fuel=2477 kg  t=120.5 s  maxq=51157 Pa
+  run 58: RESULT: CRASHED  fault=none  td_v=27.25 m/s  lat=2677.73 m  tilt=1.85 deg  fuel=2570 kg  t=130.6 s  maxq=53208 Pa
+  run 59: RESULT: CRASHED  fault=none  td_v=21.36 m/s  lat=1427.24 m  tilt=14.92 deg  fuel=3260 kg  t=114.3 s  maxq=50174 Pa
+EO-DERISK-DONE

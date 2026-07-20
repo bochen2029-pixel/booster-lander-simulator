@@ -14,6 +14,7 @@
  */
 #include "guidance_mppi.h"
 #include "guidance_hoverslam.h"   /* hoverslam_step: the warm-start baseline (COORDINATOR #1037) */
+#include "guidance_neural.h"      /* E1 (D-029): neural_policy_step — the STUDENT plan for the composite warm-start */
 #include "dynamics.h"
 #include "control.h"
 #include "integrator.h"
@@ -603,6 +604,63 @@ static void warm_start_nominal(MppiState* M, const State* st0, const EnvCtx* env
     }
 }
 
+/* ---- WARM-START the mean with the STUDENT POLICY (E1, D-029: the composite operator) ----
+ * The expert-iteration improvement operator for the ROLLOUT-VISIBLE axes (engine-out / target /
+ * dispersions — visible to the rollout via EnvCtx, directive 7). Instead of the hoverslam-recipe
+ * converging profile (warm_start_nominal), seed ubar with the STUDENT policy's steering: at each knot
+ * query pi_theta (Tier-A' lateral-only) on the current rolled state and record its a_lat as the mean.
+ * MPPI then samples small sigma around an ALREADY-COMPETENT student plan and spends its whole budget
+ * POLISHING it (softmax refinement of a good neighborhood = the policy-improvement step; network+search).
+ * Deterministic: pi_theta is a fixed-order fp64 forward pass and the lean model is deterministic, so this
+ * warm start is a pure function of state (no RNG). The plant is advanced with the SAME lean vertical model
+ * as warm_start_nominal (and the rollout), so the seeded trajectory is consistent with how the plan is
+ * flown; ubar records the RAW student a_lat (pre-fade), matching how the rollout records raw u and applies
+ * the fade in cmd_from_u_lean. Armed by M->warm_neural (--mppi-warm-neural); default OFF => never called. */
+static void warm_start_neural(MppiState* M, const State* st0, const EnvCtx* env0){
+    State rst = *st0;
+    Actuators act; memset(&act,0,sizeof(act)); act.n_eng=1;
+    EnvCtx env = *env0; env.wind_world[0]=env.wind_world[1]=env.wind_world[2]=0.0;
+    int grounded=0; double deck_z=0.0;
+    for(int t=0;t<MPPI_H;t++){
+        MassProps mp; mass_props(rst.y[S_MLOX],rst.y[S_MRP1],0,0,&mp);
+        double h_feet = rst.y[S_RZ]-mp.com-1.0*rst.deploy_frac;
+        double alx=0.0, aly=0.0;
+        if(!grounded){
+            /* student steering intent at this state (Tier-A' lateral-only). policy_build_obs reads the
+             * target-relative offset from gn.target_xy, so pass the latched target (origin by default =>
+             * consistent with the clean warm start). Throttle/ignition stay on the lean vertical model
+             * below, exactly as GM_NEURAL keeps hoverslam's vertical (the net owns only a_lat). */
+            GuidanceCmd gn; memset(&gn,0,sizeof(gn));
+            gn.target_xy[0]=M->target_xy[0]; gn.target_xy[1]=M->target_xy[1];
+            neural_policy_step(&rst, &gn);   /* pi_theta(legal obs) -> gn.a_lat[2] */
+            alx = clampd(gn.a_lat[0], -A_LAT_GAMUT, A_LAT_GAMUT);
+            aly = clampd(gn.a_lat[1], -A_LAT_GAMUT, A_LAT_GAMUT);
+        }
+        /* record the student baseline lateral control for this knot (what MPPI perturbs around) */
+        M->ubar[t][0]=0.0; M->ubar[t][1]=alx; M->ubar[t][2]=aly;
+        if(grounded) continue;
+
+        /* advance the nominal plant with the SAME lean vertical model as warm_start_nominal, so the
+         * seeded trajectory (and inherited ignition timing) is consistent with the rollout dynamics. */
+        double uu[MPPI_NCH]={0.0,alx,aly};
+        GuidanceCmd g; memset(&g,0,sizeof(g));
+        cmd_from_u_lean(&rst, uu, h_feet, M->ignite_h, M->target_xy, &g);
+        if(g.engine_cmd && !rst.engine_on && rst.relights_left>0){
+            rst.engine_on=1; rst.ign_timer=0.0; rst.n_eng=g.n_eng; rst.relights_left--;
+            if(rst.phase==PH_COAST||rst.phase==PH_AERO) rst.phase=PH_LANDING_BURN;
+            AtmoOut atm; atmo_eval(rst.y[S_RZ],&atm);
+            double Tf=rst.n_eng*engine_thrust(1.0,atm.p); double amax=Tf/mp.m-G0; if(amax<1.0)amax=1.0;
+            rst.ada=(rst.fins_deployed?0.85:0.58)*amax;
+        }
+        rst.deploy_cmd = g.deploy_cmd;
+        if(rst.engine_on && rst.ign_timer>=0.0) rst.ign_timer += MPPI_DT;
+        if(rst.deploy_cmd){ rst.deploy_frac += MPPI_DT/LEG_DEPLOY_T; if(rst.deploy_frac>1)rst.deploy_frac=1; }
+        control_step(&rst, &g, &env, &act);
+        rk4_step(&rst, &act, &env, MPPI_DT);
+        if(lowest_point_z(&rst) <= deck_z + 1e-3) grounded=1;
+    }
+}
+
 /* Savitzky-Golay (window 9, order 3) smoothing of one channel across the horizon. Reduces
  * chatter without lag (§ design pt 4). Applied in-place over a length-H array. */
 static void sgf_smooth(double* x, int n){
@@ -659,7 +717,14 @@ void mppi_step(MppiState* M, const State* st, const EnvCtx* env, GuidanceCmd* g)
      * (recomputed from the corrected state), so a carried correction double-counts — accumulation
      * happens through the PLANT, not the plan. One-shot correction + strong per-replan cost gradients
      * is the correct pairing for a closed-loop baseline. */
-    warm_start_nominal(M, st, env);
+    /* E1 (D-029): the expert-iteration COMPOSITE operator. When armed (--mppi-warm-neural), seed the
+     * mean with the STUDENT policy's plan (rolled through the shared lean model) so the sampler polishes
+     * an already-competent plan instead of the hoverslam recipe. Engine-out is rollout-visible
+     * (n_eng/thrust_offset in EnvCtx, directive 7), so this is the valid improvement operator for that
+     * axis (expert_iteration_design.md §2). Deterministic (pi and the lean model both are). Default OFF
+     * => warm_start_nominal => byte-identical (the §13.6 leak gate). */
+    if(M->warm_neural) warm_start_neural(M, st, env);
+    else               warm_start_nominal(M, st, env);
 
     const double sig[MPPI_NCH] = { SIG_THR, SIG_ALAT, SIG_ALAT };
     const double drive[MPPI_NCH] = {

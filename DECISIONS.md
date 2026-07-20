@@ -1666,3 +1666,58 @@ N3 showcase. Process nulls recorded honestly (HANDOFF live-log): a PID-reuse mon
 and a Start-Job-isn't-detached eval miss — both now trap-ledgered (detached = Start-Process; watch
 the artifact, never a PID). Artifacts: runs/d028_entry_eval.txt.
 
+## D-029 — E1: the expert-iteration composite operator is a NULL on engine-out; the bottleneck is the 2-engine entry divert (2026-07-20, night)
+
+The E1 build (ROADMAP): the composite operator (Operator A, student-warm-started MPPI —
+`expert_iteration_design.md` §2). BUILT, byte-clean, and measured; the honest verdict is a **NULL**,
+and it precisely relocates the engine-out bottleneck. Recorded in the D-018/D-025 report-the-null
+tradition (a decisive negative that redirects effort instead of burning it).
+
+**What was built.** `warm_start_neural()` in `guidance_mppi.c` — mirrors `warm_start_nominal()` but
+seeds the MPPI mean `ubar` with the STUDENT policy's steering (`neural_policy_step` per knot, Tier-A'
+lateral-only) instead of the hoverslam converging-profile recipe, advancing the seed through the same
+lean vertical model. Armed by `--mppi-warm-neural` (MppiState.warm_neural ← g_mppi_warm_neural in
+sim.c; default 0). Deterministic (pi_theta fixed-order fp64 + lean model; single-run pair bit-identical).
+**Leak gate GREEN (composite OFF ⇒ byte-identical):** selftest PASS (KAT v6), TERMINAL ×200 194/200
+byte-exact, MPPI run-1 AERO s42 HARD 2.63/10.48 exact, AERO --mppi ×60 44/60 byte-exact.
+
+**THE VERDICT — composite is NOT an improvement operator on engine-out (ENTRY --engine-out random ×60):**
+
+| s42 | composite (student-warm MPPI) | student (--neural) | teacher (--mppi) |
+|---|---|---|---|
+| landed | **1/60** | 1/60 | 1/60 |
+
+Dead parity — the student-warm-start lands the EXACT same 1/60 as the hoverslam warm-start and as the
+plain student. Per the design's own gate (§3: "if it doesn't beat the student head-to-head it is not
+an improvement operator and must not teach"), **the composite must not teach.** s7/s99 were not run —
+the s42 null is decisive and the exe was redirected to the actual lever (E0 already had student s7/s99
+= 0/0). Composite kept behind the default-off flag (D-018 pattern: preserve the null-result implementation).
+
+**WHY it is null (the de-risk anatomy + the phase-attribution diagnostic, `runs/e1_derisk.txt`,
+`runs/e1_phase_attribution.txt`):**
+- No free teacher: plain REACTIVE (GM_HOVERSLAM) on EO ×60×3 = 0/1/1 — hoverslam, MPPI, neural ALL
+  collapse to ~1/60.
+- The EO failures are BIMODAL: ~75% GROSS (td lat 600–2800 m) + ~25% NEAR (td lat 20–85 m).
+- Phase attribution (verbose ph/lat traces): the GROSS cluster is lost at the ENTRY-BURN CUT — the
+  2-engine divert closes only ~830 m (run 1: 3573→2738 at the cut) vs ~2200 m when the failure is later
+  (run 0: 3000→799), and at the cut run 1 carries vrad **+22.9 m/s OUTBOUND** (under-driven AND mistimed).
+  The NEAR cluster DOES close laterally (run 0: →43 m) but crashes on TERMINAL QUALITY (td_v 9.58,
+  slightly off-pad). MPPI/neural/the composite only steer AFTER the cut (PH_AERO) — the
+  `entry_supervisor` owns PH_ENTRY_BURN and writes gcmd.a_lat via `entry_divert_step` directly. So the
+  composite is STRUCTURALLY BLIND to the gross cluster, and its landing-burn softening (td_v 9.58→7.25
+  measured on run 0) is insufficient to convert the near cluster. ⇒ 1/60, unchanged.
+
+**The redirect (D-030, next).** The dominant lever is the **2-engine ENTRY DIVERT** — a mode-independent,
+NON-rollout-visible reactive law (`entry_divert_step`: ZEM/ZEV, KR=2.0/KV=3.5, bank cap 15°, authority
+`amax = n_eng·thrust·sin(15°)/m`). An engine-out drops it to 2/3 exactly when the offset must close. The
+entry burn runs at LOW qbar (~0.2–40 kPa vs the ~80 kPa STRUCT line) ⇒ huge headroom to OPEN the bank
+cap under engine-out and recover the authority; the gains/t_go also want re-tuning for the reduced-authority
+regime (the +22.9 outbound at the cut is a timing/aggression signature). D-027's frontier bound
+(D_phys_2eng ≥ 12,656 m) confirms the closure is physically available — the gap is controller realization.
+Ships as its own ADR (D-030). Operator A remains reserved for the rollout-visible mixed rungs per
+`expert_iteration_design.md` §2 (it may still GENERATE at pairwise), but it is NOT the engine-out teacher.
+
+**Gates:** leak byte-clean (above); composite single-run determinism bit-identical. No NP_VERSION bump
+(no weights export). Artifacts: `runs/e1_derisk.txt`, `runs/e1_validity.txt`, `runs/e1_comp_s42_full.txt`,
+`runs/e1_phase_attribution.txt`, `runs/eo_recovery_plan.md`.
+

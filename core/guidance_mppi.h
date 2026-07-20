@@ -50,6 +50,11 @@ typedef struct {
                                       * mirror of the hoverslam substitution, target_sandbox_design §B.2). */
     int      scenario;
     int      inited;
+    int      warm_neural;            /* E1 (D-029): 1 => warm-start the mean with the STUDENT policy
+                                      * (rolled through the lean model) instead of the hoverslam recipe
+                                      * — the expert-iteration composite operator for the rollout-visible
+                                      * axes (engine-out). Set from g_mppi_warm_neural (--mppi-warm-neural).
+                                      * DEFAULT 0 => warm_start_nominal => byte-identical (§13.6 leak gate). */
     /* last-solve telemetry */
     double   ess, beta, cmin;
     int      n_feasible;

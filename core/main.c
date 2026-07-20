@@ -30,6 +30,7 @@
 /* M5: --mppi-cuda routes GM_MPPI solves to the GPU (defined in sim.c; exists in BOTH builds so the
  * flag parse compiles either way — in a no-CUDA build it stays 0 and the CLI refuses --mppi-cuda). */
 extern int g_mppi_use_cuda;
+extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the composite (student-warm-started MPPI); defined in sim.c */
 
 static int g_fail = 0;
 #define CHECK(cond, msg) do{ if(!(cond)){ printf("  FAIL: %s\n", msg); g_fail++; } }while(0)
@@ -372,6 +373,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
+        else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -448,6 +450,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
+        else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }

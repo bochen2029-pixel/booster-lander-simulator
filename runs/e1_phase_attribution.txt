@@ -1,0 +1,16 @@
+E1 PHASE-ATTRIBUTION DIAGNOSTIC (2026-07-20 ~01:00) — where the EO offset is lost.
+ph codes: 2=ENTRY_BURN, 3=AERO (post-cut), 4=LANDING_BURN. lat = lateral offset [m].
+cmd: booster-core --run --scenario entry --seed 42 --run <r> --neural --engine-out random --verbose
+
+run 1 (GROSS, td lat 1801):  start 3573 -> CUT 2738 (closed 835) -> LANDING 2383 -> td 1801
+  at CUT (ph=3, t=31.5): lat=2737.9 vrad=+22.9 OUTBOUND (under-driven + mistimed reversal)
+run 3 (GROSS, td lat 2257):  start 3157 -> CUT 2334 (closed 823) -> LANDING 2742 -> td 2257
+run 0 (NEAR,  td lat 46):    start 3000 -> CUT  799 (closed 2201) -> LANDING 43 -> td 46, td_v 9.58
+
+VERDICT: the gross cluster is lost at the ENTRY-BURN CUT — the 2-engine divert closes only ~830 m
+(vs ~2200 m for run 0 whose engine failed later / kept more authority). The residual (2300-2700 m)
+is then too large for the aero+landing to recover. The near-miss (run 0) closes laterally but crashes
+on TERMINAL QUALITY (td_v 9.58, slightly off-pad). => the dominant lever is the 2-ENGINE ENTRY DIVERT
+(entry_divert_step: bank cap 15deg + KR=2/KV=3.5, tuned for 3 engines). The entry burn runs at LOW
+qbar (measured ~0.2-40 kPa vs the ~80 kPa STRUCT line) => huge headroom to open the bank cap under
+engine-out. This is D-030.

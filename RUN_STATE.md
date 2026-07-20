@@ -18,6 +18,18 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★ D-029 — E1: the composite operator is a NULL on engine-out (2026-07-20 night).** Built the
+expert-iteration composite (student-warm-started MPPI, `--mppi-warm-neural`; byte-clean leak gate — the
+GM_MPPI default path is bit-identical). ENTRY `--engine-out random` ×60 s42: **composite 1/60 == student
+1/60 == teacher 1/60** — NOT an improvement operator (design §3: must not teach; kept default-off, D-018
+pattern). Phase-attribution diagnostic (verbose ph/lat, `runs/e1_phase_attribution.txt`): the ~75% GROSS
+cluster (td lat 600–2800 m) is lost at the ENTRY-BURN CUT — the 2-engine divert closes only ~830 m (vs
+~2200 m for later failures) and carries **+22.9 m/s OUTBOUND** at the cut (under-driven + mistimed);
+MPPI/neural only steer POST-cut ⇒ structurally blind. The ~25% NEAR cluster closes laterally but crashes
+on terminal quality (td_v 9.58, off-pad). ⇒ **NEXT: E1.5/D-030 — re-authorize the 2-engine ENTRY DIVERT**
+(`entry_divert_step`: open the low-qbar 15° bank cap + re-tune KR/KV/t_go under n_eng<3, byte-clean; D-027
+frontier D_phys_2eng ≥12,656 m says the closure is available). Full record: DECISIONS **D-029**.
+
 **★★★★★★ D-028 — ENTRY ROUND-3: THE STUDENT REACHES ITS TEACHER (2026-07-19 night): ENTRY clean
 57/56/58 of 60 held-out (171/180 = 95.0%) — DEAD PARITY with MPPI on the identical s42 batch
 (57==57), AHEAD on s7/s99 (93.3/96.7% vs 91/93%).** The ladder 0→52→57 in two DAgger rounds.
