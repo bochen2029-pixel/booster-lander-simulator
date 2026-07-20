@@ -209,16 +209,16 @@ static void test_neural_kat(void){
     CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (placeholder bit-exact)");
     CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (placeholder bit-exact)");
 #else
-    /* REAL-WEIGHTS expectation — NP_VERSION 4 (engine-out rounds, weights_sha256[:16]=
-     * cfa22fbee79c8aa8, D-025). Dumped from THIS binary's fixed-order pass at %.17g (fp64
+    /* REAL-WEIGHTS expectation — NP_VERSION 5 (ENTRY clean round-2, weights_sha256[:16]=
+     * f12edc76904bfce1, D-026). Dumped from THIS binary's fixed-order pass at %.17g (fp64
      * round-trips exactly); NEVER recompute in numpy (accumulation order differs).
      * Regenerate on every export. */
-    const double EXP0 =  0.60011940451908519;
-    const double EXP1 =  1.0392702394237581;
-    const double EXP2 =  0.40001825395469304;
-    CHECKF(a[0], EXP0, 0.0, "NP KAT a_lat0 (NP_VERSION 4 bit-exact)");
-    CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (NP_VERSION 4 bit-exact)");
-    CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (NP_VERSION 4 bit-exact)");
+    const double EXP0 = -3.1991500576230183;
+    const double EXP1 = -1.1052317607502704;
+    const double EXP2 =  0.4000000003376854;
+    CHECKF(a[0], EXP0, 0.0, "NP KAT a_lat0 (NP_VERSION 5 bit-exact)");
+    CHECKF(a[1], EXP1, 0.0, "NP KAT a_lat1 (NP_VERSION 5 bit-exact)");
+    CHECKF(a[2], EXP2, 0.0, "NP KAT throttle (NP_VERSION 5 bit-exact)");
 #endif
     /* determinism: the forward pass is a pure function — twice on the same input is bit-identical. */
     double a2[3]; neural_policy_forward(o, a2);

@@ -1,0 +1,8 @@
+========= HEADLESS MONTE CARLO =========
+scenario=aero_offset seed=42 runs=60 turb=1
+GUST: peak=12.0 m/s @ alt=5000 m  hw=800 m (band 4200..5800)  dir=0 deg
+LANDED: 45/60 = 75.0%  (Wilson95: 62.8..84.2%)
+  PERFECT 0  GOOD 23  HARD 22  TIPPED 0  CRASHED 15
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 15  too-hard 0  fuel-out 0  other 0
+  landed means: td_v=2.58 m/s (max 4.52)  lat=10.50 m  tilt=2.30 deg  fuel=4555 kg

@@ -18,6 +18,19 @@ designated vehicle is N3 (the compound engine-out×gust×moving-target showcase 
 attempt; the honest 0.70·D_phys plateau alternative routes M4 to the plant-authority ADR).
 Mesh+CFD doctrine: the UE-grade mesh and FluidX3D aero-table regeneration are ONE future ADR
 event (§20). Deltas: DECISIONS **D-019**; authoring record runs/D019_proposed_canon_v2.md.
+**★★★★★ D-026 — ENTRY ROUND-2 (2026-07-19 ~19:40): 0/60 → 52/60 IN ONE ON-POLICY ROUND —
+IDENTICAL 52/60 ON ALL THREE HELD-OUT SEEDS (156/180 = 86.7%).** NP_VERSION 5 (8.00M rows /
+1,800 runs, seven datasets; sha f12edc76…; KAT re-pinned from the C pass). The v4 near-miss
+anatomy converted exactly as predicted: reach was learned, round-2 taught terminal finesse.
+Student ENTRY landers TIGHTER than the teacher's (lat 7.45 vs 16.32, td_v 2.76, th 0);
+5 landings behind MPPI's 57/60 after ONE round on this regime. No forgetting (6th time):
+AERO clean 46 (teacher+2), gust-A 45 (teacher+7) bit-stable. Gates: selftest (KAT v5),
+TERMINAL byte-clean, run-1 exact, ENTRY pair bit-identical, held-out law intact. Farm-
+completion forensics on record: FARM-COMPLETE 12/12 @19:00:31; the session-API "service
+busy" hiccup never touched the detached farm. **Next: ENTRY round-3 (→teacher parity) or
+the D-025 blocking pair (2-engine frontier oracle + expert-iteration EO teachers) →
+pairwise → N3.** Full record: DECISIONS **D-026**.
+
 **★★★★ D-025 — ENGINE-OUT ROUNDS, the honest split verdict (2026-07-19 ~17:30): the wider
 curriculum IMPROVED the old skills; ENTRY is round-0; and THE TEACHER ITSELF COLLAPSES under
 random engine-out — the axis's real finding.** NP_VERSION 4 (7.03M rows, six datasets; sha

@@ -1545,3 +1545,40 @@ small enough to break a 95%-clean controller. That makes the eventual recovery d
 impressive, not less — and makes the frontier oracle the arbiter of what "recovery" can
 honestly mean. Artifacts: runs/eoT_*_s42x60.txt, runs/eo_clean_aero.txt, runs/eo_gustA.txt.
 
+## D-026 — ENTRY round-2: 0/60 → 52/60 in ONE on-policy round, identical on every held-out seed (2026-07-19)
+
+**The DAgger ladder's steepest climb yet.** One ENTRY-clean shadow round (12 seeds ×15 = 180
+policy flights, seeds 3200-3211, ~22 MB each, farm completed cleanly at 19:00:31 —
+`FARM-COMPLETE seeds_done=12`; the concurrent session-API "service busy" errors were
+irrelevant to the detached farm, diagnosed and recorded) → merged retrain over ALL SEVEN
+datasets (**8,003,138 rows / 1,800 runs**, 558 s CUDA; val MSE [.070, .064, .100]) →
+**NP_VERSION 5** (weights_sha256[:16]=f12edc76904bfce1) → KAT re-pinned from the C pass
+(−3.1991500576230183 / −1.1052317607502704 / 0.4000000003376854).
+
+**The numbers (held-out; the policy never trained on 42/7/99):**
+
+| ENTRY clean ×60 | s42 | s7 | s99 | total |
+|---|---|---|---|---|
+| `--neural` v5 | **52/60** | **52/60** | **52/60** | **156/180 = 86.7%** |
+| MPPI (teacher) | 57/60 | — | — | (95/91/93 per 100, D-016) |
+
+Round-over-round: **0/60 (v4, round-0) → 52/60 (v5, round-1-of-ENTRY)** — the same
+one-round jump AERO showed (1→4) but far steeper, because the v4 near-miss anatomy (57
+off-pad, run-1 at 19.6 m) meant the reach was already learned and only terminal finesse was
+missing. The student's ENTRY landers are TIGHTER than the teacher's (lat 7.45 m vs 16.32;
+td_v 2.76 vs 3.31; too-hard 0, fuel-out 1). Rate variance across seeds: ZERO (52/52/52).
+Five landings behind the teacher after one round; AERO's ladder closed a similar gap in one
+further round + a structural lever.
+
+**No forgetting, sixth consecutive time:** AERO clean 46/60 (still teacher+2), gust-A 45/60
+(still teacher+7) — bit-for-bit the v4 rates. The growing curriculum (clean + gust +
+engine-out + ENTRY across two scenario regimes) continues to be strictly additive in one
+37k-param net. Gates: selftest PASS (KAT v5), TERMINAL ×200 byte-clean, MPPI run-1
+2.63/10.48 exact, ENTRY ×60 pair bit-identical. Held-out law intact.
+
+**Next per the §5 roadmap (unchanged by this result, strengthened by it):** ENTRY round-3
+if desired (52→teacher-parity), then THE TWO BLOCKING ITEMS for the engine-out axis — the
+2-engine frontier oracle (D-025's redirect; nothing about EO recovery can be claimed
+without it) and the expert-iteration teachers (cbc89fe) for the in-frontier subset — then
+pairwise → the joint compound (N3, the showcase + the M4 attempt).
+
