@@ -54,7 +54,9 @@ export async function createRenderer(
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping =
     (opts.toneMapping ?? "agx") === "aces" ? ACESFilmicToneMapping : AgXToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  // Physically-based exposure for the Preetham sky (HDR radiance) — tone-mapped to a real sky
+  // by AgX instead of a white-out. The plume/flash are HDR emissive and still bloom above this.
+  renderer.toneMappingExposure = 0.4;
 
   // MUST init before first render on WebGPU (device request is async).
   await renderer.init();

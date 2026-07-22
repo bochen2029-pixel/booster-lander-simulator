@@ -136,10 +136,11 @@ export function buildSea(padRadius = 30): SeaEnv {
   // --- far ocean: a flat blue disc to the fog horizon (fills the distance) -----
   const farMat = new MeshStandardMaterial({
     color: SEA_DEEP,
-    roughness: 0.55, // matte enough that the sun doesn't burn a blooming specular band
+    roughness: 0.06, // glossy dielectric → reflects the sky IBL (real water), fresnel-bright at the horizon
     metalness: 0.0,
+    envMapIntensity: 5.0, // strong sky reflection
     emissive: SEA_DEEP, // faint blue floor so the water never washes to the tan ground-bounce
-    emissiveIntensity: 0.08,
+    emissiveIntensity: 0.04,
   });
   // reaches well past the fog horizon so its edge never shows and the Earth globe can't peek
   // out behind it at altitude (that gap was the white haze band on the sea horizon).
@@ -351,11 +352,12 @@ function buildOceanGrid(span: number, seg: number): OceanGrid {
 
   const mat = new MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.42, // semi-gloss: a soft sun sheen, not a blown-out mirror band
+    roughness: 0.06, // glossy water: reflects the sky IBL + sun glint; fresnel brightens the horizon
     metalness: 0.0,
     side: DoubleSide,
+    envMapIntensity: 5.0, // strong sky reflection (the photoreal water look)
     emissive: SEA_DEEP, // faint blue floor so wave slopes keep the ocean color, not tan
-    emissiveIntensity: 0.07,
+    emissiveIntensity: 0.04,
   });
   const mesh = new Mesh(geo, mat);
   mesh.receiveShadow = true;

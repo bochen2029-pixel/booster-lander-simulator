@@ -22,10 +22,11 @@
 import {
   Mesh,
   CylinderGeometry,
-  ConeGeometry,
   BoxGeometry,
   PlaneGeometry,
   CircleGeometry,
+  SphereGeometry,
+  TorusGeometry,
   MeshStandardMaterial,
   MeshBasicMaterial,
   HemisphereLight,
@@ -44,7 +45,8 @@ import {
   BufferGeometry,
   BufferAttribute,
 } from "three/webgpu";
-import type { Scene } from "three/webgpu";
+import type { Scene, WebGPURenderer } from "three/webgpu";
+import { installSkyAndIBL, type SkyEnv } from "./environment";
 import { simToThreePosition, simToThreeQuaternion } from "../net/frame";
 import type { InterpSample } from "../net/interp";
 import type { HelloFrame } from "../net/events";
@@ -90,7 +92,7 @@ export interface DocumentaryScene {
   update(s: InterpSample, dtSec: number): void;
 }
 
-export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
+export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): DocumentaryScene {
   scene.background = new Color(DAY_SKY);
   scene.fog = new Fog(DAY_FOG, STUDIO_FOG_NEAR, STUDIO_FOG_FAR);
 
@@ -155,6 +157,15 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   rim.position.set(-70, 50, -60);
   scene.add(rim);
 
+  // --- PHOTOREAL sky + image-based lighting (real reflections on the PBR metal) ---
+  const skyEnv: SkyEnv = installSkyAndIBL(scene, renderer, new Vector3(0.5, 0.55, 0.42));
+  hemi.intensity = 0.4; // IBL carries ambient now
+  key.intensity = 2.4;
+  if (import.meta.env.DEV) {
+    (globalThis as Record<string, unknown>).__sky = skyEnv;
+    (globalThis as Record<string, unknown>).__lights = { key, hemi, rim };
+  }
+
   // --- STARS: a faint field that fades IN with the darkening sky at altitude (the space
   // backdrop for the entry / high-altitude regime; invisible in bright day). Upper
   // hemisphere only (above the horizon). In the rebased `world` so it shares the
@@ -193,13 +204,21 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
   const boosterPivot = new Group();
   world.add(boosterPivot);
 
-  // materials
-  const hullMat = new MeshStandardMaterial({ color: 0xbfc3c9, roughness: 0.55, metalness: 0.15 });
-  const darkMat = new MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.7, metalness: 0.3 });
-  const finMat = new MeshStandardMaterial({ color: 0x3a3d44, roughness: 0.6, metalness: 0.4, side: DoubleSide });
-  const legMat = new MeshStandardMaterial({ color: 0x1c1f24, roughness: 0.65, metalness: 0.35 });
-  // bells NEVER glow (regen-cooled, canon §B.2 encoded rule) — plain dark metal
-  const bellMat = new MeshStandardMaterial({ color: 0x17191d, roughness: 0.5, metalness: 0.6 });
+  // materials — PBR metals (IBL supplies real reflections). Painted airframe with PANEL-LINE +
+  // soot surface detail (roughness/bump maps) so it reads as paneled metal, not smooth plastic.
+  // Matte painted airframe (no clearcoat = less plastic). Surface paneling is REAL geometry
+  // (flange rings in rebuildBooster) since CanvasTexture color maps don't sample on this WebGPU
+  // backend. Two tones: clean upper + soot-stained lower.
+  const hullMat = new MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.55, metalness: 0.16, envMapIntensity: 0.8 });
+  const sootMat = new MeshStandardMaterial({ color: 0x44454c, roughness: 0.82, metalness: 0.2, envMapIntensity: 0.55 });
+  const ringMat = new MeshStandardMaterial({ color: 0x8b8f97, roughness: 0.55, metalness: 0.55, envMapIntensity: 0.9 }); // flange/stringer rings
+  const darkMat = new MeshStandardMaterial({ color: 0x25282e, roughness: 0.5, metalness: 0.82, envMapIntensity: 1.1 }); // raw structure
+  const engMat = new MeshStandardMaterial({ color: 0x35383e, roughness: 0.45, metalness: 0.9, envMapIntensity: 1.1 }); // engine plumbing/manifold
+  const interMat = new MeshStandardMaterial({ color: 0x14151a, roughness: 0.55, metalness: 0.5, envMapIntensity: 0.9 }); // black composite interstage
+  const finMat = new MeshStandardMaterial({ color: 0x484d55, roughness: 0.34, metalness: 0.92, side: DoubleSide, envMapIntensity: 1.2 }); // titanium grid fins
+  const legMat = new MeshStandardMaterial({ color: 0x181b20, roughness: 0.46, metalness: 0.82, envMapIntensity: 1.0 });
+  // bells NEVER glow (regen-cooled, canon §B.2 encoded rule) — dark polished nozzle metal
+  const bellMat = new MeshStandardMaterial({ color: 0x121418, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.3 });
 
   // geometry containers we rebuild on HELLO
   const bodyGroup = new Group();
@@ -230,70 +249,158 @@ export function buildDocumentaryScene(scene: Scene): DocumentaryScene {
     legPivots.length = 0;
 
     const R = vehDia / 2;
-    // tank body: 78% of length; interstage cone: 8%; octaweb block at base: rest.
-    const tankLen = vehLen * 0.78;
-    const isLen = vehLen * 0.08;
-    const octaLen = vehLen * 0.14;
+    const octaLen = vehLen * 0.09; // engine bay
+    const tankLen = vehLen * 0.73; // main tank (soot lower + clean upper)
+    const isLen = vehLen * 0.1; // interstage
+    // Built base-at-y=0, growing +Y (sim +Z up -> three +Y up: a vertical booster stands).
 
-    // The sim reports the base-plane center; body is built with base at local y=0,
-    // growing +Y. (After frame conversion, sim +Z up -> three +Y up, so a vertical
-    // booster at identity attitude already stands up.)
-    const octa = new Mesh(new CylinderGeometry(R * 0.98, R * 0.98, octaLen, 24), darkMat);
+    // ===== engine bay (octaweb) + thrust-structure base ring =====
+    const octa = new Mesh(new CylinderGeometry(R * 0.99, R * 0.94, octaLen, 64, 1), darkMat);
     octa.position.y = octaLen / 2;
     octa.castShadow = true;
     bodyGroup.add(octa);
+    const baseRing = new Mesh(new CylinderGeometry(R * 0.97, R * 0.97, octaLen * 0.18, 64), engMat);
+    baseRing.position.y = octaLen * 0.09;
+    bodyGroup.add(baseRing);
 
-    const tank = new Mesh(new CylinderGeometry(R, R, tankLen, 32), hullMat);
-    tank.position.y = octaLen + tankLen / 2;
+    // ===== 9 Merlin engines (1 center + 8 ring), each a detailed nozzle =====
+    const engBell = (scale: number): Group => {
+      const g = new Group();
+      const noz = new Mesh(
+        new CylinderGeometry(R * 0.16 * scale, R * 0.075 * scale, R * 0.62 * scale, 28, 1, true),
+        bellMat
+      );
+      noz.position.y = -R * 0.31 * scale;
+      noz.castShadow = true;
+      g.add(noz);
+      const lip = new Mesh(new TorusGeometry(R * 0.16 * scale, R * 0.013 * scale, 8, 28), bellMat);
+      lip.rotation.x = Math.PI / 2;
+      lip.position.y = -R * 0.62 * scale;
+      g.add(lip);
+      const cham = new Mesh(new CylinderGeometry(R * 0.09 * scale, R * 0.12 * scale, R * 0.22 * scale, 16), engMat);
+      cham.position.y = R * 0.02 * scale;
+      g.add(cham);
+      return g;
+    };
+    const engY = -R * 0.05;
+    const center = engBell(1.0);
+    center.position.set(0, engY, 0);
+    bodyGroup.add(center);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+      const e = engBell(0.82);
+      e.position.set(Math.cos(a) * R * 0.6, engY, Math.sin(a) * R * 0.6);
+      bodyGroup.add(e);
+    }
+    bellY = -R * 0.72; // center engine exit — the plume attaches here
+
+    // ===== main tank: soot-stained lower third + clean upper =====
+    const sootLen = tankLen * 0.34;
+    const soot = new Mesh(new CylinderGeometry(R, R, sootLen, 64, 1), sootMat);
+    soot.position.y = octaLen + sootLen / 2;
+    soot.castShadow = true;
+    bodyGroup.add(soot);
+    const tank = new Mesh(new CylinderGeometry(R, R, tankLen - sootLen, 64, 1), hullMat);
+    tank.position.y = octaLen + sootLen + (tankLen - sootLen) / 2;
     tank.castShadow = true;
     bodyGroup.add(tank);
+    const band = new Mesh(new CylinderGeometry(R * 1.006, R * 1.006, tankLen * 0.015, 48), darkMat);
+    band.position.y = octaLen + tankLen * 0.62;
+    bodyGroup.add(band);
 
-    const inter = new Mesh(new ConeGeometry(R, isLen, 32), darkMat);
+    // structural flange/stringer rings up the body — REAL geometry paneling (breaks up the
+    // smooth cylinder, catches light as seams). Reliable where CanvasTexture maps aren't.
+    const nRings = 12;
+    for (let k = 1; k <= nRings; k++) {
+      const ring = new Mesh(new CylinderGeometry(R * 1.014, R * 1.014, 0.16, 48, 1, true), ringMat);
+      ring.position.y = octaLen + (tankLen * k) / (nRings + 1);
+      ring.castShadow = true;
+      bodyGroup.add(ring);
+    }
+
+    // ===== raceway conduit + external feed lines =====
+    const race = new Mesh(new BoxGeometry(R * 0.14, tankLen * 0.96, R * 0.22), engMat);
+    race.position.set(R * 1.0, octaLen + tankLen / 2, 0);
+    race.castShadow = true;
+    bodyGroup.add(race);
+    for (const off of [-1, 1]) {
+      const line = new Mesh(new CylinderGeometry(R * 0.03, R * 0.03, tankLen * 0.9, 8), engMat);
+      line.position.set(R * 1.0, octaLen + tankLen / 2, off * R * 0.18);
+      bodyGroup.add(line);
+    }
+
+    // ===== interstage (black composite) + top dome + RCS clusters =====
+    const inter = new Mesh(new CylinderGeometry(R, R, isLen, 64, 1), interMat);
     inter.position.y = octaLen + tankLen + isLen / 2;
     inter.castShadow = true;
     bodyGroup.add(inter);
+    const dome = new Mesh(new SphereGeometry(R, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.5), interMat);
+    dome.position.y = octaLen + tankLen + isLen;
+    bodyGroup.add(dome);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const rcs = new Mesh(new BoxGeometry(R * 0.16, R * 0.1, R * 0.16), engMat);
+      rcs.position.set(Math.cos(a) * R, octaLen + tankLen + isLen * 0.5, Math.sin(a) * R);
+      bodyGroup.add(rcs);
+    }
 
-    // center bell (gimbaled). Sits just below the base plane (protruding -Y).
-    const bell = new Mesh(new ConeGeometry(R * 0.28, R * 0.9, 20, 1, true), bellMat);
-    bell.rotation.x = Math.PI; // opening downward
-    bell.position.y = -R * 0.45;
-    bodyGroup.add(bell);
-    bellY = -R * 0.9; // exit plane (plume attaches here)
-
-    // 4 grid fins near the top of the tank, hinged by fins_act (canon §B.2)
-    const finTopY = octaLen + tankLen * 0.92;
+    // ===== 4 LATTICE grid fins (frame + inner cross-lattice + hinge arm) =====
+    const finTopY = octaLen + tankLen * 0.9;
     for (let i = 0; i < 4; i++) {
       const ang = (i * Math.PI) / 2;
       const pivot = new Group();
       pivot.position.set(Math.cos(ang) * R, finTopY, Math.sin(ang) * R);
       pivot.rotation.y = -ang; // face outward
-      const fin = new Mesh(new BoxGeometry(0.15, 1.6, 2.2), finMat);
-      fin.position.x = 0.9; // stand off the hull
-      fin.castShadow = true;
+      const fin = new Group();
+      fin.position.x = R * 0.6;
+      const FW = 2.4, FH = 3.0, TT = 0.11, depth = 0.5;
+      for (const [px, py, w, h] of [
+        [0, FH / 2, FW, TT], [0, -FH / 2, FW, TT], [-FW / 2, 0, TT, FH], [FW / 2, 0, TT, FH],
+      ] as const) {
+        const bar = new Mesh(new BoxGeometry(w, h, depth), finMat);
+        bar.position.set(px, py, 0);
+        bar.castShadow = true;
+        fin.add(bar);
+      }
+      for (let k = -2; k <= 2; k++) {
+        const v = new Mesh(new BoxGeometry(TT * 0.7, FH, depth * 0.9), finMat);
+        v.position.x = (k / 5) * FW;
+        fin.add(v);
+        const hb = new Mesh(new BoxGeometry(FW, TT * 0.7, depth * 0.9), finMat);
+        hb.position.y = (k / 5) * FH;
+        fin.add(hb);
+      }
+      const arm = new Mesh(new BoxGeometry(R * 0.6, TT * 2.2, TT * 2.2), finMat);
+      arm.position.x = R * 0.3;
+      pivot.add(arm);
       pivot.add(fin);
       boosterPivot.add(pivot);
       finPivots.push(pivot);
     }
 
-    // 4 landing legs, hinged at the base rim (canon §B.2). STOWED (deploy_frac 0, high
-    // altitude) = folded UP along the hull; DEPLOYED (deploy_frac 1, landing) = swung
-    // out+down into the landing tripod. The pivot faces radially outward (rotation.y=-ang),
-    // so a rotation about its local Z swings the strut in the radial–vertical plane; the
-    // deploy_frac -> angle mapping lives in update() (was inverted — legs read extended at
-    // altitude, retracting on touchdown; now correct).
+    // ===== 4 landing legs — A-frame + piston + hex footpad (canon §B.2) =====
+    // STOWED (deploy_frac 0) = folded up along the hull; DEPLOYED (1) = out+down tripod.
     const legLen = legSpan * 0.55;
     for (let i = 0; i < 4; i++) {
       const ang = (i * Math.PI) / 2 + Math.PI / 4;
       const pivot = new Group();
-      pivot.position.set(Math.cos(ang) * R * 0.92, octaLen * 0.2, Math.sin(ang) * R * 0.92);
+      pivot.position.set(Math.cos(ang) * R * 0.9, octaLen * 0.78, Math.sin(ang) * R * 0.9);
       pivot.rotation.y = -ang; // local +X points radially outward
-      // strut: cylinder along local Y, TOP at the hinge, hanging DOWN (-Y) at rest
-      const strut = new Mesh(new CylinderGeometry(0.16, 0.11, legLen, 8), legMat);
+      const strut = new Mesh(new CylinderGeometry(0.22, 0.14, legLen, 12), legMat);
       strut.position.y = -legLen / 2;
       strut.castShadow = true;
       pivot.add(strut);
-      // foot pad at the strut's far end
-      const foot = new Mesh(new CylinderGeometry(0.6, 0.6, 0.16, 12), legMat);
+      const piston = new Mesh(new CylinderGeometry(0.1, 0.1, legLen * 0.55, 10), finMat);
+      piston.position.y = -legLen * 0.72;
+      pivot.add(piston);
+      for (const s of [-1, 1] as const) {
+        const a2 = new Mesh(new CylinderGeometry(0.09, 0.07, legLen * 0.82, 8), legMat);
+        a2.position.set(s * 0.5, -legLen * 0.45, 0);
+        a2.rotation.z = s * 0.26;
+        a2.castShadow = true;
+        pivot.add(a2);
+      }
+      const foot = new Mesh(new CylinderGeometry(0.95, 0.95, 0.22, 6), legMat);
       foot.position.y = -legLen;
       foot.castShadow = true;
       pivot.add(foot);

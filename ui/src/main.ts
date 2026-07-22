@@ -45,7 +45,7 @@ async function boot() {
   const { renderer, scene, camera, backend } = await createRenderer();
   document.body.appendChild(renderer.domElement);
 
-  const doc = buildDocumentaryScene(scene);
+  const doc = buildDocumentaryScene(scene, renderer);
   // §5.2 bloom post-pass: the HDR plume + green-flash + hot markers glow. Replaces the
   // direct renderer.render() in the loop below (PostProcessing applies AgX + sRGB at output).
   const postfx = buildPostFx(renderer, scene, camera);
@@ -55,6 +55,8 @@ async function boot() {
   if (import.meta.env.DEV) {
     (globalThis as { __doc?: unknown }).__doc = doc;
     (globalThis as { __postfx?: unknown }).__postfx = postfx; // __postfx.set(strength,radius,threshold)
+    (globalThis as { __renderer?: unknown }).__renderer = renderer;
+    (globalThis as { __scene?: unknown }).__scene = scene;
   }
 
   // GRAPHICS FIDELITY toggle (HIGH/LOW, top-right, persisted): LOW renders at 1× pixel
@@ -277,8 +279,10 @@ async function boot() {
     audio.tick(); // keep the causal crackle stream regenerating (never a loop)
     audio.updatePanel(); // refresh meters + "you are N s away" readout
     cameraBar.refresh(); // keep the camera-view highlight in sync with hotkeys + auto-cuts
-    if (bloomOn) postfx.render(); // §5.2 bloom chain (HIGH)
-    else renderer.render(scene, camera); // LOW fidelity: skip the bloom post-pass
+    if (bloomOn) {
+      postfx.setExposure(renderer.toneMappingExposure); // one exposure knob
+      postfx.render(); // §5.2 bloom chain (HIGH)
+    } else renderer.render(scene, camera); // LOW fidelity: skip the bloom post-pass
   });
 }
 

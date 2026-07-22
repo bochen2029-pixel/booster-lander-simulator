@@ -1,5 +1,36 @@
 import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
+import { writeFileSync, mkdirSync } from "node:fs";
+
+// DEV-ONLY capture sink: the in-app __shot hook POSTs a base64 JPEG to /__cap?name=foo
+// and this writes runs/shots/foo.jpg so an agent (or the operator) can eyes-on the
+// WebGPU output on disk without a base64 round-trip. configureServer runs only under
+// `vite dev`; it is absent from the production build.
+function captureToDisk() {
+  return {
+    name: "capture-to-disk",
+    configureServer(server: any) {
+      server.middlewares.use("/__cap", (req: any, res: any) => {
+        if (req.method !== "POST") { res.statusCode = 405; res.end(); return; }
+        const url = new URL(req.url, "http://x");
+        const name = (url.searchParams.get("name") || "shot").replace(/[^a-z0-9_.-]/gi, "_");
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        req.on("end", () => {
+          try {
+            let b = Buffer.concat(chunks).toString("utf8");
+            const comma = b.indexOf(",");
+            if (b.startsWith("data:") && comma >= 0) b = b.slice(comma + 1);
+            const dir = resolve(__dirname, "../runs/shots");
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(resolve(dir, `${name}.jpg`), Buffer.from(b, "base64"));
+            res.statusCode = 200; res.end("ok");
+          } catch (e) { res.statusCode = 500; res.end(String(e)); }
+        });
+      });
+    },
+  };
+}
 
 // Canon §15: `pnpm -C ui dev` runs the browser dev server against `core --serve`
 // (ws://127.0.0.1:8787). `pnpm tauri dev` wraps this same server in the shell.
@@ -8,6 +39,7 @@ import { resolve } from "node:path";
 // window), and we must NOT clear the screen so Tauri's spawn logs stay visible.
 export default defineConfig({
   clearScreen: false,
+  plugins: [captureToDisk()],
   server: {
     port: 5183,
     strictPort: true,

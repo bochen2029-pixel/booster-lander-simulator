@@ -15,7 +15,7 @@
 
 import { PostProcessing } from "three/webgpu";
 import type { WebGPURenderer, Scene, PerspectiveCamera } from "three/webgpu";
-import { pass } from "three/tsl";
+import { pass, uniform } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 
 /** Bloom look (tunable — eyes-on). Threshold is a LINEAR-HDR luminance gate: the scene
@@ -32,6 +32,9 @@ export interface PostFx {
   render(): void;
   /** Live-tune the bloom (dev/eyes-on). */
   set(strength: number, radius: number, threshold: number): void;
+  /** HDR exposure before tone-mapping (renderer.toneMappingExposure is ignored once
+   * PostProcessing owns the output transform, so exposure lives here). */
+  setExposure(v: number): void;
 }
 
 export function buildPostFx(
@@ -42,13 +45,20 @@ export function buildPostFx(
   const scenePass = pass(scene, camera);
   const bloomPass = bloom(scenePass, BLOOM.strength, BLOOM.radius, BLOOM.threshold);
 
+  // Exposure applied to the HDR scene BEFORE AgX. The Preetham sky + IBL emit physical-scale
+  // radiance; without this the scene clips to white (renderer.toneMappingExposure is ignored here).
+  const exposure = uniform(0.4);
+
   const post = new PostProcessing(renderer);
-  // scene color + additive glow; PostProcessing applies AgX + sRGB at output.
-  post.outputNode = scenePass.add(bloomPass);
+  // (scene color + additive glow) × exposure; PostProcessing applies AgX + sRGB at output.
+  post.outputNode = scenePass.add(bloomPass).mul(exposure);
 
   return {
     render() {
       post.render();
+    },
+    setExposure(v: number) {
+      exposure.value = v;
     },
     set(strength, radius, threshold) {
       // BloomNode exposes strength/radius/threshold as uniforms (.value settable).
