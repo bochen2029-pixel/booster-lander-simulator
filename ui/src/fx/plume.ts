@@ -77,9 +77,9 @@ export function makePlumeUniforms(): PlumeUniforms {
 // (1 = throat/hottest -> yellow-white; 0 = cool tip -> deep orange/red). Soot makes
 // it warmer + sootier than a clean H2/O2 blue flame.
 const keroloxColor = /*#__PURE__*/ Fn(([tau]: any) => {
-  const cool = vec3(0.55, 0.12, 0.02); // deep orange-red tip
-  const mid = vec3(1.0, 0.42, 0.08); // orange body
-  const hot = vec3(1.0, 0.92, 0.62); // yellow-white throat
+  const cool = vec3(0.4, 0.08, 0.012); // deep sooty red-orange tip
+  const mid = vec3(1.0, 0.4, 0.07); // orange body
+  const hot = vec3(1.0, 0.93, 0.64); // yellow-white throat
   const a = mix(cool, mid, clamp(tau.mul(2.0), 0.0, 1.0));
   const b = mix(mid, hot, clamp(tau.sub(0.5).mul(2.0), 0.0, 1.0));
   return mix(a, b, smoothstep(0.5, 1.0, tau));
@@ -107,9 +107,10 @@ export function buildPlumeMaterial(u: PlumeUniforms): NodeMaterial {
   const cellFreq = float(1.0).div(x1.max(0.05)); // disks per meter along axis
 
   // altitude "balloon" factor: as ambient->0 (PR->large) the plume widens massively
-  // and diamonds smear. Underexpansion. Map from pressureRatio: ~0 at SL (PR~small),
-  // ->1 as PR climbs past ~50.
-  const balloon = smoothstep(8.0, 120.0, u.pressureRatio);
+  // and diamonds smear. Underexpansion. The CHAMBER/ambient ratio at sea level is
+  // already ~60 (9.7 MPa / 101 kPa) — ballooning is a VACUUM phenomenon, so the ramp
+  // keys on the thousands: ~0 below 10 km (PR<2k), full past ~40 km (PR>40k).
+  const balloon = smoothstep(2000.0, 40000.0, u.pressureRatio);
 
   // SRP forward-envelopment amount, blended by C_T exactly like the physics
   // (canon §6.3: full aero for C_T<0.5, ~5% by C_T>3). Here it drives how much the
@@ -126,28 +127,31 @@ export function buildPlumeMaterial(u: PlumeUniforms): NodeMaterial {
       const s = positionRay.y.mul(-1.0).add(0.5); // 0..1 down the plume
       const rad = length(positionRay.xz); // radial distance from axis (0..~0.7)
 
-      // --- radial confinement: a cone that widens with balloon + SRP -----------
-      // core half-width at the throat, growing downstream and with altitude.
-      const coneHalf = mix(float(0.06), float(0.16), s) // nominal taper
-        .mul(u.nEng.mul(0.25).add(0.75)) // 3-eng cluster is wider
-        .add(balloon.mul(0.30)); // altitude ballooning
-      // density falls off past the cone edge (soft):
-      const radial = smoothstep(coneHalf.add(0.05), coneHalf.sub(0.02), rad);
-
-      // --- Mach-diamond ladder along the axis ---------------------------------
+      // --- Mach-diamond ladder along the axis (computed FIRST — it pinches the cone) --
       // Bright rings where afterburning reignites at each disk. Spacing = cellFreq;
       // sharp at sea level (low balloon), smeared to nothing at altitude.
       const axialMeters = s.mul(2.0); // proxy ~2 m of near-field per local unit (set at build)
-      const disk = sin(axialMeters.mul(cellFreq).mul(3.14159 * 2.0)).mul(0.5).add(0.5);
-      const diamondSharp = mix(float(6.0), float(1.0), balloon); // smear with altitude
-      const diamonds = disk.pow(diamondSharp); // narrow bright bands when sharp
+      const diskWave = sin(axialMeters.mul(cellFreq).mul(3.14159 * 2.0)).mul(0.5).add(0.5);
+      const diamondSharp = mix(float(7.0), float(1.0), balloon); // smear with altitude
+      const diamonds = diskWave.pow(diamondSharp); // narrow bright bands when sharp
       // diamonds only exist while genuinely under/over-expanded & supersonic-ish
       const diamondGate = smoothstep(1.05, 1.6, u.pressureRatio).mul(
         smoothstep(0.2, 0.8, u.mach.mul(0.2).add(0.4))
       );
 
-      // --- unsteady turbulence (visual-only garnish is allowed here; canon §0.8) -
-      const noiseP = positionRay.mul(vec3(8.0, 3.0, 8.0)).add(vec3(0, time.mul(-2.0), 0));
+      // --- radial confinement: a cone that widens with balloon + SRP, and PINCHES ---
+      // at each shock diamond (the real barrel/waist structure of an expansion ladder).
+      const pinch = float(1.0).sub(diamonds.mul(diamondGate).mul(mix(float(0.24), float(0.0), balloon)));
+      const coneHalf = mix(float(0.05), float(0.125), s) // nominal taper (tight sea-level torch)
+        .mul(u.nEng.mul(0.25).add(0.75)) // 3-eng cluster is wider
+        .mul(pinch)
+        .add(balloon.mul(0.32)); // altitude ballooning
+      // density falls off past the cone edge (soft):
+      const radial = smoothstep(coneHalf.add(0.05), coneHalf.sub(0.02), rad);
+
+      // --- unsteady turbulence: ANISOTROPIC (streaks elongate down the axis) + fast
+      // advection near the exit (visual-only garnish is allowed here; canon §0.8).
+      const noiseP = positionRay.mul(vec3(9.0, 2.4, 9.0)).add(vec3(0, time.mul(-3.6), 0));
       const turb = mx_fractal_noise_float(noiseP, 3, 2.0, 0.5).mul(0.5).add(0.5);
 
       // --- temperature ramp: hottest near throat + at each diamond -------------
@@ -163,18 +167,33 @@ export function buildPlumeMaterial(u: PlumeUniforms): NodeMaterial {
         .mul(smoothstep(0.0, 0.4, s));
       const sooted = col.mul(mix(float(1.0), float(0.25), ggLane));
 
+      // --- WHITE-HOT CORE: the near-axis jet is orders brighter than the sheath.
+      // Narrow near the throat, fading + widening downstream; diamonds re-ignite it.
+      const coreR = mix(float(0.042), float(0.085), s).add(balloon.mul(0.05));
+      const core = smoothstep(coreR, float(0.0), rad)
+        .mul(float(1.0).sub(s.mul(0.55))) // cools downstream
+        .mul(mix(float(1.0), float(0.35), balloon));
+      const coreCol = vec3(1.0, 0.965, 0.905); // white-hot, slightly warm
+
       // --- local density -> emission -----------------------------------------
+      const axialFade = float(1.0).sub(smoothstep(0.5, 1.0, s).mul(mix(float(0.85), float(0.3), balloon)));
       const dens = radial
-        .mul(turb)
+        .mul(turb.mul(0.65).add(0.35)) // turbulence modulates, never extinguishes
         .mul(u.throttle.max(0.0)) // no plume when not burning
+        .mul(axialFade) // the flame concentrates near the bell; the tail dissolves
         .mul(mix(float(1.0), float(0.5), balloon)) // ballooned plume is fainter/translucent
-        .mul(float(1.0).add(diamonds.mul(diamondGate).mul(2.5))); // diamonds are bright
+        .mul(float(1.0).add(diamonds.mul(diamondGate).mul(2.2))); // diamonds are bright
 
-      const emis = sooted.mul(dens).mul(3.0); // HDR (>1) so it blooms
+      const emis = sooted.mul(dens).mul(2.1)
+        // the core is HDR-hot (drives the bloom) and re-brightens at each diamond
+        .add(coreCol.mul(core).mul(u.throttle).mul(
+          float(22.0).add(diamonds.mul(diamondGate).mul(26.0))
+        ));
 
-      // front-to-back accumulation (RaymarchingBox marches near->far)
+      // front-to-back accumulation (RaymarchingBox marches near->far); the core is
+      // near-opaque so the far sheath can't wash it out.
       acc.rgb.addAssign(emis.mul(float(1.0).sub(acc.a)));
-      acc.a.addAssign(dens.mul(0.15).mul(float(1.0).sub(acc.a)));
+      acc.a.addAssign(dens.mul(core.mul(0.30).add(0.12)).mul(float(1.0).sub(acc.a)));
       If(acc.a.greaterThanEqual(0.98), () => Break());
     });
 

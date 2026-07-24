@@ -125,11 +125,11 @@ export function buildMarkers(padGroundZ = 0): MarkersHandle {
 
   // --- pred_impact ground marker: an annulus + inner dot on the ground plane --
   const impactGroup = new Group();
-  const impactRingGeo = new RingGeometry(1.6, 2.4, 48);
+  const impactRingGeo = new RingGeometry(1.7, 2.3, 48);
   const impactRingMat = new MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.55,
     side: DoubleSide,
     blending: AdditiveBlending,
     depthWrite: false,
@@ -140,7 +140,7 @@ export function buildMarkers(padGroundZ = 0): MarkersHandle {
   const impactDotMat = new MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.45,
     side: DoubleSide,
     blending: AdditiveBlending,
     depthWrite: false,
@@ -159,7 +159,7 @@ export function buildMarkers(padGroundZ = 0): MarkersHandle {
   const trailMat = new LineBasicMaterial({
     vertexColors: true,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.6,
     blending: AdditiveBlending,
     depthWrite: false,
   });
@@ -171,11 +171,11 @@ export function buildMarkers(padGroundZ = 0): MarkersHandle {
   let sincePush = 0;
 
   // --- ignite_h altitude ring: a horizontal ring at the ignition altitude ------
-  const igniteGeo = new RingGeometry(6, 7, 64);
+  const igniteGeo = new RingGeometry(6.45, 6.9, 64);
   const igniteMat = new MeshBasicMaterial({
     color: 0x66ccff,
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.3,
     side: DoubleSide,
     blending: AdditiveBlending,
     depthWrite: false,
@@ -231,9 +231,12 @@ export function buildMarkers(padGroundZ = 0): MarkersHandle {
       igniteRing.position.copy(_p);
       const breathe = igniteBreathe(vehSimPos[2], igniteH);
       igniteRing.scale.setScalar(breathe);
-      // fade the ring in only when the vehicle is reasonably near it (within ~2x)
+      // fade the ring in only when the vehicle is reasonably near it (within ~2x)…
       const near = igniteH > 1 ? Math.min(1, (2 * igniteH) / Math.max(igniteH, vehSimPos[2])) : 0;
-      igniteMat.opacity = 0.12 + 0.3 * near;
+      // …and OUT once the vehicle has fallen through it — the burn has lit, the ring's
+      // information is spent, and a floating halo over the vehicle wrecks the shot.
+      const spent = igniteH > 1 ? Math.min(1, Math.max(0, vehSimPos[2] / igniteH)) : 0;
+      igniteMat.opacity = (0.1 + 0.26 * near) * spent * spent;
     },
   };
   return handle;

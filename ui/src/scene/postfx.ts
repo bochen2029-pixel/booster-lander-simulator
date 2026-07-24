@@ -22,9 +22,9 @@ import { bloom } from "three/addons/tsl/display/BloomNode.js";
  * pass is pre-tone-map, so the >1 plume/flash clears it while the tone-mapped daytime
  * sky/hull mostly does not. Raise threshold to bloom less; raise strength to bloom harder. */
 export const BLOOM = {
-  strength: 0.8,
-  radius: 0.55,
-  threshold: 0.9,
+  strength: 0.9,
+  radius: 0.5,
+  threshold: 1.0, // linear-HDR gate: only the >1 plume core / flashes bloom, the day scene stays crisp
 };
 
 export interface PostFx {
@@ -47,7 +47,7 @@ export function buildPostFx(
 
   // Exposure applied to the HDR scene BEFORE AgX. The Preetham sky + IBL emit physical-scale
   // radiance; without this the scene clips to white (renderer.toneMappingExposure is ignored here).
-  const exposure = uniform(0.4);
+  const exposure = uniform(0.34);
 
   const post = new PostProcessing(renderer);
   // (scene color + additive glow) × exposure; PostProcessing applies AgX + sRGB at output.

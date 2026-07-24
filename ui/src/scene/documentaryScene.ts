@@ -27,24 +27,38 @@ import {
   CircleGeometry,
   SphereGeometry,
   TorusGeometry,
+  LatheGeometry,
   MeshStandardMaterial,
+  MeshStandardNodeMaterial,
   MeshBasicMaterial,
   HemisphereLight,
   DirectionalLight,
   PointLight,
   Group,
   Vector3,
+  Vector2,
   Quaternion,
   Color,
   Fog,
   GridHelper,
   LineBasicMaterial,
   DoubleSide,
+  BackSide,
   Points,
   PointsMaterial,
   BufferGeometry,
   BufferAttribute,
 } from "three/webgpu";
+import {
+  clamp as tslClamp,
+  float as tslFloat,
+  mix as tslMix,
+  mx_fractal_noise_float,
+  positionLocal,
+  smoothstep as tslSmoothstep,
+  uniform as tslUniform,
+  vec3 as tslVec3,
+} from "three/tsl";
 import type { Scene, WebGPURenderer } from "three/webgpu";
 import { installSkyAndIBL, type SkyEnv } from "./environment";
 import { simToThreePosition, simToThreeQuaternion } from "../net/frame";
@@ -67,7 +81,9 @@ import { TLM_FLAG_SEA_ACTIVE } from "../net/decode";
 // night PRESET). Daytime palette: bright sky, fog tinted TO THE SKY (aerial
 // perspective), warm sun + strong sky/ground fill so the white hull always reads.
 const DAY_SKY = 0x8fc1ea;
-const DAY_FOG = 0x9fcbee;
+// fog tinted to the SKY'S HORIZON tone (pale, near-white blue): distant sea then melts
+// into the same band the Preetham sky shows at the horizon instead of meeting it at a seam
+const DAY_FOG = 0xbdd3e2;
 // FIRST-LIGHT FIX: the original 400/6000 m fog was Bonsai's DESK-SCALE preset pasted
 // into a 70 km scene — everything beyond 6 km fogged to background, so the entire
 // descent rendered pure black ("where is the freaking rocket"). Fog must be a subtle
@@ -88,6 +104,8 @@ export interface DocumentaryScene {
   applyHello(h: HelloFrame): void;
   /** Fire the TEA-TEB green flash (called by the EVT scheduler). */
   triggerGreenFlash(): void;
+  /** Show/hide ALL diegetic guidance markers (DEV beauty-shot switch). */
+  setMarkersVisible(on: boolean): void;
   /** Per-frame update from the interpolated sample. */
   update(s: InterpSample, dtSec: number): void;
 }
@@ -116,7 +134,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
 
   // the landing pad disc (Ø from HELLO pad_radius; default 30 m radius circle-X)
   const padMat = new MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.85, metalness: 0.05 });
-  const pad = new Mesh(new CircleGeometry(30, 64), padMat);
+  let pad = new Mesh(new CircleGeometry(30, 64), padMat);
   pad.rotation.x = -Math.PI / 2;
   pad.position.y = 0.02;
   pad.receiveShadow = true;
@@ -146,13 +164,22 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   key.position.set(60, 120, 40);
   key.castShadow = true;
   key.shadow.camera.near = 1;
-  key.shadow.camera.far = 500;
-  key.shadow.camera.left = -80;
-  key.shadow.camera.right = 80;
-  key.shadow.camera.top = 80;
-  key.shadow.camera.bottom = -80;
-  key.shadow.mapSize.set(2048, 2048);
+  // The shadow frustum must hold the WHOLE droneship (110×76 m) + the booster beside it,
+  // and the light FOLLOWS the vehicle in update() so the contact shadow exists at any
+  // altitude (a fixed 80 m box at the origin lost the vehicle the moment it drifted).
+  key.shadow.camera.far = 1200;
+  key.shadow.camera.left = -150;
+  key.shadow.camera.right = 150;
+  key.shadow.camera.top = 150;
+  key.shadow.camera.bottom = -150;
+  key.shadow.camera.updateProjectionMatrix(); // the box above is dead without this
+  key.shadow.mapSize.set(4096, 4096);
+  key.shadow.bias = -0.0002;
+  key.shadow.normalBias = 0.05;
   scene.add(key);
+  scene.add(key.target);
+  // sun offset for the follow-light (matches the sky's sun azimuth/elevation direction)
+  const SUN_OFFSET = new Vector3(0.5, 0.55, 0.42).normalize().multiplyScalar(600);
   const rim = new DirectionalLight(0x6f9bff, 0.7);
   rim.position.set(-70, 50, -60);
   scene.add(rim);
@@ -160,7 +187,10 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   // --- PHOTOREAL sky + image-based lighting (real reflections on the PBR metal) ---
   const skyEnv: SkyEnv = installSkyAndIBL(scene, renderer, new Vector3(0.5, 0.55, 0.42));
   hemi.intensity = 0.4; // IBL carries ambient now
-  key.intensity = 2.4;
+  // EXPOSE FOR THE SUBJECT: at 2.4 the sun put sunlit white paint at ~1.5 linear — ~90%
+  // of sky brightness = blown white-on-white with no tonal detail (probe-verified). 1.9
+  // lands the hull at ~0.4 post-exposure where AgX gives it body; the sky rolls off.
+  key.intensity = 1.9;
   if (import.meta.env.DEV) {
     (globalThis as Record<string, unknown>).__sky = skyEnv;
     (globalThis as Record<string, unknown>).__lights = { key, hemi, rim };
@@ -204,21 +234,58 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   const boosterPivot = new Group();
   world.add(boosterPivot);
 
-  // materials — PBR metals (IBL supplies real reflections). Painted airframe with PANEL-LINE +
-  // soot surface detail (roughness/bump maps) so it reads as paneled metal, not smooth plastic.
-  // Matte painted airframe (no clearcoat = less plastic). Surface paneling is REAL geometry
-  // (flange rings in rebuildBooster) since CanvasTexture color maps don't sample on this WebGPU
-  // backend. Two tones: clean upper + soot-stained lower.
-  const hullMat = new MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.55, metalness: 0.16, envMapIntensity: 0.8 });
-  const sootMat = new MeshStandardMaterial({ color: 0x44454c, roughness: 0.82, metalness: 0.2, envMapIntensity: 0.55 });
-  const ringMat = new MeshStandardMaterial({ color: 0x8b8f97, roughness: 0.55, metalness: 0.55, envMapIntensity: 0.9 }); // flange/stringer rings
+  // materials — PBR + IBL, with the HULL as a TSL node material: white airframe paint with a
+  // PROCEDURAL soot job (heavy at the octaweb, streaking up the body — the signature of a
+  // flown, landed booster) computed in the shader from stretched fractal noise. Procedural
+  // beats textures here twice over: no CanvasTexture sampling bug (commit 908bc53), and the
+  // streaks live in tank-local space so they ride the airframe at any scale.
+  // envMapIntensity LOW: the physical-sky IBL is bright in absolute terms and a white
+  // hull at 0.9 reflected it into a sky-mirror blowout (probe: linear 1.4-1.9, blue).
+  const hullMat = new MeshStandardNodeMaterial({ roughness: 0.45, metalness: 0.12, envMapIntensity: 0.3 });
+  // HULL SOOT (TSL) — bound ONCE here. The tank length arrives later (HELLO), so it is a
+  // UNIFORM the rebuild updates, never a graph rebind: mutating a compiled node graph on
+  // this WebGPU backend silently drops the material to an unlit white fallback (the
+  // "white column" bug). Streaky soot: bottom-heavy gradient × vertically-stretched
+  // fractal noise (streaks run along the airflow), with a solid floor at the base.
+  const uTankLen = tslUniform(34.8);
+  {
+    const pl = positionLocal;
+    const y01 = pl.y.div(uTankLen).add(0.5); // 0 at tank bottom, 1 at top
+    const streaks = mx_fractal_noise_float(
+      tslVec3(pl.x.mul(2.1), pl.y.mul(0.11), pl.z.mul(2.1)),
+      3, 2.0, 0.55
+    ).mul(0.5).add(0.5);
+    const grad = tslSmoothstep(0.62, 0.02, y01); // heavy at the octaweb, fading by ~60% up
+    const soot = tslClamp(grad.mul(0.8).add(grad.mul(streaks).mul(0.75)), 0.0, 1.0);
+    const film = tslSmoothstep(0.72, 0.99, y01).mul(streaks).mul(0.3); // re-entry scorch wash
+    const paint = tslVec3(0.76, 0.775, 0.79);
+    const sootCol = tslVec3(0.075, 0.078, 0.085);
+    const s = tslClamp(soot.add(film), 0.0, 1.0);
+    hullMat.colorNode = tslMix(paint, sootCol, s);
+    hullMat.roughnessNode = tslMix(tslFloat(0.4), tslFloat(0.88), s);
+    hullMat.metalnessNode = tslMix(tslFloat(0.08), tslFloat(0.03), s);
+  }
   const darkMat = new MeshStandardMaterial({ color: 0x25282e, roughness: 0.5, metalness: 0.82, envMapIntensity: 1.1 }); // raw structure
   const engMat = new MeshStandardMaterial({ color: 0x35383e, roughness: 0.45, metalness: 0.9, envMapIntensity: 1.1 }); // engine plumbing/manifold
-  const interMat = new MeshStandardMaterial({ color: 0x14151a, roughness: 0.55, metalness: 0.5, envMapIntensity: 0.9 }); // black composite interstage
-  const finMat = new MeshStandardMaterial({ color: 0x484d55, roughness: 0.34, metalness: 0.92, side: DoubleSide, envMapIntensity: 1.2 }); // titanium grid fins
-  const legMat = new MeshStandardMaterial({ color: 0x181b20, roughness: 0.46, metalness: 0.82, envMapIntensity: 1.0 });
+  const heatShieldMat = new MeshStandardMaterial({ color: 0x1b1d21, roughness: 0.92, metalness: 0.25 }); // sooted base plate
+  // black composite interstage — carbon with a faint woven striation (TSL, low contrast)
+  const interMat = new MeshStandardNodeMaterial({ roughness: 0.48, metalness: 0.3, envMapIntensity: 0.9 });
+  {
+    const pl = positionLocal;
+    const weave = mx_fractal_noise_float(tslVec3(pl.x.mul(6.0), pl.y.mul(0.8), pl.z.mul(6.0)), 2, 2.0, 0.5)
+      .mul(0.5).add(0.5);
+    interMat.colorNode = tslMix(tslVec3(0.045, 0.048, 0.053), tslVec3(0.075, 0.078, 0.085), weave);
+    interMat.roughnessNode = tslClamp(tslFloat(0.42).add(weave.mul(0.18)), 0.3, 0.7);
+  }
+  const interInnerMat = new MeshStandardMaterial({ color: 0x0a0b0e, roughness: 0.9, metalness: 0.1, side: BackSide });
+  const domeMat = new MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.85, metalness: 0.1 }); // insulated LOX dome (dark, inside the open interstage)
+  // titanium grid fins (uncoated Ti — neutral gray with the faintest warmth, metallic)
+  const finMat = new MeshStandardMaterial({ color: 0x87847d, roughness: 0.36, metalness: 0.9, side: DoubleSide, envMapIntensity: 1.1 });
+  const legMat = new MeshStandardMaterial({ color: 0x15171b, roughness: 0.48, metalness: 0.35, envMapIntensity: 0.9 }); // carbon leg fairings
+  const pistonMat = new MeshStandardMaterial({ color: 0x8e939b, roughness: 0.32, metalness: 0.9, envMapIntensity: 1.1 }); // telescoping boom
   // bells NEVER glow (regen-cooled, canon §B.2 encoded rule) — dark polished nozzle metal
-  const bellMat = new MeshStandardMaterial({ color: 0x121418, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.3 });
+  const bellMat = new MeshStandardMaterial({ color: 0x14161a, roughness: 0.34, metalness: 0.92, envMapIntensity: 1.2 });
+  const bellInnerMat = new MeshStandardMaterial({ color: 0x050607, roughness: 0.85, metalness: 0.3, side: BackSide });
 
   // geometry containers we rebuild on HELLO
   const bodyGroup = new Group();
@@ -229,6 +296,8 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   let vehLen = 47.7;
   let vehDia = 3.66;
   let legSpan = 18;
+  let legStowed = Math.PI * 0.965; // leg pivot angles, set from geometry in rebuildBooster
+  let legDeployed = 0.9;
   let plumeProxyLen = 30; // base raymarch-box length/width (set in rebuildBooster); the
   let plumeProxyWide = 6; // update() scales these by throttle so the plume grows/shrinks visibly
 
@@ -250,36 +319,84 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
 
     const R = vehDia / 2;
     const octaLen = vehLen * 0.09; // engine bay
-    const tankLen = vehLen * 0.73; // main tank (soot lower + clean upper)
+    const tankLen = vehLen * 0.73; // main tank
     const isLen = vehLen * 0.1; // interstage
+    const _UP = new Vector3(0, 1, 0);
     // Built base-at-y=0, growing +Y (sim +Z up -> three +Y up: a vertical booster stands).
 
-    // ===== engine bay (octaweb) + thrust-structure base ring =====
-    const octa = new Mesh(new CylinderGeometry(R * 0.99, R * 0.94, octaLen, 64, 1), darkMat);
+    // aligned-primitive helpers (A-frame legs, plumbing runs)
+    const beamBetween = (a: Vector3, b: Vector3, w: number, t: number, m: MeshStandardMaterial): Mesh => {
+      const dir = new Vector3().subVectors(b, a);
+      const len = dir.length();
+      const mesh = new Mesh(new BoxGeometry(w, len, t), m);
+      mesh.position.copy(a).lerp(b, 0.5);
+      mesh.quaternion.setFromUnitVectors(_UP, dir.normalize());
+      mesh.castShadow = true;
+      return mesh;
+    };
+    const tubeBetween = (a: Vector3, b: Vector3, r: number, m: MeshStandardMaterial): Mesh => {
+      const dir = new Vector3().subVectors(b, a);
+      const len = dir.length();
+      const mesh = new Mesh(new CylinderGeometry(r, r, len, 14), m);
+      mesh.position.copy(a).lerp(b, 0.5);
+      mesh.quaternion.setFromUnitVectors(_UP, dir.normalize());
+      mesh.castShadow = true;
+      return mesh;
+    };
+
+    // the hull soot graph is bound ONCE at material construction — only feed it the size
+    uTankLen.value = tankLen;
+
+    // ===== engine bay (octaweb) + base ring + vertical ribs =====
+    const octa = new Mesh(new CylinderGeometry(R * 0.99, R * 0.94, octaLen, 96, 1), darkMat);
     octa.position.y = octaLen / 2;
     octa.castShadow = true;
     bodyGroup.add(octa);
-    const baseRing = new Mesh(new CylinderGeometry(R * 0.97, R * 0.97, octaLen * 0.18, 64), engMat);
+    const baseRing = new Mesh(new CylinderGeometry(R * 0.97, R * 0.97, octaLen * 0.18, 96), engMat);
     baseRing.position.y = octaLen * 0.09;
     bodyGroup.add(baseRing);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const rib = new Mesh(new BoxGeometry(0.12, octaLen * 0.88, 0.2), engMat);
+      rib.position.set(Math.cos(a) * R * 0.975, octaLen * 0.5, Math.sin(a) * R * 0.975);
+      rib.rotation.y = -a;
+      bodyGroup.add(rib);
+    }
+    // sooted heat-shield base plate (the bells hang through it)
+    const shield = new Mesh(new CircleGeometry(R * 0.985, 96), heatShieldMat);
+    shield.rotation.x = Math.PI / 2; // faces down
+    shield.position.y = -0.01;
+    bodyGroup.add(shield);
 
-    // ===== 9 Merlin engines (1 center + 8 ring), each a detailed nozzle =====
+    // ===== 9 Merlin engines (1 center + 8 ring): lathe-profile bells =====
+    const bellProfile = (scale: number): LatheGeometry => {
+      const pts: Vector2[] = [];
+      const prof: [number, number][] = [
+        [0.082, 0.02], [0.076, -0.05], [0.086, -0.17], [0.105, -0.3],
+        [0.128, -0.44], [0.148, -0.55], [0.157, -0.6], [0.16, -0.62],
+      ];
+      for (const [r, y] of prof) pts.push(new Vector2(r * R * scale, y * R * scale));
+      return new LatheGeometry(pts, 40);
+    };
     const engBell = (scale: number): Group => {
       const g = new Group();
-      const noz = new Mesh(
-        new CylinderGeometry(R * 0.16 * scale, R * 0.075 * scale, R * 0.62 * scale, 28, 1, true),
-        bellMat
-      );
-      noz.position.y = -R * 0.31 * scale;
-      noz.castShadow = true;
-      g.add(noz);
-      const lip = new Mesh(new TorusGeometry(R * 0.16 * scale, R * 0.013 * scale, 8, 28), bellMat);
+      const outer = new Mesh(bellProfile(scale), bellMat);
+      outer.castShadow = true;
+      g.add(outer);
+      const inner = new Mesh(bellProfile(scale * 0.965), bellInnerMat);
+      inner.position.y = -0.005;
+      g.add(inner);
+      const lip = new Mesh(new TorusGeometry(R * 0.159 * scale, R * 0.011 * scale, 10, 40), bellMat);
       lip.rotation.x = Math.PI / 2;
       lip.position.y = -R * 0.62 * scale;
       g.add(lip);
-      const cham = new Mesh(new CylinderGeometry(R * 0.09 * scale, R * 0.12 * scale, R * 0.22 * scale, 16), engMat);
-      cham.position.y = R * 0.02 * scale;
+      // powerhead: chamber + turbopump block + feed elbow
+      const cham = new Mesh(new CylinderGeometry(R * 0.085, R * 0.115, R * 0.2, 20), engMat);
+      cham.position.y = R * 0.1 * scale;
       g.add(cham);
+      const tp = new Mesh(new BoxGeometry(R * 0.12, R * 0.14, R * 0.1), engMat);
+      tp.position.set(R * 0.08, R * 0.16 * scale, 0);
+      g.add(tp);
       return g;
     };
     const engY = -R * 0.05;
@@ -290,120 +407,142 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
       const e = engBell(0.82);
       e.position.set(Math.cos(a) * R * 0.6, engY, Math.sin(a) * R * 0.6);
+      // ring engines cant slightly outboard, like the real octaweb
+      e.rotation.set(Math.sin(a) * 0.06, 0, -Math.cos(a) * 0.06);
       bodyGroup.add(e);
     }
     bellY = -R * 0.72; // center engine exit — the plume attaches here
 
-    // ===== main tank: soot-stained lower third + clean upper =====
-    const sootLen = tankLen * 0.34;
-    const soot = new Mesh(new CylinderGeometry(R, R, sootLen, 64, 1), sootMat);
-    soot.position.y = octaLen + sootLen / 2;
-    soot.castShadow = true;
-    bodyGroup.add(soot);
-    const tank = new Mesh(new CylinderGeometry(R, R, tankLen - sootLen, 64, 1), hullMat);
-    tank.position.y = octaLen + sootLen + (tankLen - sootLen) / 2;
+    // ===== main tank: ONE cylinder, the TSL soot job carries the story =====
+    const tank = new Mesh(new CylinderGeometry(R, R, tankLen, 96, 1), hullMat);
+    tank.position.y = octaLen + tankLen / 2;
     tank.castShadow = true;
     bodyGroup.add(tank);
-    const band = new Mesh(new CylinderGeometry(R * 1.006, R * 1.006, tankLen * 0.015, 48), darkMat);
-    band.position.y = octaLen + tankLen * 0.62;
-    bodyGroup.add(band);
-
-    // structural flange/stringer rings up the body — REAL geometry paneling (breaks up the
-    // smooth cylinder, catches light as seams). Reliable where CanvasTexture maps aren't.
-    const nRings = 12;
-    for (let k = 1; k <= nRings; k++) {
-      const ring = new Mesh(new CylinderGeometry(R * 1.014, R * 1.014, 0.16, 48, 1, true), ringMat);
-      ring.position.y = octaLen + (tankLen * k) / (nRings + 1);
-      ring.castShadow = true;
-      bodyGroup.add(ring);
+    // three subtle weld seams (thin, hull-toned — catch light without reading as stripes)
+    for (const fy of [0.31, 0.62, 0.86]) {
+      const seam = new Mesh(new CylinderGeometry(R * 1.004, R * 1.004, 0.05, 96, 1, true), engMat);
+      seam.position.y = octaLen + tankLen * fy;
+      bodyGroup.add(seam);
     }
 
-    // ===== raceway conduit + external feed lines =====
-    const race = new Mesh(new BoxGeometry(R * 0.14, tankLen * 0.96, R * 0.22), engMat);
-    race.position.set(R * 1.0, octaLen + tankLen / 2, 0);
+    // ===== raceway conduit + cable runs =====
+    const race = new Mesh(new BoxGeometry(R * 0.1, tankLen * 0.97, R * 0.18), engMat);
+    race.position.set(R * 1.01, octaLen + tankLen / 2, 0);
     race.castShadow = true;
     bodyGroup.add(race);
     for (const off of [-1, 1]) {
-      const line = new Mesh(new CylinderGeometry(R * 0.03, R * 0.03, tankLen * 0.9, 8), engMat);
-      line.position.set(R * 1.0, octaLen + tankLen / 2, off * R * 0.18);
+      const line = new Mesh(new CylinderGeometry(R * 0.024, R * 0.024, tankLen * 0.93, 10), engMat);
+      line.position.set(R * 1.005, octaLen + tankLen / 2, off * R * 0.14);
       bodyGroup.add(line);
     }
 
-    // ===== interstage (black composite) + top dome + RCS clusters =====
-    const inter = new Mesh(new CylinderGeometry(R, R, isLen, 64, 1), interMat);
+    // ===== interstage: OPEN black composite ring (a booster has no nose cone) =====
+    const inter = new Mesh(new CylinderGeometry(R, R, isLen, 96, 1, true), interMat);
     inter.position.y = octaLen + tankLen + isLen / 2;
     inter.castShadow = true;
     bodyGroup.add(inter);
-    const dome = new Mesh(new SphereGeometry(R, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.5), interMat);
-    dome.position.y = octaLen + tankLen + isLen;
-    bodyGroup.add(dome);
+    const interInner = new Mesh(new CylinderGeometry(R * 0.985, R * 0.985, isLen * 0.98, 96, 1, true), interInnerMat);
+    interInner.position.y = octaLen + tankLen + isLen / 2;
+    bodyGroup.add(interInner);
+    const rimTorus = new Mesh(new TorusGeometry(R * 0.993, 0.06, 10, 96), interMat);
+    rimTorus.rotation.x = Math.PI / 2;
+    rimTorus.position.y = octaLen + tankLen + isLen;
+    bodyGroup.add(rimTorus);
+    // LOX dome bulkhead visible down inside the open interstage (dark insulation)
+    const bulkhead = new Mesh(new SphereGeometry(R * 0.97, 48, 20, 0, Math.PI * 2, 0, Math.PI * 0.45), domeMat);
+    bulkhead.position.y = octaLen + tankLen + isLen * 0.12;
+    bulkhead.scale.y = 0.5;
+    bodyGroup.add(bulkhead);
+    // 4 RCS pods just below the interstage joint
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      const rcs = new Mesh(new BoxGeometry(R * 0.16, R * 0.1, R * 0.16), engMat);
-      rcs.position.set(Math.cos(a) * R, octaLen + tankLen + isLen * 0.5, Math.sin(a) * R);
-      bodyGroup.add(rcs);
+      const pod = new Group();
+      pod.position.set(Math.cos(a) * R * 0.995, octaLen + tankLen * 0.965, Math.sin(a) * R * 0.995);
+      pod.rotation.y = -a;
+      const body = new Mesh(new BoxGeometry(0.34, 0.3, 0.62), engMat);
+      pod.add(body);
+      for (const nz of [-0.18, 0.18]) {
+        const noz = new Mesh(new CylinderGeometry(0.055, 0.075, 0.12, 10), darkMat);
+        noz.position.set(0.12, 0.2, nz);
+        pod.add(noz);
+      }
+      bodyGroup.add(pod);
     }
 
-    // ===== 4 LATTICE grid fins (frame + inner cross-lattice + hinge arm) =====
-    const finTopY = octaLen + tankLen * 0.9;
+    // ===== 4 titanium LATTICE grid fins (mounted on the interstage) =====
+    const finTopY = octaLen + tankLen + isLen * 0.35;
     for (let i = 0; i < 4; i++) {
       const ang = (i * Math.PI) / 2;
       const pivot = new Group();
       pivot.position.set(Math.cos(ang) * R, finTopY, Math.sin(ang) * R);
       pivot.rotation.y = -ang; // face outward
+      // hinge boss + actuator arm at the root
+      const boss = new Mesh(new CylinderGeometry(0.22, 0.26, 0.5, 18), finMat);
+      boss.rotation.z = Math.PI / 2;
+      boss.position.x = R * 0.12;
+      pivot.add(boss);
       const fin = new Group();
-      fin.position.x = R * 0.6;
-      const FW = 2.4, FH = 3.0, TT = 0.11, depth = 0.5;
+      fin.position.x = R * 0.62;
+      const FW = 2.6, FH = 1.9, depth = 0.4;
+      // frame (slightly thicker) + fine 7×5 lattice + corner chamfers
+      const FRAME = 0.09, BAR = 0.05;
       for (const [px, py, w, h] of [
-        [0, FH / 2, FW, TT], [0, -FH / 2, FW, TT], [-FW / 2, 0, TT, FH], [FW / 2, 0, TT, FH],
+        [0, FH / 2, FW, FRAME], [0, -FH / 2, FW, FRAME], [-FW / 2, 0, FRAME, FH], [FW / 2, 0, FRAME, FH],
       ] as const) {
         const bar = new Mesh(new BoxGeometry(w, h, depth), finMat);
         bar.position.set(px, py, 0);
         bar.castShadow = true;
         fin.add(bar);
       }
-      for (let k = -2; k <= 2; k++) {
-        const v = new Mesh(new BoxGeometry(TT * 0.7, FH, depth * 0.9), finMat);
-        v.position.x = (k / 5) * FW;
+      for (let k = -3; k <= 3; k++) {
+        const v = new Mesh(new BoxGeometry(BAR, FH, depth * 0.92), finMat);
+        v.position.x = (k / 7) * FW;
+        v.castShadow = true;
         fin.add(v);
-        const hb = new Mesh(new BoxGeometry(FW, TT * 0.7, depth * 0.9), finMat);
+      }
+      for (let k = -2; k <= 2; k++) {
+        const hb = new Mesh(new BoxGeometry(FW, BAR, depth * 0.92), finMat);
         hb.position.y = (k / 5) * FH;
+        hb.castShadow = true;
         fin.add(hb);
       }
-      const arm = new Mesh(new BoxGeometry(R * 0.6, TT * 2.2, TT * 2.2), finMat);
-      arm.position.x = R * 0.3;
-      pivot.add(arm);
       pivot.add(fin);
       boosterPivot.add(pivot);
       finPivots.push(pivot);
     }
 
-    // ===== 4 landing legs — A-frame + piston + hex footpad (canon §B.2) =====
-    // STOWED (deploy_frac 0) = folded up along the hull; DEPLOYED (1) = out+down tripod.
+    // ===== 4 landing legs — REAL A-frame: twin carbon blades + telescoping boom + pad ====
+    // STOWED (deploy_frac 0) = folded flush up the hull; DEPLOYED (1) = the wide tripod.
     const legLen = legSpan * 0.55;
+    legDeployed = Math.asin(Math.min(0.98, Math.max(0.25, (legSpan / 2 - R * 0.9) / legLen)));
+    legStowed = Math.PI * 0.965;
     for (let i = 0; i < 4; i++) {
       const ang = (i * Math.PI) / 2 + Math.PI / 4;
       const pivot = new Group();
-      pivot.position.set(Math.cos(ang) * R * 0.9, octaLen * 0.78, Math.sin(ang) * R * 0.9);
+      pivot.position.set(Math.cos(ang) * R * 0.92, octaLen * 0.85, Math.sin(ang) * R * 0.92);
       pivot.rotation.y = -ang; // local +X points radially outward
-      const strut = new Mesh(new CylinderGeometry(0.22, 0.14, legLen, 12), legMat);
-      strut.position.y = -legLen / 2;
-      strut.castShadow = true;
-      pivot.add(strut);
-      const piston = new Mesh(new CylinderGeometry(0.1, 0.1, legLen * 0.55, 10), finMat);
-      piston.position.y = -legLen * 0.72;
-      pivot.add(piston);
-      for (const s of [-1, 1] as const) {
-        const a2 = new Mesh(new CylinderGeometry(0.09, 0.07, legLen * 0.82, 8), legMat);
-        a2.position.set(s * 0.5, -legLen * 0.45, 0);
-        a2.rotation.z = s * 0.26;
-        a2.castShadow = true;
-        pivot.add(a2);
-      }
-      const foot = new Mesh(new CylinderGeometry(0.95, 0.95, 0.22, 6), legMat);
-      foot.position.y = -legLen;
-      foot.castShadow = true;
-      pivot.add(foot);
+      const foot = new Vector3(0.14, -legLen, 0);
+      // twin A-frame blades from spread hull attachments converging on the foot
+      pivot.add(beamBetween(new Vector3(0.08, 0, 0.66), foot, 0.4, 0.12, legMat));
+      pivot.add(beamBetween(new Vector3(0.08, 0, -0.66), foot, 0.4, 0.12, legMat));
+      // wide front fairing blade (the face you see — tapers into the pad)
+      pivot.add(beamBetween(new Vector3(0.2, -legLen * 0.06, 0), new Vector3(0.16, -legLen * 0.985, 0), 0.55, 0.16, legMat));
+      // telescoping boom: three nested silver stages
+      pivot.add(tubeBetween(new Vector3(0.34, -legLen * 0.05, 0), new Vector3(0.28, -legLen * 0.42, 0), 0.16, pistonMat));
+      pivot.add(tubeBetween(new Vector3(0.28, -legLen * 0.42, 0), new Vector3(0.2, -legLen * 0.74, 0), 0.115, pistonMat));
+      pivot.add(tubeBetween(new Vector3(0.2, -legLen * 0.74, 0), new Vector3(0.15, -legLen * 0.97, 0), 0.08, pistonMat));
+      // broad footpad, counter-rotated so it lands flat at full deploy
+      const padG = new Group();
+      padG.position.copy(foot);
+      padG.rotation.z = -legDeployed;
+      const pad = new Mesh(new CylinderGeometry(0.92, 1.05, 0.2, 28), legMat);
+      pad.castShadow = true;
+      padG.add(pad);
+      const padRim = new Mesh(new TorusGeometry(0.98, 0.05, 10, 28), pistonMat);
+      padRim.rotation.x = Math.PI / 2;
+      padRim.position.y = 0.06;
+      padG.add(padRim);
+      pivot.add(padG);
       boosterPivot.add(pivot);
       legPivots.push(pivot);
     }
@@ -452,6 +591,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   const _p = new Vector3();
   const _q = new Quaternion();
   const _deckP = new Vector3();
+  const _lightAnchor = new Vector3();
   // ATMOSPHERE-BY-ALTITUDE endpoints: at entry (~60 km) the sky is near-black space; it
   // brightens into full day as the vehicle descends into the thick lower atmosphere.
   const _skySpace = new Color(0x03060f);
@@ -474,10 +614,18 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
         // pc_ref is the chamber-pressure reference; plume pressureRatio uses live
         // p_chamber/p_amb from TLM, so nothing to store here beyond geometry.
       }
-      // rebuild pad radius (land pad + the droneship deck bullseye)
+      // rebuild pad radius (land pad + the droneship deck bullseye). REPLACE the mesh —
+      // swapping .geometry on a live mesh breaks its pipeline on this WebGPU backend
+      // (renders unlit white; same family as the hull-rebind bug).
       if (h.padRadius > 0) {
+        const fresh = new Mesh(new CircleGeometry(h.padRadius, 64), padMat);
+        fresh.rotation.x = -Math.PI / 2;
+        fresh.position.y = 0.02;
+        fresh.receiveShadow = true;
+        landGroup.add(fresh);
+        landGroup.remove(pad);
         pad.geometry.dispose();
-        pad.geometry = new CircleGeometry(h.padRadius, 64);
+        pad = fresh;
         sea.setPadRadius(h.padRadius);
       }
       rebuildBooster();
@@ -485,6 +633,11 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
 
     triggerGreenFlash() {
       greenFlash = 1.0;
+    },
+
+    setMarkersVisible(on: boolean) {
+      markers.root.visible = on;
+      targetMarker.root.visible = on;
     },
 
     update(s: InterpSample, dtSec: number) {
@@ -525,7 +678,10 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
         (scene.fog as Fog).near = STUDIO_FOG_NEAR + (1 - dayF) * 1_500_000;
         (scene.fog as Fog).far = STUDIO_FOG_FAR + (1 - dayF) * 3_000_000;
       }
-      hemi.intensity = 0.12 + 1.23 * dayF; // sky bounce fades toward vacuum; the sun key stays
+      // sky bounce fades toward vacuum; the sun key stays. SCALED DOWN since the IBL
+      // carries the ambient now — the old 1.35 day value stomped the environment rebalance
+      // every frame and blew the sunlit hull to white.
+      hemi.intensity = (0.12 + 1.23 * dayF) * 0.3;
       starMat.opacity = (1 - dayF) * 0.9; // stars fade in as the sky goes to space
       // The stylized Earth globe is for the LAND/RTLS entry view. In SEA mode the ocean disc
       // is the surface, so HIDE the globe (passing dayF=1 keeps it hidden) — otherwise the
@@ -542,6 +698,13 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
       boosterPivot.position.copy(_p);
       boosterPivot.quaternion.copy(_q);
 
+      // --- sun-shadow FOLLOW: keep the directional shadow frustum centered on the
+      // vehicle in RENDER space (the world group carries the floating-origin offset;
+      // lights live at scene root, so add it). One frame of rebase lag is invisible.
+      _lightAnchor.copy(_p).add(world.position);
+      key.target.position.copy(_lightAnchor);
+      key.position.copy(_lightAnchor).add(SUN_OFFSET);
+
       // --- grid fins: hinge each by fins_act[i] (rad) --------------------------
       for (let i = 0; i < finPivots.length; i++) {
         const defl = f.finsAct[i] ?? 0;
@@ -553,9 +716,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
       // 1 => DEPLOYED (~30° = strut swung out+down into the landing tripod). +θ about the
       // pivot's local Z rotates the hanging (-Y) strut toward +X (radially outward).
       const deploy = f.deployFrac;
-      const LEG_STOWED = Math.PI * 0.96;
-      const LEG_DEPLOYED = 0.52;
-      const legAngle = LEG_STOWED + (LEG_DEPLOYED - LEG_STOWED) * deploy;
+      const legAngle = legStowed + (legDeployed - legStowed) * deploy;
       for (const p of legPivots) p.rotation.z = legAngle;
 
       // --- plume: drive uniforms from throttle_act / p_chamber / p_amb / mach ---

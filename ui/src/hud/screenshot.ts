@@ -42,6 +42,25 @@ export function installScreenshot(
 ): ShotHandle {
   let shotN = 0;
 
+  // RT CACHE: a fresh RenderTarget per capture makes the WebGPU renderer re-prepare
+  // render state each time (new target = new renderContext), which re-opens the
+  // async-pipeline white-placeholder window. Reuse one RT per (size, type).
+  const rtCache = new Map<string, RenderTarget>();
+  function getRT(W: number, H: number, half: boolean): RenderTarget {
+    const key = `${W}x${H}:${half ? "h" : "b"}`;
+    let rt = rtCache.get(key);
+    if (!rt) {
+      rt = new RenderTarget(W, H, {
+        type: half ? HalfFloatType : UnsignedByteType,
+        minFilter: LinearFilter,
+        magFilter: LinearFilter,
+        depthBuffer: true,
+      });
+      rtCache.set(key, rt);
+    }
+    return rt;
+  }
+
   async function captureWith(
     cam: PerspectiveCamera,
     w: number,
@@ -52,19 +71,23 @@ export function installScreenshot(
     const W = Math.max(16, Math.round(w));
     const H = Math.max(16, Math.round(h));
 
-    const rt = new RenderTarget(W, H, {
-      type: UnsignedByteType,
-      minFilter: LinearFilter,
-      magFilter: LinearFilter,
-      depthBuffer: true,
-    });
+    const rt = getRT(W, H, false);
 
     const prevAspect = cam.aspect;
     cam.aspect = W / H;
     cam.updateProjectionMatrix();
 
     const prevTarget = renderer.getRenderTarget();
+    // PIPELINE WARM-UP: r185 WebGPU builds pipelines ASYNC, and the pipeline variant is
+    // keyed to the OUTPUT TARGET FORMAT — an offscreen RenderTarget is a different format
+    // than the canvas, so a one-shot RT render draws WHITE PLACEHOLDERS for any material
+    // whose RT-variant pipeline is cold (the "unlit white mesh" capture artifact). Bind
+    // the RT FIRST so compileAsync keys the right variants, render once to flush the
+    // remainder, give the async compiler a beat, then render the real frame.
     renderer.setRenderTarget(rt);
+    await renderer.compileAsync(scene, cam);
+    await renderer.renderAsync(scene, cam);
+    await new Promise((r) => setTimeout(r, 120));
     await renderer.renderAsync(scene, cam);
     // WebGPU readback RETURNS the pixel buffer (bottom-up RGBA, linear working color).
     const raw = (await renderer.readRenderTargetPixelsAsync(
@@ -75,7 +98,6 @@ export function installScreenshot(
       H
     )) as Uint8Array;
     renderer.setRenderTarget(prevTarget);
-    rt.dispose();
 
     cam.aspect = prevAspect;
     cam.updateProjectionMatrix();
@@ -181,15 +203,41 @@ export function installScreenshot(
   ): Promise<string> {
     const W = Math.max(16, Math.round(w)), H = Math.max(16, Math.round(h));
     const exposure = (renderer as unknown as { toneMappingExposure: number }).toneMappingExposure ?? 1;
-    const rt = new RenderTarget(W, H, { type: HalfFloatType, minFilter: LinearFilter, magFilter: LinearFilter, depthBuffer: true });
+    const rt = getRT(W, H, true);
     const prevAspect = cam.aspect;
     cam.aspect = W / H; cam.updateProjectionMatrix();
     const prevTarget = renderer.getRenderTarget();
+    // warm the RT-format pipelines first — see captureWith (white-placeholder artifact)
     renderer.setRenderTarget(rt);
+    await renderer.compileAsync(scene, cam);
     await renderer.renderAsync(scene, cam);
-    const raw = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, W, H)) as ArrayLike<number>;
+    await new Promise((r) => setTimeout(r, 120));
+    await renderer.renderAsync(scene, cam);
+    let raw = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, W, H)) as ArrayLike<number>;
+    // VERIFY-AND-RETRY: a scene change (e.g. the plume light dying at engine cut) can
+    // invalidate pipelines mid-run, and compileAsync provably misses some variants —
+    // cold objects then render as EXACT-1.0 flat white. Real AgX'd content almost never
+    // holds exact (1,1,1) over a large fraction of the frame; if it does, re-render
+    // until the async compiler catches up (bounded).
+    {
+      const bpe0 = (raw as { BYTES_PER_ELEMENT?: number }).BYTES_PER_ELEMENT || 4;
+      const isHalf0 = bpe0 === 2;
+      const one = (i: number) => (isHalf0 ? raw[i] === 0x3c00 : (raw[i] as number) === 1.0);
+      const whiteFrac = (): number => {
+        let white = 0, n = 0;
+        for (let i = 0; i + 3 < raw.length; i += 401 * 4) {
+          n++;
+          if (one(i) && one(i + 1) && one(i + 2)) white++;
+        }
+        return n ? white / n : 0;
+      };
+      for (let tries = 0; tries < 3 && whiteFrac() > 0.06; tries++) {
+        await new Promise((r) => setTimeout(r, 300));
+        await renderer.renderAsync(scene, cam);
+        raw = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, W, H)) as ArrayLike<number>;
+      }
+    }
     renderer.setRenderTarget(prevTarget);
-    rt.dispose();
     cam.aspect = prevAspect; cam.updateProjectionMatrix();
     // Half-float readback: values may arrive as Uint16 (half bits) or Float32 depending on the
     // backend — detect by the constructor.
@@ -267,6 +315,25 @@ export function installScreenshot(
   });
 
   if (import.meta.env.DEV) {
+    // ONE reusable pose camera for all __shotPose* calls: a fresh camera per call forces
+    // the WebGPU renderer to rebuild every render pipeline for the scene each capture
+    // (each cold pipeline = a white-placeholder risk + wasted compile time).
+    const poseCam = new PerspectiveCamera(50, 16 / 9, 0.1, 4_000_000);
+    const posePose = (
+      eye: [number, number, number],
+      target: [number, number, number],
+      fovDeg: number,
+      w: number,
+      h: number
+    ): PerspectiveCamera => {
+      poseCam.fov = fovDeg;
+      poseCam.aspect = w / h;
+      poseCam.position.set(eye[0], eye[1], eye[2]);
+      poseCam.lookAt(new Vector3(target[0], target[1], target[2]));
+      poseCam.updateProjectionMatrix();
+      poseCam.updateMatrixWorld(true);
+      return poseCam;
+    };
     (globalThis as { __shot?: unknown }).__shot = (
       w?: number,
       h?: number,
@@ -281,25 +348,42 @@ export function installScreenshot(
       h = 540,
       q = 0.9,
       maxOut?: number
-    ) => {
-      const cam = new PerspectiveCamera(fovDeg, w / h, 0.1, 4_000_000);
-      cam.position.set(eye[0], eye[1], eye[2]);
-      cam.lookAt(new Vector3(target[0], target[1], target[2]));
-      cam.updateMatrixWorld(true);
-      return captureWith(cam, w, h, q, maxOut);
-    };
+    ) => captureWith(posePose(eye, target, fovDeg, w, h), w, h, q, maxOut);
     // Tone-mapped (representative) variants — same poses, filmic exposure applied.
     (globalThis as { __shotHDR?: unknown }).__shotHDR = (w = 1024, h = 576, q = 0.6, maxOut = 1024) =>
       captureHDR(getCamera(), w, h, q, maxOut);
     (globalThis as { __shotPoseHDR?: unknown }).__shotPoseHDR = async (
       eye: [number, number, number], target: [number, number, number],
       fovDeg = 50, w = 1024, h = 576, q = 0.6, maxOut = 1024
+    ) => captureHDR(posePose(eye, target, fovDeg, w, h), w, h, q, maxOut);
+    // RAW-PIXEL PROBE (debug): render offscreen and return the LINEAR pre-tonemap RGB at
+    // the given pixel coords of a 320×180 frame — ground truth for "is this lit, unlit,
+    // fallback-white, or a tonemap artifact".
+    (globalThis as { __shotProbe?: unknown }).__shotProbe = async (
+      eye: [number, number, number],
+      target: [number, number, number],
+      pts: Array<[number, number]>
     ) => {
-      const cam = new PerspectiveCamera(fovDeg, w / h, 0.1, 4_000_000);
-      cam.position.set(eye[0], eye[1], eye[2]);
-      cam.lookAt(new Vector3(target[0], target[1], target[2]));
-      cam.updateMatrixWorld(true);
-      return captureHDR(cam, w, h, q, maxOut);
+      const W = 320, H = 180;
+      const cam = posePose(eye, target, 50, W, H);
+      const rt = getRT(W, H, true);
+      const prevTarget = renderer.getRenderTarget();
+      renderer.setRenderTarget(rt);
+      await renderer.compileAsync(scene, cam);
+      await renderer.renderAsync(scene, cam);
+      await new Promise((r) => setTimeout(r, 250));
+      await renderer.renderAsync(scene, cam);
+      const raw = (await renderer.readRenderTargetPixelsAsync(rt, 0, 0, W, H)) as ArrayLike<number>;
+      renderer.setRenderTarget(prevTarget);
+      const bpe = (raw as { BYTES_PER_ELEMENT?: number }).BYTES_PER_ELEMENT || 4;
+      const isHalf = bpe === 2;
+      const v = (i: number) => (isHalf ? halfToFloat(raw[i] as number) : (raw[i] as number));
+      const srcRow = raw.length > W * H * 4 ? (Math.ceil((W * 4 * bpe) / 256) * 256) / bpe : W * 4;
+      return pts.map(([x, y]) =>
+        [v(y * srcRow + x * 4), v(y * srcRow + x * 4 + 1), v(y * srcRow + x * 4 + 2)].map(
+          (n) => +n.toFixed(4)
+        )
+      );
     };
   }
 

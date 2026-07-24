@@ -18,6 +18,7 @@ import {
   Scene,
   AgXToneMapping,
   ACESFilmicToneMapping,
+  PCFSoftShadowMap,
 } from "three/webgpu";
 
 export interface RendererBundle {
@@ -52,11 +53,16 @@ export async function createRenderer(
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  // Shadow mapping was never enabled — every castShadow/receiveShadow flag in the scene
+  // was inert, which is why the booster never grounded onto the deck and everything read
+  // flat. Soft PCF at 4096 (one directional caster; the RTX-class GPU eats this).
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.toneMapping =
     (opts.toneMapping ?? "agx") === "aces" ? ACESFilmicToneMapping : AgXToneMapping;
   // Physically-based exposure for the Preetham sky (HDR radiance) — tone-mapped to a real sky
   // by AgX instead of a white-out. The plume/flash are HDR emissive and still bloom above this.
-  renderer.toneMappingExposure = 0.4;
+  renderer.toneMappingExposure = 0.34;
 
   // MUST init before first render on WebGPU (device request is async).
   await renderer.init();

@@ -52,9 +52,9 @@ export function installSkyAndIBL(scene: Scene, renderer: WebGPURenderer, sunDir:
     }
   }
   bake();
-  // Modest IBL: enough sky reflection to make the metal read, without flooding horizontal
-  // surfaces (the droneship deck) to white — the physical sky env is very bright in absolute terms.
-  (scene as { environmentIntensity?: number }).environmentIntensity = 0.32;
+  // Modest IBL: enough sky reflection to make the metal + WATER read, without flooding
+  // horizontal surfaces to white — the physical sky env is very bright in absolute terms.
+  (scene as { environmentIntensity?: number }).environmentIntensity = 0.42;
 
   return {
     sky,

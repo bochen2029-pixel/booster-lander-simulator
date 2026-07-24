@@ -41,6 +41,19 @@ import { installFidelity } from "./hud/fidelity"; // GFX HIGH/LOW toggle
 import { installScreenshot } from "./hud/screenshot"; // in-app capture (P) + DEV self-verify hooks
 import { installCameraBar } from "./hud/cameraBar"; // visible camera-view selector (was hotkey-only)
 
+// HEADLESS-DRIVE (DEV, self-verify harness — same family as __shot/__inject): the
+// agent-driven browser pane reports document.visibilityState "hidden", which freezes
+// requestAnimationFrame — the app connects and streams but the render loop never ticks
+// (looks alive, renders nothing). `?raf` swaps in a timer-driven rAF (30 fps) so the
+// loop runs unwatched and the offscreen __shotPose* captures see a live, posed scene.
+if (import.meta.env.DEV && new URLSearchParams(location.search).has("raf")) {
+  const frameMs = 1000 / 30;
+  window.requestAnimationFrame = (cb: FrameRequestCallback): number =>
+    window.setTimeout(() => cb(performance.now()), frameMs);
+  window.cancelAnimationFrame = (id: number) => window.clearTimeout(id);
+  console.info("[dev] ?raf headless-drive: timer rAF installed (30 fps)");
+}
+
 async function boot() {
   const { renderer, scene, camera, backend } = await createRenderer();
   document.body.appendChild(renderer.domElement);
@@ -188,6 +201,9 @@ async function boot() {
     G.__press = (key: string) => window.dispatchEvent(new KeyboardEvent("keydown", { key }));
     // drive the director camera directly (preset: PAD_LONG_LENS|ONBOARD_DOWN|CHASE|FREE_ORBIT)
     G.__cam = (preset: CameraPreset) => director.select(preset, vehSim, vehVel);
+    // hide/show the diegetic guidance markers (beauty-shot switch; instruments stay
+    // the shipping default — this only exists for the self-verify screenshot loop)
+    G.__markers = (on: boolean) => doc.setMarkersVisible(on);
     // read the latest decoded sim state (for asserting an injection had an effect)
     G.__telem = () => {
       const s = devSample;
