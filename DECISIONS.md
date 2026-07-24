@@ -2121,3 +2121,16 @@ lat 0.02-0.96 m) · s99 ×12 = **12/12** (9 PERFECT, 3 GOOD, lat 0.02-0.99 m). *
 2.0-3.5 t). The compound axis — engine-out × gust × moving target — is SWEPT on the honest tree.
 `runs/rfly_rate_s7_s99.txt`. D-040 is GO; next: the N3 cockpit showcase (`--serve --rfly --interactive`)
 with the live-replan pacing budget measured there.
+
+**N3 FIRST LIGHT (2026-07-24 addendum, same night):** the showcase flew — LIVE, on the photoreal cockpit
+stream, three consecutive GOOD verdicts on the full compound (gust 15@6000 + circle target + heaving deck
+±0.5 m): (A) scripted engine-out; (B) ×2 the ORIGINAL WOW — the ENGINE OUT button pressed mid-entry-burn
+(`[INJECT] t=9.1/9.2 ENGINE-OUT eng=2 fires NOW`), answered by the next async warm replans, landed on the
+bullseye. Machinery proven en route: pre-stream t=0 mission solve (no mid-stream freeze) + async worker
+replans (10 swaps/flight, stream never stalled) + the TERMINAL FREEZE (flare flies locked gains — the
+first live flight LOC'd at 13 m when a ~6-s-stale θ swapped in mid-flare; the sync+sea control landed
+GOOD 0.24 m, isolating staleness; frozen-flare re-fly landed GOOD; two more GOODs after). Filmed by the
+self-verify loop via the DIRECTOR camera (fixed-pose captures cannot track a 1 km/s faller): the
+onboard-down 2-engine burn at 41 km, the top-down burn-over-bullseye at 185 m, the landed tableau + the
+standing shadow shot — `runs/shots/n3d_*.jpg`, `runs/shots/n3b_*.jpg`. Remaining N3 garnish: the §G.2
+honest manufactured out-of-frontier failure, constellation scoring overlay, replay-from-journal.
