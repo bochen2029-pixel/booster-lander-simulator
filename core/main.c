@@ -384,6 +384,8 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
+        else if(!strcmp(argv[i],"--cfly")) gmode=GM_CFLY;     /* N2-S2: optimizer-in-the-loop (D-040) */
+        else if(!strcmp(argv[i],"--rfly")) gmode=GM_RFLY;     /* D-040 PIVOT: CEM over the native reactive stack (guidance_rfly.h) */
         else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
         else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;   /* E2' D-032: reactive (hoverslam) DAgger teacher label */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
@@ -468,6 +470,8 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
+        else if(!strcmp(argv[i],"--cfly")) gmode=GM_CFLY;     /* N2-S2: optimizer-in-the-loop (D-040) */
+        else if(!strcmp(argv[i],"--rfly")) gmode=GM_RFLY;     /* D-040 PIVOT: CEM over the native reactive stack (guidance_rfly.h) */
         else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
         else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;   /* E2' D-032: reactive (hoverslam) DAgger teacher label */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
@@ -804,6 +808,7 @@ static void apply_command(Sim* s, const BlCmd* c, uint32_t seed, uint32_t run){
 static int cmd_serve(int argc, char** argv){
     int scen=SCEN_TERMINAL; uint32_t seed=42, run=1; unsigned short port=8080;
     int modules=MOD_TURB;
+    int gmode=GM_HOVERSLAM;   /* D-040 pivot: --rfly serves the optimizer-in-the-loop live (N3) */
     /* N0: the play-menu contract (D-017/D-019, supervisor.rs Launch). The shell passes the
      * disturbance specs to --serve VERBATIM; pre-N0 cmd_serve silently DROPPED them (unknown-arg
      * skip) — the picker clicked into a void. Serve now parses + arms EXACTLY like cmd_run:
@@ -829,11 +834,12 @@ static int cmd_serve(int argc, char** argv){
         else if(!strcmp(argv[i],"--sea")){ modules|=MOD_SEA; if(i+1<argc && argv[i+1][0]!='-') sea_hs=strtod(argv[++i],0); }  /* SEA §4.4: heaving deck, optional Hs [m] (default 3.0) */
         else if(!strcmp(argv[i],"--sea-wander")){ modules|=MOD_SEA; sea_wander=3.0; if(i+1<argc && argv[i+1][0]!='-') sea_wander=strtod(argv[++i],0); }  /* SEA §4.4 Stage-1c: ±wander [m] slow station-keeping (default 3.0) */
         else if(!strcmp(argv[i],"--interactive")) interactive=1;   /* Mode 2 (§M2): open the inbound command channel (gust/engine-out buttons) */
+        else if(!strcmp(argv[i],"--rfly")) gmode=GM_RFLY;   /* D-040 pivot: CEM-over-reactive live (an injected EO gets answered by the next warm replan) */
     }
 
     /* Same sim config as --run: turbulence module + hoverslam guidance. This does
      * NOT change determinism — identical seed/run reproduces the headless path. */
-    Sim s; sim_init(&s, scen, seed, run, modules, GM_HOVERSLAM);
+    Sim s; sim_init(&s, scen, seed, run, modules, gmode);
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
     if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
     if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }

@@ -2070,3 +2070,47 @@ reaches the live plant and streams back out; guidance chases it. This is the vis
 work was for. No NP_VERSION bump. (Next: the frontend drag-to-`BlCmd` wiring — in-flight in a parallel session
 on `ui/` + `shell/`; and the §10.8 replay journal → deterministic playback of an improvised run.)
 
+
+## D-040 — The optimizer-in-the-loop lands the compound: GM_CFLY port NULL → GM_RFLY (CEM over the native stack) 12/12 (2026-07-23, night)
+
+**The arc.** The LODESTAR sandbox proved solver-then-distill's endgame: an optimizer-IN-the-loop (oracle-
+strength CEM solve at t=0 + warm 10-s replans) sweeps its held-out compound 16/16 GOOD+ (`2e16674`). Phase A
+ported that law (`guidance_cfly.{c,h}`, `--cfly`, GM_CFLY) faithfully — four unfaithful "main-tree tuning"
+edits found and REVERTED (maxq 58 kPa, no min-throttle trap, no fuel cost term, full-authority coast steer);
+gates green (selftest · TERMINAL ×200 byte · leak checks). Verdict: **honest NULL, structural** — the
+sandbox's 3-phase law fuel-starves even the CLEAN main-tree entry (td_v 14.2, lat 0.34, fuel 0) while
+hoverslam lands the same cases with 2-3.3 t margin; the t=0 CEM never finds a landing candidate (gbest 11018
+> the 8000 never-landed floor, with the proven sandbox θ in-population via elitism); the plants differ ~40%
+in descent time (99-106 s vs 130-149 s — integrated drag/profile). The sandbox 16/16 certified the SEARCH
+ARCHITECTURE, not that law on this plant. Full data: `runs/cfly_rate_s42_faithful.txt`, `runs/cfly_diag2.txt`.
+
+**The pivot.** Keep the architecture, aim it at the law that IS fuel-feasible here: **GM_RFLY** (`--rfly`,
+`guidance_rfly.{c,h}`) — the EXACT GM_HOVERSLAM pipeline (entry_supervisor + hoverslam_step + D-010 wind
+trim), with a 10-D per-scenario θ of GAIN MULTIPLIERS the CEM selects: entry-divert KR/KV/bank (45° ceiling
+over the D-030 re-auth), A_DECEL, T_LEAD, the Kvel divert schedule, KVEL_NEAR, LANDING_IGNITE_MARGIN, Kv,
+and RT_TGTLEAD — the target-velocity lead ON THE SEEK term (identity 0; the D-038 redemption: lead the
+faded vdes, never the damping). θ rides `GuidanceCmd.rt` (per-candidate under OpenMP, like target_xy/deck_z);
+identity ×1.0 is IEEE-exact ⇒ every legacy mode byte-identical BY CONSTRUCTION, and elitism seeds candidate
+0 with the warm start ⇒ plain hoverslam is in-population at t=0 ⇒ the search can only match-or-beat the
+baseline. Candidates: full-Sim copies flying the REAL plant (directive 7 exactly); sandbox-faithful cost
+(no fuel term); deterministic xorshift per (seed, step).
+
+**Gates.** selftest PASS (NP_VERSION 6 KAT) · TERMINAL ×200 byte-identical · hoverslam compound leak check
+byte-exact (td_v 2.39/lat 35.08/fuel 3307 reproduced post-edit) · determinism pair identical.
+
+**The result (canonical compound: `--engine-out random --gust 15@6000:1000 --target circle:15:40`, ×12
+identical draws, seed 42):**
+
+| law | survivable | verdicts | lat | notes |
+|---|---|---|---|---|
+| hoverslam | 2/12 | 1 GOOD, 1 HARD | 8.7-401 m | 3 LOC tumbles, 1 FUEL starve |
+| GM_CFLY (faithful port) | 0/12 | — | — | all FUEL-starve |
+| **GM_RFLY** | **12/12** | **10 PERFECT, 2 GOOD** | **0.01-0.69 m** | td_v ≤2.1, tilt ≤0.03°, fuel 2.0-3.6 t |
+
+The three LOC draws land PERFECT; the FUEL draw lands PERFECT with 2.8 t. t=0 solves find 17× cost
+improvements (5583→324 on run 0); warm replans grind to ~63 by touchdown. **Sub-meter on a drifting deck
+through a random engine-out and a 15 m/s gust band — better precision than the sandbox's own 16/16
+(≤0.7 m vs ≤2.8 m), on the real plant.** Held-out s7/s99 ×12 batteries: appended below on completion.
+
+**Known N3 item:** warm replans cost seconds of CPU; `--serve` paces real-time ⇒ live replans hiccup the
+stream. Interim: smaller live POP; real fix: KESTREL's parked GPU CEM. Measure at showcase wiring.

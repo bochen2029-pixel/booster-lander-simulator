@@ -1,0 +1,18 @@
+  [rfly_replan t=0.0 big=1] gbest=324.7 | EKR=1.60 EKV=1.59 EBANK=0.60 ADEC=0.42 TLD=1.81 KDIV=0.53 KVN=0.50 IGN=0.40 TGL=0.52 KV=0.91
+  [rfly_replan t=10.0 big=0] gbest=279.2 | EKR=1.36 EKV=1.25 EBANK=0.86 ADEC=0.40 TLD=1.71 KDIV=0.73 KVN=0.65 IGN=0.45 TGL=0.48 KV=1.20
+  [rfly_replan t=20.0 big=0] gbest=279.2 | EKR=1.36 EKV=1.25 EBANK=0.86 ADEC=0.40 TLD=1.71 KDIV=0.73 KVN=0.65 IGN=0.45 TGL=0.48 KV=1.20
+  [rfly_replan t=30.0 big=0] gbest=232.0 | EKR=1.08 EKV=0.97 EBANK=0.96 ADEC=0.40 TLD=1.90 KDIV=0.67 KVN=0.52 IGN=0.40 TGL=0.20 KV=1.15
+  [rfly_replan t=40.0 big=0] gbest=174.5 | EKR=1.04 EKV=1.33 EBANK=1.08 ADEC=0.40 TLD=2.07 KDIV=0.68 KVN=0.50 IGN=0.40 TGL=0.31 KV=1.00
+  [rfly_replan t=50.0 big=0] gbest=174.5 | EKR=1.04 EKV=1.33 EBANK=1.08 ADEC=0.40 TLD=2.07 KDIV=0.68 KVN=0.50 IGN=0.40 TGL=0.31 KV=1.00
+  [rfly_replan t=60.0 big=0] gbest=78.7 | EKR=0.88 EKV=1.84 EBANK=1.18 ADEC=0.40 TLD=2.26 KDIV=0.67 KVN=0.50 IGN=0.40 TGL=0.29 KV=0.84
+  [rfly_replan t=70.1 big=0] gbest=78.7 | EKR=0.88 EKV=1.84 EBANK=1.18 ADEC=0.40 TLD=2.26 KDIV=0.67 KVN=0.50 IGN=0.40 TGL=0.29 KV=0.84
+  [rfly_replan t=80.1 big=0] gbest=77.3 | EKR=0.55 EKV=1.80 EBANK=1.23 ADEC=0.40 TLD=2.42 KDIV=0.58 KVN=0.50 IGN=0.40 TGL=0.46 KV=0.81
+  [rfly_replan t=90.1 big=0] gbest=77.3 | EKR=0.55 EKV=1.80 EBANK=1.23 ADEC=0.40 TLD=2.42 KDIV=0.58 KVN=0.50 IGN=0.40 TGL=0.46 KV=0.81
+  [rfly_replan t=100.1 big=0] gbest=62.8 | EKR=0.94 EKV=1.32 EBANK=1.58 ADEC=0.40 TLD=2.35 KDIV=0.59 KVN=0.50 IGN=0.50 TGL=0.41 KV=0.82
+  [rfly_replan t=110.1 big=0] gbest=62.8 | EKR=0.94 EKV=1.32 EBANK=1.58 ADEC=0.40 TLD=2.35 KDIV=0.59 KVN=0.50 IGN=0.50 TGL=0.41 KV=0.82
+scenario=entry seed=42 run=0  h0=62012 m  vz0=-1500.0 m/s
+  GUST: peak=15.0 m/s @ alt=6000 m  hw=1000 m (band 5000..7000)  dir=0 deg (1.00,0.00)
+  ENGINE-OUT: engine k=1 fails at t=4.00 s (seeded)
+  TARGET: SEEDED mode=1 amp=15.0 m omega=0.1571 rad/s (drift)
+RESULT: PERFECT  fault=none  td_v=1.72 m/s  lat=0.38 m  tilt=0.03 deg  fuel=3296 kg  t=113.4 s  maxq=50311 Pa
+RFLY-RUN0-DONE
