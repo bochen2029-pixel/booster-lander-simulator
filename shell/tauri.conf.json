@@ -4,8 +4,6 @@
   "version": "0.1.0",
   "identifier": "com.boosterlander.sim",
   "build": {
-    "beforeDevCommand": "pnpm -C ../ui dev",
-    "devUrl": "http://127.0.0.1:5183",
     "beforeBuildCommand": "",
     "frontendDist": "../ui/dist"
   },
