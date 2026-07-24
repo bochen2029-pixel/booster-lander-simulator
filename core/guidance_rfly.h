@@ -51,4 +51,18 @@ typedef struct {
 void rfly_init(struct Sim* s);
 void rfly_replan(struct Sim* s, int big);
 
+/* ---- ASYNC live replans (N3 showcase; SERVE + --interactive ONLY — the §M2
+ * determinism-waived context). The sync path (run/headless/serve-observer) is
+ * untouched: async is armed only by cmd_serve when interactive is also on, so
+ * every gate/golden flies the synchronous, bit-replayable replans.
+ *   - rfly_set_async(1): arm (cmd_serve).
+ *   - rfly_async_poll(s): called from the GM_RFLY gtick block instead of the sync
+ *     replan — swaps in a completed worker theta (staging buffer, no tearing) and
+ *     launches the next warm solve from a full-Sim snapshot when the cadence is
+ *     due and no worker is in flight. Solve-in-progress => the sim keeps flying
+ *     the CURRENT theta (the whole point: the stream never stalls). */
+void rfly_set_async(int on);
+int  rfly_async_on(void);
+void rfly_async_poll(struct Sim* s);
+
 #endif

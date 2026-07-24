@@ -856,6 +856,20 @@ static int cmd_serve(int argc, char** argv){
     /* One HELLO up front so the renderer can build the scene. */
     BlHello hello; fill_hello(&s, seed, run, &hello);
     if(ws_send_binary(&hello, sizeof(hello))!=0){ fprintf(stderr,"serve: client gone before HELLO\n"); ws_close(); return 0; }
+
+    /* N3 (D-040): the RFLY t=0 MISSION SOLVE runs SYNCHRONOUSLY here — after HELLO, BEFORE the
+     * pacing clock starts — so the client sees a short "planning" gap instead of a mid-stream
+     * freeze, and the big solve stays deterministic. In-flight warm replans then go to a worker
+     * thread ONLY under --interactive (the §M2 determinism-waived context); a pure-observer
+     * `--serve --rfly` keeps synchronous replans (stalls, but bit-replayable). */
+    if(gmode==GM_RFLY){
+        fprintf(stderr,"serve: RFLY t=0 MISSION SOLVE (pre-stream)...\n");
+        rfly_replan(&s, 1);
+        s.rfly.next_replan_t = RFLY_REPLAN_DT;
+        if(interactive) rfly_set_async(1);
+        fprintf(stderr,"serve: RFLY mission plan locked%s — streaming\n",
+                interactive? " (live replans ASYNC)":"");
+    }
     fprintf(stderr,"serve: scenario=%s seed=%u run=%u — streaming @125 Hz\n", scenario_name(scen), seed, run);
 
     /* --- pacing setup (wall-clock lives HERE only) --- */

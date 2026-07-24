@@ -118,3 +118,61 @@ void rfly_init(Sim* s){
     s->rfly.next_replan_t=0.0;
     s->rfly.noreplan=0;
 }
+
+/* ============================ ASYNC live replans (N3; see header) ============================ */
+#ifdef _WIN32
+#include <windows.h>
+
+static volatile LONG g_rfly_async = 0;
+void rfly_set_async(int on){ InterlockedExchange(&g_rfly_async, on?1:0); }
+int  rfly_async_on(void){ return g_rfly_async!=0; }
+
+typedef struct {
+    Sim    snap;                      /* the state the worker solves from (full copy) */
+    double out[RFLY_N_THETA];         /* staging result */
+    volatile LONG busy;               /* worker in flight */
+    volatile LONG ready;              /* staging valid — sim swaps on next poll */
+    int    big;
+} RflyAsync;
+static RflyAsync g_ra;                /* one sim per serve process => one flight slot */
+
+static DWORD WINAPI rfly_worker(LPVOID p){
+    RflyAsync* ra=(RflyAsync*)p;
+#ifdef _OPENMP
+    /* leave headroom so the real-time serve loop + WS stay glassy while we grind */
+    int n=omp_get_num_procs()-2; if(n<2)n=2; omp_set_num_threads(n);
+#endif
+    rfly_replan(&ra->snap, ra->big);                       /* solves against the snapshot */
+    memcpy((void*)ra->out, ra->snap.rfly.th, sizeof(ra->out));
+    InterlockedExchange(&ra->ready, 1);
+    InterlockedExchange(&ra->busy, 0);
+    return 0;
+}
+
+void rfly_async_poll(Sim* s){
+    /* 1) a completed solve? swap the staged theta in (single-writer/single-reader:
+     * ready is set by the worker AFTER out is written; we clear it before reading —
+     * the worker is idle by then (busy dropped with ready set). */
+    if(InterlockedCompareExchange(&g_ra.ready, 0, 1)==1){
+        memcpy(s->rfly.th, (const void*)g_ra.out, sizeof(s->rfly.th));
+        fprintf(stderr, "  [rfly_async] theta SWAPPED at t=%.1f (live replan answered)\n", s->st.t);
+    }
+    /* 2) cadence due + no worker in flight? snapshot + launch. If a solve overruns the
+     * 10-s cadence the next one just waits — the sim keeps flying the current theta. */
+    if(!g_ra.busy && !s->rfly.noreplan && s->st.t >= s->rfly.next_replan_t){
+        int big = (s->rfly.next_replan_t<=0.0);
+        g_ra.snap = *s;
+        g_ra.snap.tap.f = NULL;
+        g_ra.big = big;
+        InterlockedExchange(&g_ra.busy, 1);
+        HANDLE h = CreateThread(NULL, 0, rfly_worker, &g_ra, 0, NULL);
+        if(h) CloseHandle(h);
+        else  InterlockedExchange(&g_ra.busy, 0);          /* thread-launch failure => retry next tick */
+        s->rfly.next_replan_t = s->st.t + RFLY_REPLAN_DT;
+    }
+}
+#else
+void rfly_set_async(int on){ (void)on; }
+int  rfly_async_on(void){ return 0; }
+void rfly_async_poll(Sim* s){ (void)s; }
+#endif

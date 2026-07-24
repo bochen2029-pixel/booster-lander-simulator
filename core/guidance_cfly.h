@@ -46,5 +46,6 @@ void cfly_law(Sim* s, const State* nav, GuidanceCmd* g);
  * Deterministic (seeded xorshift + pure replay). big=1 => oracle-strength broad solve (t=0 plan);
  * big=0 => cheap warm tracking solve. */
 void cfly_replan(Sim* s, int big);
+void cfly_init(Sim* s);   /* theta warm-start + replan arming (was missing — the C4013 in sim.c) */
 
 #endif

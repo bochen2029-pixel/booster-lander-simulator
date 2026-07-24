@@ -607,7 +607,11 @@ int sim_step(Sim* s){
      * elitism keeps it in-population, so the search can only match-or-beat the baseline. Guarded
      * by GM_RFLY; default OFF => rt_on never set => every legacy mode byte-identical. */
     if(is_gtick && s->guidance_mode==GM_RFLY){
-        if(!s->rfly.noreplan && st->t >= s->rfly.next_replan_t){
+        if(rfly_async_on()){
+            /* N3 LIVE (serve --interactive, §M2 waived): worker-thread replans; the sim
+             * never blocks — it flies the current theta until a solve swaps in. */
+            rfly_async_poll(s);
+        } else if(!s->rfly.noreplan && st->t >= s->rfly.next_replan_t){
             int big = (s->rfly.next_replan_t<=0.0);
             rfly_replan(s, big);
             s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
