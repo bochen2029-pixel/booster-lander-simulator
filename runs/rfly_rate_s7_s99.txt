@@ -1,2 +1,28 @@
 D-040 held-out rate-check s7+s99 :: Thu Jul 23 22:51:19 CDT 2026
 === GM_RFLY seed 7 runs 0-11 ===
+rfly s7 run 0 :: RESULT: GOOD  fault=none  td_v=2.50 m/s  lat=0.94 m  tilt=0.03 deg  fuel=3209 kg  t=118.2 s  maxq=48580 Pa
+rfly s7 run 1 :: RESULT: PERFECT  fault=none  td_v=1.15 m/s  lat=0.09 m  tilt=0.02 deg  fuel=2011 kg  t=122.2 s  maxq=55538 Pa
+rfly s7 run 2 :: RESULT: PERFECT  fault=none  td_v=1.42 m/s  lat=0.20 m  tilt=0.02 deg  fuel=2857 kg  t=120.5 s  maxq=51702 Pa
+rfly s7 run 3 :: RESULT: PERFECT  fault=none  td_v=1.41 m/s  lat=0.08 m  tilt=0.02 deg  fuel=2089 kg  t=129.1 s  maxq=54388 Pa
+rfly s7 run 4 :: RESULT: PERFECT  fault=none  td_v=1.67 m/s  lat=0.96 m  tilt=0.01 deg  fuel=2470 kg  t=128.0 s  maxq=52978 Pa
+rfly s7 run 5 :: RESULT: GOOD  fault=none  td_v=2.41 m/s  lat=0.24 m  tilt=0.02 deg  fuel=3455 kg  t=119.7 s  maxq=50074 Pa
+rfly s7 run 6 :: RESULT: PERFECT  fault=none  td_v=1.35 m/s  lat=0.02 m  tilt=0.02 deg  fuel=2242 kg  t=130.5 s  maxq=54604 Pa
+rfly s7 run 7 :: RESULT: PERFECT  fault=none  td_v=1.50 m/s  lat=0.07 m  tilt=0.02 deg  fuel=3089 kg  t=114.3 s  maxq=53878 Pa
+rfly s7 run 8 :: RESULT: PERFECT  fault=none  td_v=1.69 m/s  lat=0.14 m  tilt=0.01 deg  fuel=2014 kg  t=144.5 s  maxq=58212 Pa
+rfly s7 run 9 :: RESULT: PERFECT  fault=none  td_v=1.59 m/s  lat=0.86 m  tilt=0.06 deg  fuel=2322 kg  t=127.9 s  maxq=51594 Pa
+rfly s7 run 10 :: RESULT: PERFECT  fault=none  td_v=1.56 m/s  lat=0.67 m  tilt=0.01 deg  fuel=3068 kg  t=114.0 s  maxq=50265 Pa
+rfly s7 run 11 :: RESULT: PERFECT  fault=none  td_v=1.45 m/s  lat=0.12 m  tilt=0.01 deg  fuel=2303 kg  t=124.5 s  maxq=54542 Pa
+=== GM_RFLY seed 99 runs 0-11 ===
+rfly s99 run 0 :: RESULT: GOOD  fault=none  td_v=3.26 m/s  lat=0.36 m  tilt=1.02 deg  fuel=3188 kg  t=118.0 s  maxq=48248 Pa
+rfly s99 run 1 :: RESULT: PERFECT  fault=none  td_v=1.50 m/s  lat=0.33 m  tilt=0.02 deg  fuel=2667 kg  t=124.5 s  maxq=52945 Pa
+rfly s99 run 2 :: RESULT: PERFECT  fault=none  td_v=1.74 m/s  lat=0.27 m  tilt=0.02 deg  fuel=3166 kg  t=116.0 s  maxq=51732 Pa
+rfly s99 run 3 :: RESULT: PERFECT  fault=none  td_v=1.50 m/s  lat=0.05 m  tilt=0.01 deg  fuel=2331 kg  t=131.2 s  maxq=53058 Pa
+rfly s99 run 4 :: RESULT: PERFECT  fault=none  td_v=1.45 m/s  lat=0.03 m  tilt=0.01 deg  fuel=2863 kg  t=114.6 s  maxq=52190 Pa
+rfly s99 run 5 :: RESULT: GOOD  fault=none  td_v=2.08 m/s  lat=0.02 m  tilt=0.02 deg  fuel=2404 kg  t=127.7 s  maxq=51919 Pa
+rfly s99 run 6 :: RESULT: PERFECT  fault=none  td_v=1.38 m/s  lat=0.22 m  tilt=0.05 deg  fuel=2129 kg  t=131.8 s  maxq=53648 Pa
+rfly s99 run 7 :: RESULT: PERFECT  fault=none  td_v=1.45 m/s  lat=0.30 m  tilt=0.02 deg  fuel=2245 kg  t=126.9 s  maxq=53451 Pa
+rfly s99 run 8 :: RESULT: GOOD  fault=none  td_v=1.44 m/s  lat=0.06 m  tilt=0.23 deg  fuel=2626 kg  t=124.6 s  maxq=50786 Pa
+rfly s99 run 9 :: RESULT: PERFECT  fault=none  td_v=1.47 m/s  lat=0.09 m  tilt=0.03 deg  fuel=2299 kg  t=123.6 s  maxq=52825 Pa
+rfly s99 run 10 :: RESULT: PERFECT  fault=none  td_v=0.93 m/s  lat=0.99 m  tilt=0.02 deg  fuel=3260 kg  t=105.4 s  maxq=50642 Pa
+rfly s99 run 11 :: RESULT: PERFECT  fault=none  td_v=1.63 m/s  lat=0.26 m  tilt=0.02 deg  fuel=2804 kg  t=125.0 s  maxq=54728 Pa
+HELDOUT-DONE :: Thu Jul 23 23:17:56 CDT 2026

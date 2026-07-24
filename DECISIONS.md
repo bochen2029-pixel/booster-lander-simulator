@@ -2114,3 +2114,10 @@ through a random engine-out and a 15 m/s gust band — better precision than the
 
 **Known N3 item:** warm replans cost seconds of CPU; `--serve` paces real-time ⇒ live replans hiccup the
 stream. Interim: smaller live POP; real fix: KESTREL's parked GPU CEM. Measure at showcase wiring.
+
+**HELD-OUT CONFIRMATION (appended on completion, same night):** s7 ×12 = **12/12** (10 PERFECT, 2 GOOD,
+lat 0.02-0.96 m) · s99 ×12 = **12/12** (9 PERFECT, 3 GOOD, lat 0.02-0.99 m). **Three-seed battery total:
+36/36 landed, 29 PERFECT, 7 GOOD, zero crashes, every draw sub-meter** (td_v ≤3.26, tilt ≤1.02°, fuel
+2.0-3.5 t). The compound axis — engine-out × gust × moving target — is SWEPT on the honest tree.
+`runs/rfly_rate_s7_s99.txt`. D-040 is GO; next: the N3 cockpit showcase (`--serve --rfly --interactive`)
+with the live-replan pacing budget measured there.
