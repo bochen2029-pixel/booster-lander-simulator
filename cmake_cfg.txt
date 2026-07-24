@@ -1,0 +1,13 @@
+-- Building for: Visual Studio 17 2022
+-- The C compiler identification is MSVC 19.44.35228.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- BL_CUDA=OFF -> CPU-only build (--mppi-cuda will error at runtime)
+-- core: CPU-only build (no CUDA); --mppi-cuda will error at runtime
+-- OpenMP enabled for CPU MPPI rollouts
+-- Configuring done (4.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/Booster_Lander_CFLY/build

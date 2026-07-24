@@ -8,6 +8,8 @@
 #include "guidance_mppi.h"
 #include "nav.h"
 #include "policy_tap.h"   /* N1 S0: the teacher (o,a) logging tap (--policy-log; GM_MPPI only) */
+#include "guidance_cfly.h"   /* N2-S2: GM_CFLY optimizer-in-the-loop (CflyState; default OFF) */
+#include "guidance_rfly.h"   /* D-040 pivot: GM_RFLY CEM over the native reactive stack (RflyState; default OFF) */
 #include "sea.h"          /* SEA module (§4.4): P-M droneship deck-motion spectrum (--sea; default OFF) */
 
 /* DIAL-A-GUST (canon §10.6 INJECT_DISTURBANCE type=gust; §4.3 layer-3 discrete 1-cosine).
@@ -27,7 +29,7 @@ typedef struct {
     double diry;
 } GustCfg;
 
-typedef struct {
+typedef struct Sim {
     State st;
     GuidanceCmd gcmd;
     Actuators   act;
@@ -85,6 +87,12 @@ typedef struct {
      * command is resolved (policy_tap.h). No RNG, no state writes — the D-014 instrument-without-
      * touching discipline; the byte-equality gate proves it. */
     PolicyTap tap;
+    /* ---- N2-S2 GM_CFLY (D-040): the optimizer-in-the-loop state. Armed by --cfly; memset 0 +
+     * guidance_mode!=GM_CFLY => never read => byte-identical. */
+    CflyState cfly;
+    /* ---- D-040 PIVOT GM_RFLY: CEM over the native reactive stack's gains. Armed by --rfly;
+     * memset 0 + guidance_mode!=GM_RFLY => never read => byte-identical. */
+    RflyState rfly;
 } Sim;
 
 typedef struct {

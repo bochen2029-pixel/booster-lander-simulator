@@ -6,6 +6,7 @@
 #include "guidance_hoverslam.h"
 #include "guidance_mppi.h"
 #include "guidance_neural.h"   /* N1 §9.8: tier-3 GM_NEURAL learned policy (default OFF => dead code) */
+#include "guidance_cfly.h"    /* N2-S2: GM_CFLY optimizer-in-the-loop (default OFF => dead code) */
 #ifdef BL_HAVE_CUDA
 #include "guidance_mppi_cuda.h"   /* M5: --mppi-cuda routes the full-solve to the GPU (CUDA build only) */
 #endif
@@ -164,6 +165,11 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     s->impact_v=s->impact_tilt=s->impact_lat=0.0; s->impact_target_xy[0]=s->impact_target_xy[1]=0.0;
     s->max_qbar=0; s->peak_qdot=0; s->done=0; s->touched=0;
     s->gcmd.mode=guidance_mode; s->gcmd.n_eng=1;
+    if(guidance_mode==GM_RFLY) rfly_init(s);    /* D-040 pivot: identity warm-start + replan arming */
+    if(guidance_mode==GM_CFLY){ cfly_init(s);   /* N2-S2 (D-040): theta warm-start + replan arming */
+        s->st.relights_left=4; }   /* GM_CFLY coast-relight needs >2 ignitions (entry + landing + 2 coast
+                                 * cycles); mode-scoped plant config (Merlin-class relight budget).
+                                 * guidance_mode!=GM_CFLY => stays 2 => byte-identical. */
     /* N0 §8.1 WIDE SOCKET nominal fill (memset zeroed everything; nominal needs valid=1, all engines
      * healthy). target=origin, vxy=0, deck_z=0, src=FIXED, age=0, valid=1; cov=tiny const so the
      * renderer's uncertainty ellipse is a point, not degenerate. These ride truth st; nav passes them
@@ -293,6 +299,10 @@ static void entry_divert_step(const State* st, GuidanceCmd* g){
      * entry burn) and stiffen the ZEM/ZEV gains. n_eng==3 => 15°/KR/KV exactly => byte-identical. */
     double bank_deg = 15.0, kr = ENTRY_DIVERT_KR, kv = ENTRY_DIVERT_KV;
     if(st->n_eng>0 && st->n_eng<3){ bank_deg = EO_DIVERT_BANK_DEG; kr = ENTRY_DIVERT_KR*EO_DIVERT_KR_MUL; kv = ENTRY_DIVERT_KV*EO_DIVERT_KV_MUL; }
+    /* GM_RFLY per-scenario override (guidance_rfly.h). rt_on==0 => ×1.0 exactly => byte-identical;
+     * armed, the bank cap is still ceilinged at 45 deg (the STRUCT-safe envelope D-030 mapped). */
+    kr *= rt_gain(g,RT_EKR); kv *= rt_gain(g,RT_EKV); bank_deg *= rt_gain(g,RT_EBANK);
+    if(bank_deg>45.0) bank_deg=45.0;
     double amax = a_burn*sin(bank_deg*DEG2RAD);
     double t_go = entry_tgo_estimate(y[S_RZ]-mp.com, y[S_VZ], mp.m);
     double rr[2]={y[S_RX],y[S_RY]}, vv[2]={y[S_VX],y[S_VY]};
@@ -559,6 +569,71 @@ int sim_step(Sim* s){
         st->deploy_cmd = s->gcmd.deploy_cmd;
     }
 
+    /* ---- GM_CFLY guidance block (N2-S2, D-040, the OPTIMIZER-IN-THE-LOOP) — WELL-DELIMITED:
+     * the theta-law owns ALL phases (NO entry_supervisor above — the law IS the entry/max-Q rule),
+     * the warm-started local CEM replans on cadence (big t=0 solve = the mission plan; cheap warm
+     * tracking replans = the onboard replan), the law flies the current theta with the coast-relight
+     * latches, then the SAME ignition latch/ada freeze. Guarded by GM_CFLY; default OFF => byte-
+     * identical (goldens/selftest/determinism). Deterministic: the plant RNG is pure-per-(seed,step)
+     * and the CEM sampler is a seeded xorshift => the whole replan replays bit-exact. */
+    if(is_gtick && s->guidance_mode==GM_CFLY){
+        nav_resync(st, &nav);
+        if(!s->cfly.noreplan && st->t >= s->cfly.next_replan_t){
+            int big = (s->cfly.next_replan_t<=0.0);   /* the t=0 oracle-strength plan, then warm tracking */
+            cfly_replan(s, big);
+            s->cfly.next_replan_t = st->t + CFLY_REPLAN_DT;
+        }
+        cfly_law(s, &nav, &s->gcmd);
+        if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
+            st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
+            if(st->phase==PH_ENTRY_BURN){ /* entry burn = retrograde; no ada freeze */ }
+            else {
+                if(st->phase==PH_COAST||st->phase==PH_AERO) st->phase=PH_LANDING_BURN;
+                AtmoOut atm; atmo_eval(st->y[S_RZ],&atm);
+                MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
+                double Tf = st->n_eng*engine_thrust(1.0,atm.p);
+                double amax = Tf/mp.m - G0; if(amax<1.0)amax=1.0;
+                st->ada = (st->fins_deployed?0.85:0.58)*amax;
+            }
+        }
+        st->deploy_cmd = s->gcmd.deploy_cmd;
+    }
+
+    /* ---- GM_RFLY guidance block (the D-040 PIVOT) — the NATIVE reactive stack, gain-searched.
+     * The flown law is EXACTLY the GM_HOVERSLAM pipeline (entry_supervisor + hoverslam_step + the
+     * D-010 wind-trim below), but the frozen gains are scaled by the per-scenario theta the CEM
+     * selects (big t=0 solve = the mission plan; warm replans = the onboard replan). Theta rides
+     * GuidanceCmd.rt (OpenMP-safe for candidates); identity theta == plain hoverslam EXACTLY, and
+     * elitism keeps it in-population, so the search can only match-or-beat the baseline. Guarded
+     * by GM_RFLY; default OFF => rt_on never set => every legacy mode byte-identical. */
+    if(is_gtick && s->guidance_mode==GM_RFLY){
+        if(!s->rfly.noreplan && st->t >= s->rfly.next_replan_t){
+            int big = (s->rfly.next_replan_t<=0.0);
+            rfly_replan(s, big);
+            s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
+        }
+        memcpy(s->gcmd.rt, s->rfly.th, sizeof(s->gcmd.rt));
+        s->gcmd.rt_on = 1;
+        int entry_handled = entry_supervisor(s, &nav);   /* E3 above the law (reads the estimate) */
+        if(!entry_handled){
+            nav_resync(st, &nav);
+            hoverslam_step(&nav, &s->gcmd);
+        }
+        if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
+            st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
+            if(st->phase==PH_ENTRY_BURN){ /* entry burn = retrograde; no ada freeze */ }
+            else {
+                if(st->phase==PH_COAST||st->phase==PH_AERO) st->phase=PH_LANDING_BURN;
+                AtmoOut atm; atmo_eval(st->y[S_RZ],&atm);
+                MassProps mp; mass_props(st->y[S_MLOX],st->y[S_MRP1],0,0,&mp);
+                double Tf = st->n_eng*engine_thrust(1.0,atm.p);
+                double amax = Tf/mp.m - G0; if(amax<1.0)amax=1.0;
+                st->ada = (st->fins_deployed?0.85:0.58)*amax;
+            }
+        }
+        st->deploy_cmd = s->gcmd.deploy_cmd;
+    }
+
     /* D-009 WIND-REJECTION INTEGRAL TRIM (fins-deployed LANDING burn only). Zero-wind ENTRY/AERO
      * land 32%/71% with median miss 5-6 m; with the spec winds every law floors at ~120-150 m — the
      * mean-wind aero push (~1.6 m/s^2 at 20-40 kPa) leaks through the ignition-hold/fade/dead-zone
@@ -568,10 +643,12 @@ int sim_step(Sim* s){
      * integration: only PH_LANDING_BURN + fins deployed + past the 2 s ignition hold; capped
      * (anti-windup); reset otherwise. TERMINAL (fins stowed) and the entry burn (ZEM/ZEV owns it)
      * never integrate. Applied to gcmd on guidance ticks for BOTH GM_HOVERSLAM and GM_MPPI. */
-    if(is_gtick && s->guidance_mode==GM_HOVERSLAM){
+    if(is_gtick && (s->guidance_mode==GM_HOVERSLAM || s->guidance_mode==GM_RFLY)){
         /* D-010: the wind-trim integral is REACTIVE-LAW medicine. MPPI replans on the fresh
          * estimate every tick and compensates the wind implicitly; layering an integral on top
-         * double-corrects and pushed its batch 63->40% (off-pad 24). GM_HOVERSLAM only. */
+         * double-corrects and pushed its batch 63->40% (off-pad 24). GM_HOVERSLAM only —
+         * and GM_RFLY, which flies the SAME reactive law (the integral is part of the stack
+         * the theta search tunes around; candidates inherit lat_eint via the Sim copy). */
         if(st->engine_on && st->fins_deployed && st->phase==PH_LANDING_BURN && st->ign_timer>=2.0){
             /* D-010 sweep winner C14: STRONG trim (Ki 0.012) whose OUTPUT fades near the ground.
              * The 16-config grid resolved the interaction the single-knob probes could not: the

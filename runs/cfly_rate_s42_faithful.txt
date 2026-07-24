@@ -1,0 +1,6 @@
+cfly FAITHFUL-LAW compound rate-check seed 42 runs 0-3 :: Thu Jul 23 22:14:20 CDT 2026
+run 0 :: RESULT: CRASHED  fault=FUEL  td_v=14.78 m/s  lat=3.23 m  tilt=2.40 deg  fuel=0 kg  t=129.9 s  maxq=45267 Pa
+run 1 :: RESULT: CRASHED  fault=FUEL  td_v=15.94 m/s  lat=2.58 m  tilt=13.59 deg  fuel=0 kg  t=139.6 s  maxq=53134 Pa
+run 2 :: RESULT: CRASHED  fault=FUEL  td_v=12.02 m/s  lat=10.57 m  tilt=16.20 deg  fuel=0 kg  t=133.2 s  maxq=62179 Pa
+run 3 :: RESULT: CRASHED  fault=FUEL  td_v=16.14 m/s  lat=0.76 m  tilt=7.11 deg  fuel=0 kg  t=149.2 s  maxq=58722 Pa
+DONE :: Thu Jul 23 22:17:58 CDT 2026

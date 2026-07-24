@@ -1,0 +1,8 @@
+cfly compound rate-check seed 42 runs 0-11 :: Tue Jul 21 19:30:27 CDT 2026
+run 0 :: RESULT: CRASHED  fault=FUEL  td_v=12.65 m/s  lat=0.07 m  tilt=0.22 deg  fuel=0 kg  t=123.0 s  maxq=50855 Pa
+run 1 :: RESULT: CRASHED  fault=FUEL  td_v=53.69 m/s  lat=1.15 m  tilt=14.39 deg  fuel=0 kg  t=125.3 s  maxq=47457 Pa
+run 2 :: RESULT: CRASHED  fault=FUEL  td_v=9.14 m/s  lat=8.05 m  tilt=22.07 deg  fuel=0 kg  t=125.5 s  maxq=41204 Pa
+run 3 :: RESULT: CRASHED  fault=FUEL  td_v=12.88 m/s  lat=1.54 m  tilt=4.90 deg  fuel=0 kg  t=123.6 s  maxq=70761 Pa
+run 4 :: 
+run 5 :: 
+run 6 :: 

@@ -147,7 +147,8 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
          * that can still be nulled to zero by r=0 at a_decel — so the vehicle arrives at the pad
          * (and the crossover) with v_xy≈0 instead of carrying velocity into the dead zone. a_decel is
          * CONSERVATIVE (reverses early) to beat the sluggish attitude/fin reversal lag. (D-007) */
-        double A_DECEL = 1.5, vlat_max = 35.0, T_LEAD = 2.0;
+        /* GM_RFLY per-scenario override (guidance_rfly.h RT_*): rt_on==0 => ×1.0 => byte-identical */
+        double A_DECEL = 1.5*rt_gain(g,3), vlat_max = 35.0, T_LEAD = 2.0*rt_gain(g,4);
         /* velocity LEAD: decelerate based on where the vehicle WILL be (r + v_rad·t_lead), so the
          * cross-range reversal starts ~2 s early — enough to beat the fin-rate-limited attitude
          * reversal lag that otherwise overshoots the pad. (crude pre-emptive reversal; MPPI does it
@@ -177,11 +178,21 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
             if(os<0.0) os=0.0; if(os>1.0) os=1.0;
             Kvel = KDIV_SEEK + os*(KDIV_BRAKE - KDIV_SEEK);
         }
+        Kvel *= rt_gain(g,5);   /* GM_RFLY: scale the whole divert schedule (seek AND brake) */
     } else {
         Kvel = 0.6;
     }
     double vdes[2]={0,0};
     if(r_mag>1e-3){ vdes[0]=-vdes_mag*r_xy[0]/r_mag; vdes[1]=-vdes_mag*r_xy[1]/r_mag; }
+    /* GM_RFLY target-velocity LEAD, the D-038 redemption: lead the SEEK (vdes) — which the
+     * lat_scale fade below already tapers near the deck — never the damping term (leading the
+     * damping is exactly what regressed D-038 fast-circle 12->0). Identity theta = 0 => vdes
+     * untouched => byte-identical; the CEM re-tunes the surrounding gains WITH the lead live,
+     * which the hand-tune could not do. */
+    if(g->rt_on){
+        vdes[0] += g->rt[8]*g->target_vxy[0];
+        vdes[1] += g->rt[8]*g->target_vxy[1];
+    }
     double lat_scale = (h_feet-30.0)/90.0; if(lat_scale>1.0)lat_scale=1.0; if(lat_scale<0.0)lat_scale=0.0;
     lat_scale*=lat_scale;
     /* D-010 height-split (see KVEL_SPLIT_H above): boost ONLY the -v_xy velocity-null damping
@@ -191,7 +202,7 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     double Kvd = Kvel;
     if(st->fins_deployed){
         double b = (KVEL_SPLIT_H - h_feet)/KVEL_SPLIT_H; if(b<0.0)b=0.0; if(b>1.0)b=1.0;
-        Kvd = Kvel + b*(KVEL_NEAR - Kvel);
+        Kvd = Kvel + b*(KVEL_NEAR*rt_gain(g,6) - Kvel);   /* GM_RFLY: near-ground null boost */
     }
     g->a_lat[0] = Kvel*vdes[0]*lat_scale - Kvd*v_xy[0];
     g->a_lat[1] = Kvel*vdes[1]*lat_scale - Kvd*v_xy[1];
@@ -212,7 +223,8 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
             /* aero-aware: coast (aero decelerates for free) until a full-thrust+aero suicide burn
              * would only just arrest above the ground — then light it hard and low. */
             double margin = suicide_burn_margin(h_feet, vz, m);
-            ignite = (vz < -1.0 && margin <= LANDING_IGNITE_MARGIN);
+            double ign_margin = LANDING_IGNITE_MARGIN*rt_gain(g,7);   /* GM_RFLY: ignition timing */
+            ignite = (vz < -1.0 && margin <= ign_margin);
             /* D-009 IGNITION-ATTITUDE FEATHER (the universal ~140 m floor). Measured (ENTRY run 1):
              * the vehicle arrives at ignition CENTERED (lat 11 m, vrad -1) but the burn lights on the
              * aero-trimmed attitude — the body is deliberately tilted AWAY from the pad (aero-dominant
@@ -220,7 +232,7 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
              * component shoves the vehicle OUTWARD (+15 m/s) before the attitude rights: 11 m becomes
              * ~150 m. Fix: FEATHER the steering to zero over the last ~450 m of margin (~1.5 s) so the
              * attitude loop straightens the body BEFORE light-up, and the burn ignites vertical. */
-            double feather = (margin - LANDING_IGNITE_MARGIN)/450.0;
+            double feather = (margin - ign_margin)/450.0;
             if(feather<0.0)feather=0.0; if(feather>1.0)feather=1.0;
             sfac *= feather;
         } else {
@@ -245,7 +257,7 @@ BL_HD void hoverslam_step(const State* st, GuidanceCmd* g){
     /* burning: feedback-track the reference velocity profile. High Kv nulls the first-order
      * actuator-lag steady-state error, which otherwise leaves the vehicle arriving hot. */
     g->engine_cmd=1;
-    double Kv = 3.0;
+    double Kv = 3.0*rt_gain(g,9);   /* GM_RFLY: vertical profile tracking gain */
     double a_cmd = a_design + Kv*(v_ref - vz);       /* vz below v_ref (too fast) -> more decel */
     double D = 0.5*atm.rho*vz*vz*VEH_AREF*0.9;       /* drag helps */
     double T_need = m*(G0 + a_cmd) - D;

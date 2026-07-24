@@ -1,0 +1,30 @@
+D-040 pivot rate-check seed 42 :: Thu Jul 23 22:36:22 CDT 2026
+=== HOVERSLAM baseline runs 0-11 ===
+hs  run 0 :: RESULT: CRASHED  fault=none  td_v=2.39 m/s  lat=35.08 m  tilt=0.02 deg  fuel=3307 kg  t=116.8 s  maxq=50769 Pa
+hs  run 1 :: RESULT: CRASHED  fault=none  td_v=6.65 m/s  lat=56.51 m  tilt=12.24 deg  fuel=2165 kg  t=125.8 s  maxq=51052 Pa
+hs  run 2 :: RESULT: NONE  fault=LOC  td_v=0.00 m/s  lat=0.00 m  tilt=6.51 deg  fuel=3960 kg  t=102.7 s  maxq=51197 Pa
+hs  run 3 :: RESULT: CRASHED  fault=FUEL  td_v=111.55 m/s  lat=80.68 m  tilt=1.86 deg  fuel=0 kg  t=162.2 s  maxq=54106 Pa
+hs  run 4 :: RESULT: CRASHED  fault=none  td_v=31.90 m/s  lat=232.87 m  tilt=3.58 deg  fuel=2136 kg  t=120.3 s  maxq=53082 Pa
+hs  run 5 :: RESULT: NONE  fault=LOC  td_v=0.00 m/s  lat=0.00 m  tilt=11.60 deg  fuel=3927 kg  t=113.7 s  maxq=49623 Pa
+hs  run 6 :: RESULT: CRASHED  fault=none  td_v=3.19 m/s  lat=35.34 m  tilt=0.02 deg  fuel=3481 kg  t=114.4 s  maxq=52319 Pa
+hs  run 7 :: RESULT: HARD  fault=none  td_v=5.39 m/s  lat=12.25 m  tilt=0.33 deg  fuel=2848 kg  t=127.3 s  maxq=51955 Pa
+hs  run 8 :: RESULT: CRASHED  fault=none  td_v=19.66 m/s  lat=401.56 m  tilt=2.88 deg  fuel=2303 kg  t=123.8 s  maxq=54895 Pa
+hs  run 9 :: RESULT: NONE  fault=LOC  td_v=0.00 m/s  lat=0.00 m  tilt=7.89 deg  fuel=3732 kg  t=109.5 s  maxq=48868 Pa
+hs  run 10 :: RESULT: CRASHED  fault=none  td_v=7.01 m/s  lat=29.92 m  tilt=3.29 deg  fuel=2500 kg  t=128.7 s  maxq=51336 Pa
+hs  run 11 :: RESULT: GOOD  fault=none  td_v=3.12 m/s  lat=8.71 m  tilt=0.06 deg  fuel=3110 kg  t=118.0 s  maxq=53633 Pa
+=== GM_RFLY runs 0-11 ===
+rfly run 0 :: RESULT: PERFECT  fault=none  td_v=1.72 m/s  lat=0.38 m  tilt=0.03 deg  fuel=3296 kg  t=113.4 s  maxq=50311 Pa
+rfly run 1 :: RESULT: PERFECT  fault=none  td_v=1.46 m/s  lat=0.08 m  tilt=0.03 deg  fuel=1967 kg  t=127.4 s  maxq=53726 Pa
+rfly run 2 :: RESULT: PERFECT  fault=none  td_v=1.11 m/s  lat=0.24 m  tilt=0.03 deg  fuel=3394 kg  t=110.7 s  maxq=50901 Pa
+rfly run 3 :: RESULT: PERFECT  fault=none  td_v=1.42 m/s  lat=0.13 m  tilt=0.02 deg  fuel=2756 kg  t=127.4 s  maxq=53914 Pa
+rfly run 4 :: RESULT: PERFECT  fault=none  td_v=1.50 m/s  lat=0.34 m  tilt=0.02 deg  fuel=2383 kg  t=129.7 s  maxq=49077 Pa
+rfly run 5 :: RESULT: PERFECT  fault=none  td_v=1.73 m/s  lat=0.07 m  tilt=0.03 deg  fuel=3016 kg  t=123.3 s  maxq=51292 Pa
+rfly run 6 :: RESULT: GOOD  fault=none  td_v=2.02 m/s  lat=0.03 m  tilt=0.01 deg  fuel=3551 kg  t=110.4 s  maxq=50019 Pa
+rfly run 7 :: RESULT: PERFECT  fault=none  td_v=1.50 m/s  lat=0.01 m  tilt=0.01 deg  fuel=2768 kg  t=117.6 s  maxq=54531 Pa
+rfly run 8 :: RESULT: GOOD  fault=none  td_v=2.10 m/s  lat=0.53 m  tilt=0.02 deg  fuel=2225 kg  t=129.0 s  maxq=52449 Pa
+rfly run 9 :: RESULT: PERFECT  fault=none  td_v=1.00 m/s  lat=0.19 m  tilt=0.02 deg  fuel=2773 kg  t=113.1 s  maxq=53834 Pa
+rfly run 10 :: RESULT: PERFECT  fault=none  td_v=1.67 m/s  lat=0.40 m  tilt=0.01 deg  fuel=2465 kg  t=134.9 s  maxq=51276 Pa
+rfly run 11 :: RESULT: PERFECT  fault=none  td_v=1.91 m/s  lat=0.69 m  tilt=0.03 deg  fuel=3025 kg  t=115.5 s  maxq=53716 Pa
+=== DETERMINISM PAIR (rfly run 0 again; must match the first) ===
+rfly run 0 (pair) :: RESULT: PERFECT  fault=none  td_v=1.72 m/s  lat=0.38 m  tilt=0.03 deg  fuel=3296 kg  t=113.4 s  maxq=50311 Pa
+RATE-CHECK-DONE :: Thu Jul 23 22:50:30 CDT 2026

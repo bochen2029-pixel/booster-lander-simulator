@@ -1,0 +1,4 @@
+MSBuild version 17.14.40+3e7442088 for .NET Framework
+
+  guidance_cfly.c
+  booster-core.vcxproj -> C:\Booster_Lander_CFLY\build\bin\Release\booster-core.exe
