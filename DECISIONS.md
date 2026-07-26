@@ -2370,3 +2370,43 @@ identity warm start. A 15% nrmse edge may or may not translate. That measurement
 reach a given gbest, prior vs identity — is what decides whether θ̂ ships, and it has not been run.
 Nothing about this changes the flown trajectory either way: CEM elitism keeps identity in the
 population, so a bad prior costs compute and never correctness.
+
+**D-041 ADDENDUM 6 — THE PILOT FLIGHT TEST: near-perfect imitation, zero landings. Two plan
+corrections, found five hours before the farm lands (2026-07-25, 3 of 12 seeds).** Exported the
+47-run pilot policy to a real fp64 header, built it in the isolated `build_kat/` tree (the farm's
+binary untouched), re-pinned the KAT, and FLEW it.
+
+| metric | result |
+|---|---|
+| imitation R² on held-out RUNS (a_lat0 / a_lat1) | **0.9966 / 0.9954** |
+| RMSE vs label std | 0.735 vs 12.59 m/s² |
+| held-out compound s42 ×12 | **0/12** (7 off-pad, 4 fuel-out, 1 other) |
+| AERO clean s42 ×60 | **0/60** (v6 does 46/60) |
+
+Failure signature: td_v ~200 m/s, **upright** (tilt 2-2.5°), lat 2,000-4,900 m — and compound run 0
+reached the ground at 196 m/s with **7,147 kg of fuel unburned**. The vehicle flies kilometres
+sideways and never performs a landing burn. It is not tumbling; it is confidently flying a wrong
+trajectory.
+
+**CORRECTION 1 — pure behaviour cloning will not fly, and no amount of farm data changes that.**
+R² 0.996 with 0/12 landings is the textbook covariate-shift / compounding-error signature: a feedback
+law that is 99.7% right per tick still walks off the teacher's state distribution, and every step off
+it is evaluated on states the corpus never contained. LODESTAR reached this exact result independently
+(§10: "pure BC 2/8 reach ground, 250-290 m/s → +DAgger 8/8, monotonic 2→4→5→8; covariate shift
+solved — this is the load-bearing result"). **⇒ DAgger is not the polish step after BC, it is the step
+that makes it fly.** The Phase-3 plan already had it; this converts it from "planned" to "mandatory",
+and pre-empts reading a weak post-farm BC number as a failure of the architecture.
+
+**CORRECTION 2 — the no-regression floors are unreachable with a compound-only corpus, by
+construction.** AERO clean 0/60 is not a bug: the pilot corpus contains no AERO_OFFSET states, and the
+pre-existing datasets (`data/s0`, `s0r1`, `s0g_*`, `s0e_*`) are **v1-width (36 col) and cannot be
+mixed** — `rowformat.read_rows` refuses them by name, correctly. So the standing floors (AERO≥46,
+gust≥45, ENTRY-clean≥57) cannot be met by NP_VERSION 7 unless those regimes are **re-farmed in the
+v2 format**. ⇒ **Phase 2b**, added to the ROADMAP: an RFLY farm over clean AERO / gust / clean ENTRY.
+The auto-gamut handles a mixed corpus correctly (it takes the widest range present), so one merged
+corpus with one teacher is fine.
+
+**Both corrections are cheap now and expensive later** — the first would have been misread as "the
+architecture failed", the second would have failed the gate battery at the end of an 8-hour farm with
+no data to fix it. This is the payoff for pilot-training and flight-testing on partial data rather
+than waiting. Tree restored to NP_VERSION 6, KAT-exact, selftest PASS.
