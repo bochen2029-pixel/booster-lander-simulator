@@ -150,6 +150,16 @@ static DWORD WINAPI rfly_worker(LPVOID p){
 }
 
 void rfly_async_poll(Sim* s){
+    /* TERMINAL FREEZE: once the landing burn is lit, the flare flies with LOCKED gains.
+     * Async results are solved from a ~5-9 s-stale snapshot — a theta optimized for the
+     * pre-ignition descent, applied mid-flare, destabilized the first live demo into LOC
+     * at 13 m. The mission plan + last pre-ignition replan own the terminal (the sync
+     * path replans from the CURRENT state, so it never had this failure mode). */
+    if(s->st.phase==PH_LANDING_BURN && s->st.engine_on){
+        static int frozen_logged=0;
+        if(!frozen_logged){ fprintf(stderr, "  [rfly_async] terminal freeze at t=%.1f (flare flies locked gains)\n", s->st.t); frozen_logged=1; }
+        return;
+    }
     /* 1) a completed solve? swap the staged theta in (single-writer/single-reader:
      * ready is set by the worker AFTER out is written; we clear it before reading —
      * the worker is idle by then (busy dropped with ready set). */

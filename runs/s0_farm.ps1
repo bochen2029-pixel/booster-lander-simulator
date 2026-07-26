@@ -32,7 +32,10 @@ param(
   [switch]$GustFromSeed,
   # E2' (D-032): -ShadowReactive appends --shadow-reactive so the GM_NEURAL DAgger shadow logs the
   # HOVERSLAM divert a_lat (the reactive teacher — the best EO teacher, D-031) instead of the MPPI shadow.
-  [switch]$ShadowReactive
+  [switch]$ShadowReactive,
+  # ORACLE-DISTILL Phase 0a (oracle_distill_design.md): -Target arms a MOVING deck (--target SPEC, e.g.
+  # "circle:15:40") so the COMPOUND regime (engine-out × gust × moving target) enters the training data.
+  [string]$Target = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +66,7 @@ for ($i = 0; $i -lt $Seeds; $i++) {
   $t0 = Get-Date
   $eoArgs = @(); if ($EngineOutRandom) { $eoArgs = @("--engine-out","random") }
   $shadowArgs = @(); if ($ShadowReactive) { $shadowArgs = @("--shadow-reactive") }
+  $tgtArgs = @(); if ($Target -ne "") { $tgtArgs = @("--target", $Target) }
   $gustArgs = @()
   if ($GustFromSeed) {
     $peak = 8 + ($seed % 5) * 4        # 8..24 m/s
@@ -73,7 +77,7 @@ for ($i = 0; $i -lt $Seeds; $i++) {
     $gustArgs = @("--gust", $spec, "--gust-dir", "$dir")
     Log "FARM-GUST seed=$seed spec=$spec dir=$dir"
   }
-  & $exe --headless --scenario $Scenario --seed $seed --runs $RunsPer $modeFlag @eoArgs @gustArgs @shadowArgs $TapFlag $bin 2>&1 |
+  & $exe --headless --scenario $Scenario --seed $seed --runs $RunsPer $modeFlag @eoArgs @gustArgs @tgtArgs @shadowArgs $TapFlag $bin 2>&1 |
     Select-String "LANDED:" | ForEach-Object { $_.Line } | Set-Variable -Name landedLine
   # Success = the tap file exists and is non-trivial. The headless EXIT CODE reflects the
   # LANDED rate, which is deliberately terrible for early DAgger rounds (-Mode neural flies
