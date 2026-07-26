@@ -6,6 +6,24 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-07-25 ~22:40 [opus] — THE OUTPUT-RANGE TRAP: 45% of the teacher's steering was outside the
+  policy's ENTIRE output range (D-041 addendum 1).** Profiled the first oracle rows BEFORE spending the
+  farm — worth doing every time. `A_LAT_GAMUT=3.2` is **MPPI's sampler bound, not a plant limit**; MPPI
+  clamped its own output to it so every historical label was in range *by construction*. The reactive
+  stack (hoverslam ⇒ GM_RFLY) does not clamp there: |a_lat| p50 **2.28**, p90 **19.3**, p99 **36.6**,
+  max **43.9** m/s². **45.1% of labels are out of range**, concentrated exactly where the compound
+  recovery lives (entry/aero p95 30.9, landing burn p95 28.3) while the terminal phase fits inside it
+  (p95 3.56) — **which is v6's own pattern: 46/60 AERO clean, 0/30 compound.** Under the label clip
+  those 45% collapse onto the rails (D-009's "railing kills the gradient", at scale). The design doc
+  predicted this and sized it at ~5.5; it is 30+. NOT an assist (directive 6): `a_lat` is a DEMAND,
+  `control.c` saturates it at the same physical tilt authority it already applies to hoverslam's
+  identical demands — the plant limit is untouched, only the policy's ability to EXPRESS it changes.
+  Fixed with `--a-lat-gamut auto` (p99.5 from the data, teacher-agnostic: an MPPI dataset auto-ranges
+  back to ~3.2 on its own); nothing in C needed changing since `guidance_neural.c` already clamps to
+  `NP_OUT_SCALE`. **Also scored the new self-sensed channel honestly:** `sf_z` separates engine-out in
+  a SINGLE frame (49.43 vs 34.70, ~1σ) but `|wdot_y|` does NOT separate in aggregate (0.0653 vs
+  0.0615) — the induced torque is a transient the inner loop trims within a few ticks. That is measured
+  evidence for the deferred frame stack, parked against App-G's own decision rule.
 - **2026-07-25 ~22:00 [opus] — D-041 SHIPPED (Phase 1) + the ORACLE TEACHER FARM IS FLYING.** The App-G v2
   re-architecture, done once and wide per the §14-N0 doctrine, and **APPEND-ONLY so it cost the shipped
   policy nothing**: socket 30→39 (achieved specific force + body angular accel + last executed command),
