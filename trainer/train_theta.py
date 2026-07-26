@@ -140,6 +140,21 @@ def main():
     print(f"[baseline] identity nrmse mean={base_ident.mean():.4f}  per-axis={np.round(base_ident,3)}")
     print(f"[baseline] mean-th  nrmse mean={base_mean.mean():.4f}  per-axis={np.round(base_mean,3)}")
 
+    # ---- BASELINE 3, and the one that matters most here: THE UNTRAINED NET. -----------------------
+    # This net's output layer is tanh de-normalized into the RT box, so an untrained net emits close
+    # to the box MIDPOINT for every input — which may already score well against a theta distribution
+    # that clusters mid-box. Without this measurement, an "early stopping beats the baselines!" result
+    # is indistinguishable from "the initialization happened to sit near the answer". Measure it
+    # before a single gradient step and make the comparison explicit.
+    base_init = evaluate(va_idx if va_idx is not None else tr_idx)
+    print(f"[baseline] UNTRAINED net nrmse mean={base_init.mean():.4f} "
+          f"(if the best trained epoch does not clearly beat THIS, nothing was learned)")
+
+    # ---- Best-val checkpointing. With theta near-constant within a run, the effective sample size is
+    # the number of RUNS, not rows, so this net overfits within a couple of epochs. Keeping the final
+    # epoch would report the overfit model; keep the best-val one and report which epoch it came from.
+    best = {"val": float("inf"), "ep": -1, "state": None}
+
     n_tr = tr_idx.numel()
     print(f"[train_theta] params={sum(p.numel() for p in net.parameters())} n_in={obs_np.shape[1]}")
     t0 = time.time()
@@ -150,6 +165,12 @@ def main():
             bi = perm[i:i + args.batch]
             loss = (((net(obs_t[bi]) - th_t[bi]) / width) ** 2).mean()
             opt.zero_grad(); loss.backward(); opt.step()
+        # evaluate EVERY epoch (it is cheap) so best-val selection is not aliased by the print cadence
+        if va_idx is not None:
+            v = float(evaluate(va_idx).mean())
+            if v < best["val"]:
+                best = {"val": v, "ep": ep + 1,
+                        "state": {k: t.detach().clone() for k, t in net.state_dict().items()}}
         if (ep + 1) % max(1, args.epochs // 10) == 0 or ep == 0:
             tr_e = evaluate(tr_idx)
             msg = f"  ep {ep+1:4d}/{args.epochs}  train_nrmse={tr_e.mean():.4f}"
@@ -157,6 +178,12 @@ def main():
                 msg += f"  val_nrmse={evaluate(va_idx).mean():.4f}"
             print(msg)
     dt = time.time() - t0
+
+    # restore the best-val weights — the final epoch is the overfit one
+    if best["state"] is not None:
+        net.load_state_dict(best["state"])
+        print(f"[train_theta] restored BEST-VAL weights from epoch {best['ep']} "
+              f"(val_nrmse {best['val']:.4f}); the final epoch was NOT kept")
 
     val_e = evaluate(va_idx) if va_idx is not None else np.full(len(RT_LO), np.nan)
     tr_e = evaluate(tr_idx)
@@ -175,15 +202,22 @@ def main():
     }, args.out)
 
     print(f"[train_theta] SAVED {args.out}")
-    print(f"[metrics] val_nrmse={val_e.mean():.4f} vs identity {base_ident.mean():.4f} "
-          f"vs mean-theta {base_mean.mean():.4f}")
-    # The verdict, stated plainly rather than left for someone to infer from three numbers.
-    if val_e.mean() >= base_ident.mean():
+    print(f"[metrics] val_nrmse={val_e.mean():.4f} (best epoch {best['ep']}) vs identity "
+          f"{base_ident.mean():.4f} vs mean-theta {base_mean.mean():.4f} vs UNTRAINED {base_init.mean():.4f}")
+    # The verdict, stated plainly rather than left for someone to infer from four numbers. Ordered
+    # from the most damning check to the least: an untrained net that already scores well means the
+    # box midpoint is simply a decent guess, and any "win" over identity is an artifact of the output
+    # parameterisation rather than anything learned from the observation.
+    if val_e.mean() >= base_init.mean() * 0.98:
+        print("[VERDICT] NO-GO (nothing learned): no better than an UNTRAINED net, whose tanh de-norm "
+              "already emits the mid-box theta. Any apparent edge over identity is the parameterisation, "
+              "not the observation.")
+    elif val_e.mean() >= base_ident.mean():
         print("[VERDICT] NO-GO: the prior is no better than the identity warm start it would replace.")
     elif val_e.mean() >= base_mean.mean():
         print("[VERDICT] WEAK: beats identity but not a constant mean theta — ship the constant, not a net.")
     else:
-        print("[VERDICT] GO: state-dependent and better than both baselines. Wire it as the CEM warm start "
+        print("[VERDICT] GO: state-dependent and better than every baseline. Wire it as the CEM warm start "
               "and measure the REAL metric — rollouts-to-basin vs identity, which is what it exists to cut.")
 
 

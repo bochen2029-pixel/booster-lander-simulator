@@ -2335,3 +2335,38 @@ held-out compound eval in Phase 4.
 (13 PERFECT, 18 GOOD, 1 HARD dropped) · parked-tail 34.2% removed · auto-gamut chose **±37.0 m/s²**
 and independently reported the v6 range would clip **43.1%** of labels, reproducing ADDENDUM 1 on a
 second dataset · 82,371 params · 9.4 s to train on the RTX. The whole Phase-3 chain runs end to end.
+
+**D-041 ADDENDUM 5 — the θ-PRIOR: preliminary GO on the proxy metric, with the overfitting named
+(2026-07-25, 3 of 12 seeds).** Ran `train_theta.py` on the first three banked seeds (47 runs after
+verdict-filtering). The first run reported NO-GO with a textbook overfitting signature: val_nrmse best
+at epoch 1 then degrading monotonically (0.232 → 0.339) while train fell 0.253 → 0.046.
+
+**The diagnosis matters more than the number.** θ is near-constant within a run (~7 distinct vectors
+over ~6,000 rows), so the effective sample size is **the number of RUNS, not rows** — 40 training runs
+against a 10-D target. The net identifies which run it is in and recalls that run's θ. This is the
+same wall LODESTAR hit (§13) but with a sharper cause: there, the curve was flat (no signal); here
+there is signal, immediately swamped by memorisation.
+
+Two things were added before trusting any verdict. **(1) Best-val checkpointing** — keeping the final
+epoch would have shipped the overfit model. **(2) An UNTRAINED-NET baseline**, which is the check that
+actually matters here: this net's tanh de-norm emits the mid-box θ before any training, so if the
+θ distribution clusters mid-box, "beats identity" could be pure parameterisation with nothing learned.
+Without measuring it, the two are indistinguishable.
+
+| baseline | val nrmse |
+|---|---|
+| UNTRAINED net (mid-box) | 0.3393 |
+| identity warm start (what the CEM uses today) | 0.3282 |
+| constant mean-θ | 0.2726 |
+| **trained, best epoch (2 of 60)** | **0.2311** |
+
+⇒ **GO on the proxy**: it beats every baseline including a 32% edge over untrained, so the observation
+does carry state-dependent information about θ. **Held honestly:** the best epoch is 2, the margin over
+a constant mean-θ is only 15%, and this is 3/12 seeds. The full farm (~190 runs) should push the
+overfitting point out and is the real test.
+
+**And nrmse is NOT the metric this net exists for.** Its job is to cut rollouts-to-basin versus the
+identity warm start. A 15% nrmse edge may or may not translate. That measurement — CEM iterations to
+reach a given gbest, prior vs identity — is what decides whether θ̂ ships, and it has not been run.
+Nothing about this changes the flown trajectory either way: CEM elitism keeps identity in the
+population, so a bad prior costs compute and never correctness.
