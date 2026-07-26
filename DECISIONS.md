@@ -2220,3 +2220,45 @@ loop as its controller. Either outcome is decisive.
 
 **Status: architecture SHIPPED and gated; the teacher farm is flying (`data/s0rf`, seeds 5000-5011 ×16,
 deadline-paced). Results append here.**
+
+**D-041 ADDENDUM 1 — THE OUTPUT-RANGE TRAP (found 2026-07-25 by inspecting the first oracle data,
+before spending the farm).** Profiling the RFLY tap's labels turned up a structural mismatch that
+probably contaminates the entire engine-out distillation history, not just this arc:
+
+`A_LAT_GAMUT = 3.2 m/s²` is **MPPI's sampler bound, not a plant limit**. It was the correct de-norm
+range while the teacher was MPPI, because MPPI clamps its own output to it — every label was in range
+by construction. The reactive stack (hoverslam, hence GM_RFLY) does **not** clamp there: its `a_lat`
+is a raw seek+damp acceleration DEMAND that `control.c` realises as a tilt under the real physical cap.
+
+Measured on the oracle tap (44,855 rows): |a_lat| p50 **2.28**, p90 **19.3**, p99 **36.6**, max
+**43.9 m/s²**. ⇒ **45.1% of the teacher's lateral commands lie outside the policy's entire output
+range**, and the excess sits precisely where the compound recovery happens — entry/aero p95 **30.9**,
+landing burn p95 **28.3** — while the terminal phase fits comfortably inside it (p95 **3.56**).
+
+**That asymmetry is the shape of the whole distillation failure history.** The student was fine on
+TERMINAL/AERO-clean (in-range) and structurally unable to express the divert (out-of-range) — which is
+exactly the observed pattern of v6: 46/60 AERO clean, 0/30 compound. Under the label clip, 45% of
+`a_lat` labels collapse onto ±3.2 — the rails — the D-009 "railing beyond the gamut kills the
+gradient" lesson at scale. `oracle_distill_design.md` §1.5 predicted this failure mode but sized it at
+~5.5 m/s²; it is **30+**. Note the honest limit of the claim: this is a strong structural explanation,
+not yet a proof — the proof is whether NP_VERSION 7 with the corrected range clears the compound.
+
+**The fix is not an assist (directive 6).** `a_lat` is a DEMAND, not an achieved acceleration;
+`control.c` saturates it at the physical tilt authority exactly as it already does for hoverslam's
+identical demands. Widening `NP_OUT_SCALE` lets the policy EXPRESS what the law it imitates expresses.
+The plant's authority limit is unchanged and still lives where it always lived. Nothing in C changes:
+the range is frozen per NP_VERSION in the exported header and `guidance_neural.c` already clamps to
+`NP_OUT_SCALE` rather than a hardcoded 3.2.
+
+`train_s0.py --a-lat-gamut auto` now sets the range from the p99.5 of |a_lat| in the training set and
+reports what each choice would clip. Auto-ranging is teacher-agnostic by construction: an MPPI dataset
+auto-ranges back to ~3.2 on its own; a reactive/RFLY dataset asks for the range that law commands.
+
+**ADDENDUM 2 — the self-sensed channel, honestly scored.** Separability of engine-out from the new
+channel ALONE, across burning ticks: `sf_z` mean **49.43 (3-engine) vs 34.70 (engine-out)**, sd ~11-15
+— a clean ~1σ separation, so a single frame carries the thrust deficit. `|wdot_y|` does **not**
+separate in aggregate (0.0653 vs 0.0615): the induced torque is a large TRANSIENT at the failure tick
+(+0.021 → −0.135) that the inner loop trims out within a few ticks, so a single frame sees it only if
+it lands on the failure. That is a real, measured argument for the deferred frame stack — logged here
+so the App-G decision rule ("add k=3-5 only if the frontier metric shows temporal inference is the
+binding shortfall") has evidence waiting for it rather than a guess.

@@ -13,8 +13,8 @@ WHAT IT DOES (neural_policy_design.md §B.1, §B.4, §C.3, §D intro):
   * build the App-G observation features; normalize with (mu, sd) COMPUTED FROM THE TRAINING SET and
     saved with the checkpoint (they FREEZE into the export — part of the deterministic artifact);
   * an MLP per §B.4: input N -> hidden -> hidden -> hidden -> 3, tanh hidden; outputs tanh-bounded and
-    de-normalized to a_lat in +-A_LAT_GAMUT and throttle in [ENG_THR_MIN, 1] (the real tree constants,
-    baked in below);
+    de-normalized to a_lat in +-gamut (chosen from the data — see THE OUTPUT-RANGE TRAP below) and
+    throttle in [ENG_THR_MIN, 1];
   * per-channel-weighted MSE (a_lat channels weighted vs throttle to comparable units, §C.3);
   * train/val split BY RUN (not by row) — no leakage of a trajectory across the split;
   * CUDA if available; save checkpoint + a metrics line (val MSE per channel).
@@ -31,9 +31,34 @@ import numpy as np
 import rowformat as rf
 
 # ---- REAL TREE CONSTANTS (baked in; read from the source of truth, cited) --------------------------
-A_LAT_GAMUT = 3.2    # core/guidance_mppi.c:40  — physical lateral-accel gamut [m/s^2] (= a_vert_ref*tan15)
+A_LAT_GAMUT = 3.2    # core/guidance_mppi.c:40  — MPPI's sampler gamut [m/s^2] (= a_vert_ref*tan15)
 ENG_THR_MIN = 0.40   # core/constants.h:38      — minimum engine throttle
 NP_VERSION_TRAINED = 1  # the version this trainer targets; export_weights.py stamps the header
+
+# ---- THE OUTPUT-RANGE TRAP (found 2026-07-25, measured on the first RFLY oracle data) -------------
+# A_LAT_GAMUT = 3.2 is MPPI's SAMPLER bound, not a plant limit. It was the right de-norm range while
+# the teacher was MPPI, because MPPI clamps its own output to it — every label was in range.
+#
+# The reactive stack (hoverslam, and therefore GM_RFLY) does NOT clamp there. Its a_lat is a raw
+# seek+damp acceleration DEMAND that control.c later realises as a tilt, subject to the real physical
+# cap. Measured on the oracle tap: |a_lat| is p50 2.28, p90 19.3, p99 36.6, max 43.9 m/s^2 —
+#   *** 45.1% of the teacher's lateral commands lie OUTSIDE the policy's entire output range ***
+# and the excess sits exactly where the compound recovery happens (entry/aero p95 30.9, landing burn
+# p95 28.3), while the terminal phase fits comfortably inside it (p95 3.56).
+#
+# That asymmetry is almost certainly part of why every engine-out distillation round nulled: the
+# student was fine on TERMINAL/AERO-clean (in-range) and structurally unable to express the divert.
+# With the label clip below, 45% of a_lat labels collapse onto exactly +-3.2 — the rails — which is
+# the D-009 "railing beyond the gamut kills the gradient" lesson at scale. oracle_distill_design.md
+# 1.5 predicted this failure but sized it at ~5.5 m/s^2; it is 30+.
+#
+# THE FIX IS NOT AN ASSIST (directive 6). a_lat is a DEMAND, not an achieved acceleration. control.c
+# saturates it at the physical tilt authority exactly as it already does for hoverslam's identical
+# demands. Widening NP_OUT_SCALE lets the policy EXPRESS what the law it imitates expresses; the
+# plant's authority limit is unchanged and still lives where it always lived. The range is frozen
+# per NP_VERSION in the exported header, and guidance_neural.c clamps to NP_OUT_SCALE (not to a
+# hardcoded 3.2), so nothing in C needs to change.
+A_LAT_GAMUT_AUTO_PCTL = 99.5   # auto-range covers this percentile of |a_lat| in the training set
 
 # ---- THE HELD-OUT LAW (canon §13.6.3 / §17): gate seeds NEVER trained on ---------------------------
 HELD_OUT_SEEDS = {42, 7, 99}
@@ -180,6 +205,11 @@ def main():
                          "teacher is a search, and its FAILURES must never become labels).")
     ap.add_argument("--keep-verdicts", default="1,2",
                     help="verdict codes kept by --verdict-csv (1=PERFECT 2=GOOD 3=HARD); default 1,2")
+    ap.add_argument("--a-lat-gamut", default="auto",
+                    help="policy lateral-accel output range [m/s^2], frozen into NP_OUT_SCALE. "
+                         f"'auto' = p{A_LAT_GAMUT_AUTO_PCTL} of |a_lat| in the training set, rounded up "
+                         f"(see THE OUTPUT-RANGE TRAP above). '3.2' reproduces the v6 arrangement — "
+                         "correct for an MPPI teacher, wrong for the reactive/RFLY oracle.")
     args = ap.parse_args()
 
     import torch
@@ -196,14 +226,29 @@ def main():
         rows = verdict_filter(rows, load_verdicts(args.verdict_csv), keep)
     obs_np, act_np = rf.split(rows)            # obs (n, NPOBS_N), act (n, 3) = [a_lat0, a_lat1, thr]
 
-    # ---- LABEL CONDITIONING (§C.3): the EXECUTED a_lat intent can exceed the physical gamut (the
-    # tilt-cap clamps it in control.c downstream). Clamp the a_lat LABELS to +-A_LAT_GAMUT so the
-    # imitation target is exactly what reaches the plant and lies inside the policy's tanh-de-norm
-    # output range (the D-009 lesson: railing beyond the gamut kills the gradient). Throttle is
-    # already in {0} U [ENG_THR_MIN, 1]; leave it (0 = engine off, a legal commanded value). ----
+    # ---- OUTPUT RANGE (see THE OUTPUT-RANGE TRAP at the top of this file). Choose the range the
+    # policy's tanh de-norm spans, then clip the labels into it. Auto-ranging from the data is what
+    # keeps this honest across teachers: an MPPI dataset auto-ranges back to ~3.2 on its own, while
+    # a reactive/RFLY dataset asks for the range that law actually commands.
+    if args.a_lat_gamut == "auto":
+        gamut = float(np.ceil(np.percentile(np.abs(act_np[:, :2]), A_LAT_GAMUT_AUTO_PCTL)))
+        gamut = max(gamut, A_LAT_GAMUT)      # never narrower than the historical range
+    else:
+        gamut = float(args.a_lat_gamut)
+    clipped = float((np.abs(act_np[:, :2]) > gamut).mean())
+    would_clip_v6 = float((np.abs(act_np[:, :2]) > A_LAT_GAMUT).mean())
+    print(f"  a_lat output range: +-{gamut:.1f} m/s^2 ({args.a_lat_gamut}) — clips {100*clipped:.2f}% of "
+          f"labels (the v6 range of +-{A_LAT_GAMUT} would clip {100*would_clip_v6:.1f}%)")
+    if would_clip_v6 > 0.10 and gamut <= A_LAT_GAMUT:
+        print("  WARNING: >10% of labels rail at the chosen range. The policy cannot express this "
+              "teacher's steering; expect it to fail exactly where the big commands are.")
+
+    # Clip the LABELS into the chosen range so the imitation target lies inside the policy's output
+    # gamut (the D-009 lesson: railing beyond the range kills the gradient). Throttle is already in
+    # {0} U [ENG_THR_MIN, 1]; leave it (0 = engine off, a legal commanded value).
     act_np = act_np.copy()
-    act_np[:, 0] = np.clip(act_np[:, 0], -A_LAT_GAMUT, A_LAT_GAMUT)
-    act_np[:, 1] = np.clip(act_np[:, 1], -A_LAT_GAMUT, A_LAT_GAMUT)
+    act_np[:, 0] = np.clip(act_np[:, 0], -gamut, gamut)
+    act_np[:, 1] = np.clip(act_np[:, 1], -gamut, gamut)
 
     tr_mask, va_mask, n_runs, n_val_runs = split_by_run(rows, args.val_frac, args.seed)
     print(f"  runs: {n_runs} total -> {n_val_runs} val / {n_runs-n_val_runs} train; "
@@ -220,7 +265,7 @@ def main():
     #   clamped to [ENG_THR_MIN,1]. We invert this to make the TRAINING TARGET in the net's raw
     #   (pre-de-norm) space, so the loss is on the de-normalized physical channels directly instead
     #   (simpler + matches export): we de-normalize the net output and compute MSE in physical units.
-    A_out = np.array([A_LAT_GAMUT, A_LAT_GAMUT, 1.0], dtype=np.float64)  # informational (export uses it)
+    A_out = np.array([gamut, gamut, 1.0], dtype=np.float64)   # -> NP_OUT_SCALE in the frozen header
 
     obs_t = torch.tensor((obs_np - mu) / sd, dtype=torch.float32, device=dev)
     act_t = torch.tensor(act_np, dtype=torch.float32, device=dev)
@@ -240,7 +285,7 @@ def main():
                 d = hidden
             self.body = nn.Sequential(*mods)
             self.head = nn.Linear(d, 3)
-            self.register_buffer("a_scale", torch.tensor([A_LAT_GAMUT, A_LAT_GAMUT, 1.0]))
+            self.register_buffer("a_scale", torch.tensor([gamut, gamut, 1.0]))
 
         def forward(self, x):
             u = torch.tanh(self.head(self.body(x)))   # [-1,1]^3
@@ -296,7 +341,7 @@ def main():
         "in_sd": sd.astype(np.float64),
         "out_scale": A_out.astype(np.float64),   # a_lat gamut on ch0/1, throttle handled by de-norm
         "eng_thr_min": ENG_THR_MIN,
-        "a_lat_gamut": A_LAT_GAMUT,
+        "a_lat_gamut": gamut,
         "obs_names": rf.OBS_NAMES,
         "act_names": rf.ACTION_NAMES,
         "val_mse": val_mse.astype(np.float64),
