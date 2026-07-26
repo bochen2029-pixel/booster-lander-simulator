@@ -17,14 +17,17 @@
 
 #include "state.h"
 #include "guidance.h"
+#include "policy_obs.h"   /* PolicyHist — the App-G v2 one-tick memory the observation needs */
 
 /* One 50 Hz forward pass from the (nav) plant state. `nav` is nav_measure's output (the legal view);
  * `g` supplies the §8.1-legal target pose (g->target_xy, filled by sim.c) and receives the command:
- * g->a_lat[2], g->throttle, g->mode=GM_NEURAL. Ignition (engine_cmd) and legs stay on the analytic
- * triggers (Tier A) — set by the sim.c block that calls this, exactly as GM_MPPI. Pure/read-only:
- * no RNG, no state writes. isfinite-guarded: a non-finite forward pass clamps to a safe neutral
- * command (never propagates NaN), so a broken/absurd net produces an honest crash, not a hang. */
-BL_HD void neural_policy_step(const State* nav, GuidanceCmd* g);
+ * g->a_lat[2], g->throttle, g->mode=GM_NEURAL. `hist` is the previous resolved guidance tick (App-G
+ * v2 self-sensed channel; pass NULL from a context that has no tick history — e.g. a warm-start
+ * rollout — and those nine ingredients read zero). Ignition (engine_cmd) and legs stay on the
+ * analytic triggers (Tier A) — set by the sim.c block that calls this, exactly as GM_MPPI.
+ * Pure/read-only: no RNG, no state writes. isfinite-guarded: a non-finite forward pass clamps to a
+ * safe neutral command (never propagates NaN), so a broken/absurd net produces an honest crash. */
+BL_HD void neural_policy_step(const State* nav, const PolicyHist* hist, GuidanceCmd* g);
 
 /* The PURE forward pass on an ALREADY-BUILT raw observation vector o_raw[NP_N_IN] (the policy_obs.h
  * ingredients, un-normalized). Writes the de-normalized, clamped command a_out = {a_lat0, a_lat1,

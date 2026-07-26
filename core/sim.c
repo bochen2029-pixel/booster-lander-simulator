@@ -510,7 +510,7 @@ int sim_step(Sim* s){
          * does no RNG and no state write, and is a no-op when the flag is absent (tap.f==NULL) => the
          * sim path stays byte-identical (the D-014 instrument-without-touching gate). It is placed
          * AFTER the ignition latch so nothing downstream can still change the executed command. */
-        policy_tap_write(&s->tap, &nav, &s->gcmd);
+        policy_tap_write(&s->tap, &nav, &s->gcmd, &s->phist);
     }
 
     /* ---- GM_NEURAL guidance block (N1 §9.8, tier-3 learned policy) — MIRRORS the GM_MPPI block:
@@ -550,9 +550,9 @@ int sim_step(Sim* s){
                     else                                        mppi_execute(&s->mppi, &nav, &shadow);
                     s->mppi.gtick++;
                 }
-                policy_tap_write(&s->tap, &nav, &shadow);
+                policy_tap_write(&s->tap, &nav, &shadow, &s->phist);
             }
-            neural_policy_step(&nav, &s->gcmd);   /* pi_theta(legal obs) -> a_lat[2] + throttle */
+            neural_policy_step(&nav, &s->phist, &s->gcmd);   /* pi_theta(legal obs) -> a_lat[2] + throttle */
         }
         if(s->gcmd.engine_cmd && !st->engine_on && st->relights_left>0){
             st->engine_on=1; st->ign_timer=0.0; st->n_eng=s->gcmd.n_eng; st->relights_left--;
@@ -672,6 +672,28 @@ int sim_step(Sim* s){
                 s->gcmd.a_lat[ax] -= s->lat_eint[ax]*wfade;
             }
         } else { s->lat_eint[0]=0.0; s->lat_eint[1]=0.0; }
+    }
+
+    /* ---- ORACLE TAP + App-G v2 POLICY HISTORY (2026-07-25) -------------------------------------
+     * This is the LAST point in the guidance tick at which the executed command can still change:
+     * the D-009 wind-trim integral above edits gcmd.a_lat, and GM_RFLY (which flies the reactive
+     * stack) is subject to it. So the GM_RFLY tap row is written HERE, not inside its block — a row
+     * logged before the trim would carry a label the plant never flew (the exact train/fly skew
+     * policy_obs.h exists to prevent). GM_MPPI/GM_NEURAL tap inside their own blocks because D-010
+     * exempts them from the trim, and moving them would perturb their frozen row streams.
+     *
+     * GM_RFLY IS THE ORACLE-DISTILL TEACHER: the CEM-searched theta makes this the 36/36 compound
+     * controller (D-040), so its (o, a*) rows are the near-optimal teacher data the whole
+     * solver-then-distill program was waiting for. Same read-only discipline as the D-014 tap: no
+     * RNG, no state write, no-op when tap.f==NULL.
+     *
+     * The history update runs for EVERY mode (cheap, and it keeps the ingredients well-defined no
+     * matter which law flies) and must come AFTER the tap write — the row describes the tick using
+     * the PREVIOUS tick's memory, then this tick becomes the memory for the next one. Nothing reads
+     * phist except the observation builder, so the plant path is byte-identical. */
+    if(is_gtick){
+        if(s->guidance_mode==GM_RFLY) policy_tap_write(&s->tap, &nav, &s->gcmd, &s->phist);
+        policy_hist_update(&s->phist, &nav, &s->gcmd);
     }
 
     /* control at 500 Hz */

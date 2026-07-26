@@ -20,15 +20,34 @@
 #include "constants.h"                  /* ENG_THR_MIN (cross-checked against NP_ENG_THR_MIN) */
 #include <math.h>
 
-/* The interface the net is architected against must match the tap's feature count and the header. */
-#if (NP_N_IN != NPOBS_N)
-#  error "NP_N_IN (neural_policy_weights.h) != NPOBS_N (policy_obs.h): observation-socket drift"
+/* The observation socket is APPEND-ONLY (policy_obs.h): indices never move, new ingredients land at
+ * the end. A frozen policy therefore consumes the FIRST NP_N_IN features — the exact prefix it was
+ * trained against — and is bit-identical no matter how far the socket has since grown. What must
+ * NEVER happen is a policy asking for MORE features than the socket produces (it would read past the
+ * buffer and consume garbage), so THAT is the error. */
+#if (NP_N_IN > NPOBS_N)
+#  error "NP_N_IN (neural_policy_weights.h) > NPOBS_N (policy_obs.h): the policy wants features the socket does not produce"
 #endif
 #if (NP_N_LAYERS != 3)
 #  error "guidance_neural.c is specialized to NP_N_LAYERS==3; regenerate/generalize for a deeper net"
 #endif
 #if (NP_N_OUT != 3)
 #  error "NP_N_OUT must be 3 (a_lat[0], a_lat[1], throttle) for the Tier-A action space"
+#endif
+
+/* ---- THE ACTION TIER (canon §9.8 Tier A vs the as-built Tier-A'). --------------------------------
+ * Tier-A' (D-023): LATERAL-ONLY — the proven hoverslam suicide burn keeps the throttle channel and
+ * the net owns only a_lat. That was the right call at NP_VERSION 2-6: rounds 0-1 measured throttle as
+ * the weakest imitation channel, and the vertical law was already 97% at TERMINAL.
+ * Tier-A (2026-07-25, oracle-distill): FULL ACTION — the net also owns throttle. The compound
+ * recovery is a COORDINATED maneuver (steer + throttle + burn timing together); a lateral-only head
+ * physically cannot express it, which oracle_distill_design.md §1.5 names as the DOMINANT reason
+ * NP_VERSION 6 scores 0/30 on the compound while the hoverslam it steers scores 25%.
+ * The tier is declared by the FROZEN WEIGHTS HEADER, so it travels with the artifact that earned it
+ * and an older policy can never be silently promoted. Absent (every header through NP_VERSION 6) it
+ * defaults to 1, and the throttle line below compiles out entirely => bit-identical. */
+#ifndef NP_ACTION_TIER
+#  define NP_ACTION_TIER 1
 #endif
 
 BL_HD static inline double clampd(double x, double lo, double hi){
@@ -98,14 +117,21 @@ BL_HD void neural_policy_forward(const double o_raw[], double a_out[3]){
     }
 }
 
-BL_HD void neural_policy_step(const State* nav, GuidanceCmd* g){
+BL_HD void neural_policy_step(const State* nav, const PolicyHist* hist, GuidanceCmd* g){
     /* build the legal observation (the SAME features the tap logs) — the shared policy_obs.h math —
-     * then run the bit-deterministic forward pass and write ONLY the continuous channels. */
-    double o[NP_N_IN], a[3];
-    policy_build_obs(nav, g, o);
+     * then run the bit-deterministic forward pass and write ONLY the continuous channels.
+     * NOTE the buffer is NPOBS_N wide (what policy_build_obs writes), while the forward pass reads
+     * only the first NP_N_IN of it — the append-only prefix rule above. */
+    double o[NPOBS_N], a[3];
+    policy_build_obs(nav, g, hist, o);
     neural_policy_forward(o, a);
     g->a_lat[0] = a[0];
     g->a_lat[1] = a[1];
+#if (NP_ACTION_TIER >= 2)
+    /* TIER-A (full action): the net owns the throttle too. Only reached by a header that declares
+     * NP_ACTION_TIER 2 — i.e. a policy trained against the throttle channel and gated on it. */
+    g->throttle = a[2];
+#else
     /* TIER-A' (D-023): LATERAL-ONLY policy — the PROVEN hoverslam suicide-burn keeps the
      * THROTTLE (vertical) channel; the net owns only the a_lat steering. The D-008 lesson
      * ("lateral-only MPPI — hoverslam owns the proven vertical, the planner owns only the
@@ -113,7 +139,8 @@ BL_HD void neural_policy_step(const State* nav, GuidanceCmd* g){
      * the throttle channel as the weakest imitation (val-MSE plateau; too-hard-dominant
      * crashes), and the vertical law is already 97% at TERMINAL. The forward pass still
      * computes all 3 channels (the KAT tests the full pass); the STEP just does not apply
-     * a[2]. Revisit full Tier-A when a policy earns it (an ADR toggle, not a retrain). */
+     * a[2]. Promotion to Tier A is an ADR event carried by the weights header. */
+#endif
     g->mode = GM_NEURAL;
     /* engine_cmd / n_eng / deploy_cmd stay on the analytic triggers (Tier A) — set by the sim.c
      * GM_NEURAL block (hoverslam_step's ignition + leg-deploy gate), exactly as GM_MPPI. */

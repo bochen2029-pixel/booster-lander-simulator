@@ -407,7 +407,7 @@ static int cmd_run(int argc, char** argv){
         tapf=fopen(policy_log,"wb");
         if(!tapf){ int e=errno; fprintf(stderr,"error: --policy-log: cannot open '%s' for writing: %s (errno=%d)\n"
                                               "       (the parent directory must already exist)\n", policy_log, strerror(e), e); return 3; }
-        if(gmode!=GM_MPPI && gmode!=GM_NEURAL) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher) or --neural (DAgger shadow teacher, D-023)\n");
+        if(gmode!=GM_MPPI && gmode!=GM_NEURAL && gmode!=GM_RFLY) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher), --neural (DAgger shadow teacher, D-023) or --rfly (THE ORACLE teacher, D-040 / oracle-distill)\n");
     }
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
@@ -512,7 +512,7 @@ static int cmd_headless(int argc, char** argv){
         if(!tapf){ int e=errno; fprintf(stderr,"error: --policy-log: cannot open '%s' for writing: %s (errno=%d)\n"
                                               "       (the parent directory must already exist)\n", policy_log, strerror(e), e);
                    if(f) fclose(f); return 3; }
-        if(gmode!=GM_MPPI && gmode!=GM_NEURAL) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher) or --neural (DAgger shadow teacher, D-023)\n");
+        if(gmode!=GM_MPPI && gmode!=GM_NEURAL && gmode!=GM_RFLY) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher), --neural (DAgger shadow teacher, D-023) or --rfly (THE ORACLE teacher, D-040 / oracle-distill)\n");
     }
     long cnt[6]={0}; long fault[6]={0};
     long c_offpad=0, c_hard=0, c_fuel=0, c_other=0;

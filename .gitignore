@@ -67,3 +67,8 @@ Desktop.ini
 
 # Kept on purpose: core/**, ui/src/**, shell/src/**, all *.md docs,
 # runs/**/*.c, runs/**/*.md, runs/*.csv, runs/*.json, _events.xlsx, goldens/**.
+
+# Trainer (offline precompute, canon §19.1). The .py SOURCES are tracked — rowformat.py is the
+# lockstep mirror of core/policy_tap.h and must version with it. Everything generated is not.
+trainer/__pycache__/
+trainer/*.pt

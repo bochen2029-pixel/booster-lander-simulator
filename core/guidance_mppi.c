@@ -632,7 +632,10 @@ static void warm_start_neural(MppiState* M, const State* st0, const EnvCtx* env0
              * below, exactly as GM_NEURAL keeps hoverslam's vertical (the net owns only a_lat). */
             GuidanceCmd gn; memset(&gn,0,sizeof(gn));
             gn.target_xy[0]=M->target_xy[0]; gn.target_xy[1]=M->target_xy[1];
-            neural_policy_step(&rst, &gn);   /* pi_theta(legal obs) -> gn.a_lat[2] */
+            /* NULL hist: a warm-start ROLLOUT has no resolved-tick history (it is a hypothetical
+             * future state, not a flown tick), so the App-G v2 self-sensed ingredients read zero.
+             * NP_VERSION 6 consumes only the v1 prefix, so this path is bit-identical to D-029. */
+            neural_policy_step(&rst, NULL, &gn);   /* pi_theta(legal obs) -> gn.a_lat[2] */
             alx = clampd(gn.a_lat[0], -A_LAT_GAMUT, A_LAT_GAMUT);
             aly = clampd(gn.a_lat[1], -A_LAT_GAMUT, A_LAT_GAMUT);
         }

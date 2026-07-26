@@ -87,6 +87,13 @@ typedef struct Sim {
      * command is resolved (policy_tap.h). No RNG, no state writes — the D-014 instrument-without-
      * touching discipline; the byte-equality gate proves it. */
     PolicyTap tap;
+    /* ---- App-G v2 (2026-07-25) POLICY HISTORY: the previous RESOLVED guidance tick, the memory the
+     * self-sensed contingency ingredients are derived from (specific force, angular acceleration,
+     * last executed command — policy_obs.h). Updated ONCE per guidance tick, after the command is
+     * final (post ignition-latch, post D-009 wind-trim). NO plant path reads it and it never enters
+     * the RK4 vector or nav_measure, so every existing golden is byte-identical by construction.
+     * memset 0 in sim_init => valid==0 => the v2 ingredients are zero until the second tick. */
+    PolicyHist phist;
     /* ---- N2-S2 GM_CFLY (D-040): the optimizer-in-the-loop state. Armed by --cfly; memset 0 +
      * guidance_mode!=GM_CFLY => never read => byte-identical. */
     CflyState cfly;
