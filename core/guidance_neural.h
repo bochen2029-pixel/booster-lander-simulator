@@ -18,6 +18,15 @@
 #include "state.h"
 #include "guidance.h"
 #include "policy_obs.h"   /* PolicyHist — the App-G v2 one-tick memory the observation needs */
+#include "neural_policy_weights.h"   /* NP_* — including NP_ACTION_TIER when the header declares it */
+
+/* THE ACTION TIER, defaulted. Declared by the frozen weights header so it travels with the artifact
+ * that earned it; every header through NP_VERSION 6 predates the concept, so absent means 1 =
+ * Tier-A' lateral-only (hoverslam keeps the throttle channel) and the throttle write in
+ * guidance_neural.c compiles out entirely => bit-identical. See that file for the full rationale. */
+#ifndef NP_ACTION_TIER
+#  define NP_ACTION_TIER 1
+#endif
 
 /* One 50 Hz forward pass from the (nav) plant state. `nav` is nav_measure's output (the legal view);
  * `g` supplies the §8.1-legal target pose (g->target_xy, filled by sim.c) and receives the command:

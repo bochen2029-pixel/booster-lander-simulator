@@ -1179,9 +1179,36 @@ static int cmd_mppi_cuda_bench(int argc, char** argv){ (void)argc; (void)argv;
         "(configure with -DBL_CUDA=ON and a CUDA toolkit).\n"); return 4; }
 #endif /* BL_HAVE_CUDA */
 
+/* --np-kat — dump THIS BINARY's policy KAT triple at full fp64 precision.
+ *
+ * WHY THIS EXISTS. Every weights export ends in the same ceremony: run the fixed-order C forward pass
+ * on the frozen KAT observation and pin its three outputs into test_neural_kat above, at %.17g, FROM
+ * THE C PASS — never from numpy, whose accumulation order differs (canon §13.5, and the hard law in
+ * ROADMAP). Until now that meant hand-inserting a temporary printf, copying three numbers, and
+ * stripping the printf again — the fiddliest, most error-prone step of an ADR-grade ceremony, done by
+ * hand every time. This mode does it directly. CHECKF's failure text cannot substitute: it prints
+ * %.9g, which does NOT round-trip a double, so a value pasted from it is silently wrong in the low
+ * bits — exactly the kind of near-miss a bit-exact gate exists to catch.
+ *
+ * It is a pure read-only dump: no Sim, no RNG, no plant path, nothing to perturb a golden. It uses
+ * the SAME observation construction as test_neural_kat so the two cannot drift. */
+static int cmd_np_kat(void){
+    double o[NP_N_IN];
+    for(int i=0;i<NP_N_IN;i++) o[i] = 0.5*((double)((i*37+11)%13) - 6.0);   /* == test_neural_kat */
+    double a[3];
+    neural_policy_forward(o, a);
+    printf("NP_VERSION %d  NP_N_IN %d  NP_N_HID %d  NP_N_LAYERS %d  NP_ACTION_TIER %d\n",
+           NP_VERSION, NP_N_IN, NP_N_HID, NP_N_LAYERS, NP_ACTION_TIER);
+    printf("    const double EXP0 = %.17g;\n", a[0]);
+    printf("    const double EXP1 = %.17g;\n", a[1]);
+    printf("    const double EXP2 = %.17g;\n", a[2]);
+    return 0;
+}
+
 int main(int argc, char** argv){
     const char* mode = (argc>1)? argv[1] : "--selftest";
     if(!strcmp(mode,"--selftest")) return cmd_selftest();
+    if(!strcmp(mode,"--np-kat")) return cmd_np_kat();
     if(!strcmp(mode,"--headless")) return cmd_headless(argc,argv);
     if(!strcmp(mode,"--run")) return cmd_run(argc,argv);
     if(!strcmp(mode,"--serve")) return cmd_serve(argc,argv);

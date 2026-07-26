@@ -72,3 +72,4 @@ Desktop.ini
 # lockstep mirror of core/policy_tap.h and must version with it. Everything generated is not.
 trainer/__pycache__/
 trainer/*.pt
+build_kat/

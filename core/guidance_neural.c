@@ -45,10 +45,8 @@
  * NP_VERSION 6 scores 0/30 on the compound while the hoverslam it steers scores 25%.
  * The tier is declared by the FROZEN WEIGHTS HEADER, so it travels with the artifact that earned it
  * and an older policy can never be silently promoted. Absent (every header through NP_VERSION 6) it
- * defaults to 1, and the throttle line below compiles out entirely => bit-identical. */
-#ifndef NP_ACTION_TIER
-#  define NP_ACTION_TIER 1
-#endif
+ * defaults to 1 (the fallback lives in guidance_neural.h, so --np-kat can report it too), and the
+ * throttle line below compiles out entirely => bit-identical. */
 
 BL_HD static inline double clampd(double x, double lo, double hi){
     return x<lo ? lo : (x>hi ? hi : x);
