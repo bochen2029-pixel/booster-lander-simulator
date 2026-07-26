@@ -2262,3 +2262,40 @@ separate in aggregate (0.0653 vs 0.0615): the induced torque is a large TRANSIEN
 it lands on the failure. That is a real, measured argument for the deferred frame stack — logged here
 so the App-G decision rule ("add k=3-5 only if the frontier metric shows temporal inference is the
 binding shortfall") has evidence waiting for it rather than a guess.
+
+**D-041 ADDENDUM 3 — A PLANT BUG: the settle test is not deck-relative (found 2026-07-25 on the first
+banked farm seed).** Every SEA run flies its descent in ~110 s and then keeps simulating for another
+30-90 s while the vehicle sits at h≈1.0 m with the engine off. Cause, `core/sim.c` settling block:
+
+```c
+double ke = vx*vx + vy*vy + vz*vz + wmag*wmag*4.0;   /* ABSOLUTE world velocity */
+if(ke < 0.02) s->settle_timer += DT; else s->settle_timer = 0;
+if(s->settle_timer > 1.5 || st->t > 200.0){ set_verdict(s); s->done = 1; }
+```
+
+A vehicle landed on a **heaving** ASDS deck rides the swell, so its absolute velocity never approaches
+zero, `ke` never drops under the threshold, the settle timer never accumulates, and the run survives
+only to the `t > 200` fallback. This is the same family as the D-035 sandbox plant bug: **a criterion
+written for a static pad, applied to a moving deck.**
+
+**No verdict was ever wrong** — `impact_v`/`impact_lat`/`impact_tilt` latch at first contact (D-034),
+so every D-040 number stands. The costs are (a) ~35-40% of farm CPU spent simulating a parked vehicle,
+including a full warm CEM replan every 10 s of it, and (b) ~37% of the corpus being dead rows.
+
+**Deliberately NOT fixed mid-farm.** The correct test is deck-relative KE (subtract `deck_vz_live` and
+the deck's horizontal velocity, both already on the Sim), and it is byte-safe by construction — with
+SEA off and a FIXED target the deck velocity is 0, so deck-relative KE *is* absolute KE and every
+existing golden reproduces. But it is a plant-behaviour change, the running farm is inside its
+deadline, and byte-exact determinism outranks a 2-hour saving. It gets its own ADR and its own gate
+run. Expected payoff when taken: ~35-40% off every future farm and DAgger round.
+
+The data half was fixed immediately and costs nothing: `train_s0.py drop_parked_tail` keeps each run up
+to its FIRST ARRIVAL at landed height (min h + 1.0 m band) and drops the tail. Verified on the first
+seed: 37.2% removed, all 16 runs retained, the flare intact (1,195 rows below 20 m; 66 rows at h≤2 m,
+~4 per run — the touchdown instant), and all-zero-command rows fall from 26% to 1.6%. Cutting at
+`argmin(h)` alone was tried first and under-trims to 22.4%, because on a heaving deck the GLOBAL
+minimum height is usually reached well inside the parked period rather than at touchdown.
+
+**First seed's yield (the honest teacher-quality number):** seed 5000, 16 runs on a recipe never
+flown before — **16/16 landed, 10 PERFECT + 6 GOOD, zero HARD, 100% verdict-filter yield**, median
+td_lat **0.22 m** (max 0.92), median td_v 1.50 m/s. The oracle holds on fresh draws.

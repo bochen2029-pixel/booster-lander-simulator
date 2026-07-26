@@ -129,6 +129,47 @@ def verdict_filter(rows, verdicts, keep):
     return rows[mask]
 
 
+def drop_parked_tail(rows):
+    """Drop every row after a run has touched down and is just sitting on the deck.
+
+    WHY (measured 2026-07-25 on the first banked oracle seed): runs land at ~t=110 s and then keep
+    logging for another 30-90 s — 28-47% of every SEA run's rows — while the vehicle sits at h=1.0 m
+    with the engine off, a_lat=0 and throttle=0. Cause (core/sim.c settle test): the settle criterion
+    scores ABSOLUTE kinetic energy, but a vehicle landed on a HEAVING deck moves with the deck, so
+    `ke` never drops under the threshold, the settle timer never accumulates, and the run survives to
+    the t>200 fallback. Same family as the D-035 plant bug: a static-pad criterion applied to a moving
+    deck. It never corrupted a verdict (those latch at first contact) — it pads the dataset.
+
+    Left in, roughly a third of the corpus would teach the policy "hold zero, you have landed", which
+    is both useless and over-represented relative to the flare it would dilute.
+
+    THE RULE: keep every row up to and INCLUDING the run's FIRST ARRIVAL at its landed height —
+    the first index where h <= min(h) + PARKED_BAND_M. That keeps the whole descent, the entire
+    flare, and the touchdown instant (the most valuable rows in the file) and removes only the
+    parked tail. It is defined per run against that run's own minimum, so it needs no absolute
+    altitude threshold and cannot mis-fire on a low-hovering approach.
+
+    The band matters: cutting at argmin(h) alone under-trims badly, because on a heaving deck the
+    landed vehicle rides the swell and the GLOBAL minimum height is often reached well INSIDE the
+    parked period, not at touchdown. Measured on the first banked seed, argmin cut 22.4% where the
+    true dead fraction is ~35%. The band is set just above leg-contact height, so the last metres of
+    flare are always retained.
+    """
+    PARKED_BAND_M = 1.0
+    h = rows[:, 3 + rf.OBS_NAMES.index("h")]
+    key = rows[:, [rf.I_SEED, rf.I_RUN]].astype(np.int64)
+    keep = np.zeros(len(rows), dtype=bool)
+    for k in np.unique(key, axis=0):
+        idx = np.where((key == k).all(axis=1))[0]
+        hk = h[idx]
+        landed = np.where(hk <= hk.min() + PARKED_BAND_M)[0]
+        cut = int(landed[0]) if len(landed) else len(hk) - 1
+        keep[idx[:cut + 1]] = True
+    print(f"  parked-tail filter: kept {int(keep.sum())}/{len(rows)} rows "
+          f"({100*(1-keep.mean()):.1f}% were post-touchdown deck-sitting)")
+    return rows[keep]
+
+
 def _iter_bin_files(specs):
     """Expand --data specs (file | glob | directory) into a de-duplicated list of .bin paths."""
     out = []
@@ -205,6 +246,9 @@ def main():
                          "teacher is a search, and its FAILURES must never become labels).")
     ap.add_argument("--keep-verdicts", default="1,2",
                     help="verdict codes kept by --verdict-csv (1=PERFECT 2=GOOD 3=HARD); default 1,2")
+    ap.add_argument("--keep-parked-tail", action="store_true",
+                    help="keep post-touchdown deck-sitting rows (default: drop them — see "
+                         "drop_parked_tail; they are ~a third of every SEA run and teach nothing)")
     ap.add_argument("--a-lat-gamut", default="auto",
                     help="policy lateral-accel output range [m/s^2], frozen into NP_OUT_SCALE. "
                          f"'auto' = p{A_LAT_GAMUT_AUTO_PCTL} of |a_lat| in the training set, rounded up "
@@ -224,6 +268,8 @@ def main():
     if args.verdict_csv:
         keep = set(int(x) for x in args.keep_verdicts.split(","))
         rows = verdict_filter(rows, load_verdicts(args.verdict_csv), keep)
+    if not args.keep_parked_tail:
+        rows = drop_parked_tail(rows)
     obs_np, act_np = rf.split(rows)            # obs (n, NPOBS_N), act (n, 3) = [a_lat0, a_lat1, thr]
 
     # ---- OUTPUT RANGE (see THE OUTPUT-RANGE TRAP at the top of this file). Choose the range the
