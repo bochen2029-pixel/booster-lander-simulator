@@ -6,6 +6,28 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-07-26 ~00:55 [opus] — PHASE 3 IS FULLY SCRIPTED AND THE DAgger MECHANISM IS BUILT + VERIFIED;
+  PHASE 2b RUNNING IN PARALLEL.** (1) **`--shadow-rfly` = ORACLE DAgger** (`3a9fbbb`): a GM_NEURAL
+  flight where the CEM re-solves θ **at the states the student visits** and the tap logs the ORACLE's
+  command there (plant flies the student; only the label is the oracle's). Fixed a latent bug that
+  would have made it silent nonsense — `rfly_eval_candidate` never set `c2.guidance_mode`, a no-op
+  under GM_RFLY but under a GM_NEURAL shadow it would have flown every candidate with the STUDENT,
+  scoring θ against a controller that never reads θ. Shadow keeps its OWN D-009 trim integral (the
+  GM_NEURAL flight path never runs the trim, and BC/DAgger rounds must share one label convention);
+  trim block DUPLICATED, not refactored — that code is byte-critical and shared with GM_HOVERSLAM.
+  **Verified functionally, not just structurally** (a shadow silently logging the student's own
+  command would pass every gate identically): θ on 2551/2551 rows, 5 re-solves per flight, and
+  **42.3% of labels above the student's own ±3.2 clamp** ⇒ demonstrably the oracle's; `gbest` rises
+  37.8→495.5 across the flight = covariate shift measured directly. (2) **Phase 2b** (clean AERO /
+  gust / clean ENTRY, `data/s0rf_clean`) launched in parallel — required, because the old clean
+  datasets are v1-width and the floors are otherwise unreachable. (3) **`rowformat` hardened** after
+  testing the real merge path: the width guard did NOT actually guard (a v1 file with a row count
+  divisible by 55 reshapes cleanly into sheared columns) — replaced with a POSITIVE structural check
+  on the (t, seed, run) columns; and a live farm's mid-write file was being misdiagnosed as "a v1
+  dataset" because its byte count happened to divide by 36. (4) **Scripted the rest of Phase 3:**
+  `d041_export_build.ps1` (the single shared freeze ceremony — KAT pinned from the C pass) +
+  `d041_dagger.ps1` (the loop; reports the landed rate AND the mean shadow gbest, the covariate-shift
+  readout). **Farms at 00:55: compound 5 seeds banked 80/80 landed; clean 4 AERO seeds 63/64.**
 - **2026-07-25 ~23:30 [opus] — PILOT-TRAINED ON PARTIAL FARM DATA; found a second label defect and
   DRY-RAN THE WHOLE PHASE-3 CEREMONY.** Rather than idle until the farm lands, trained on the first two
   banked seeds (31 runs / 179k rows, 9 s on the RTX). Two payoffs. **(1) The throttle don't-care mask
