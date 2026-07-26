@@ -56,6 +56,10 @@ typedef struct Sim {
     Diag diag;   /* last-step diagnostics */
     MppiState mppi;   /* HIER MPPI planner state (GM_MPPI only, track 4-B) */
     double lat_eint[2];   /* D-009 wind-rejection integral trim (fins-deployed LANDING burn only) */
+    double shadow_eint[2];/* D-041: the ORACLE-DAgger shadow's OWN D-009 trim integral. The flight
+                           * path under GM_NEURAL never runs the trim, so the shadow cannot share
+                           * lat_eint; the teacher label must carry the same trim the GM_RFLY
+                           * corpus does or BC and DAgger rounds disagree on the convention. */
     NavState nav;     /* D-010 §8.1 measurement layer (NAV_TRUTH pass-through / NAV_NOISY) */
     /* ---- N0 ENGINE-OUT (§4.6, engineout_design). Armed by --engine-out k@t (MOD_ENGINE_OUT).
      * A seeded, time-triggered failure during a multi-engine burn: decrement n_eng + set the

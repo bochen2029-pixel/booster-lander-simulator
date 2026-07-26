@@ -63,6 +63,12 @@ static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], d
     for(int i=0;i<RFLY_N_THETA;i++) c2.rfly.th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
     c2.rfly.noreplan=1;
     c2.tap.f=NULL;                     /* never touch the shared tap file */
+    /* A candidate must be scored by flying THE RFLY LAW — that is what theta parameterises. Under
+     * the plain GM_RFLY path this is already the mode and the assignment is a no-op. It matters for
+     * the ORACLE-DAGGER shadow (D-041), where the search runs while the SIM's mode is GM_NEURAL:
+     * without this the candidates would fly the student policy, and the CEM would be scoring theta
+     * against a controller that never reads it. */
+    c2.guidance_mode = GM_RFLY;
     RunResult R; memset(&R,0,sizeof(R));
     sim_run(&c2, &R, t_horizon);
     return rfly_cost(&c2, &R);

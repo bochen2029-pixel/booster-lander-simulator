@@ -19,7 +19,10 @@
 
 param(
   [int]$NpVersion  = 7,
-  [string]$DataDir = "data\s0rf",
+  # BOTH corpora. Phase 2 (compound) alone cannot meet the no-regression floors — the pilot scored
+  # AERO 0/60 purely because a compound-only corpus contains no AERO_OFFSET states, and the old
+  # clean datasets are v1-width and correctly refused (D-041 addendum 6). Phase 2b supplies them.
+  [string[]]$DataDir = @("data\s0rf", "data\s0rf_clean"),
   [string]$Ckpt    = "runs\s0rf.pt",
   [int]$Hidden     = 192,     # v6 was 128 (37k params). 192 -> ~82k, still trivial to evaluate in
                               # <10 us and to freeze as fp64 C. Raise only with evidence: capacity is
@@ -46,15 +49,19 @@ function L($m) { $line = "{0} {1}" -f (Get-Date -Format "HH:mm:ss"), $m; Write-O
 # ---------------------------------------------------------------------------------------------
 $live = Get-Process -Name booster-core -ErrorAction SilentlyContinue
 if ($live) { L "ABORT: booster-core is running (pid $($live.Id -join ',')) — a build over a live farm is the LNK1104 trap"; exit 1 }
-$farmlog = Join-Path $DataDir "farm.log"
-if (-not (Test-Path $farmlog)) { L "ABORT: no $farmlog — has the farm run?"; exit 1 }
-if (-not (Select-String -Path $farmlog -Pattern "FARM-COMPLETE|FARM-DEADLINE" -Quiet)) {
-  L "ABORT: farm has not reached FARM-COMPLETE/FARM-DEADLINE — it is still banking seeds"; exit 1
+$bins = @(); $csvs = @()
+foreach ($d in $DataDir) {
+  $farmlog = Join-Path $d "farm.log"
+  if (-not (Test-Path $farmlog)) { L "ABORT: no $farmlog — has that farm run?"; exit 1 }
+  if (-not (Select-String -Path $farmlog -Pattern "FARM-COMPLETE|FARM-DEADLINE" -Quiet)) {
+    L "ABORT: $d has not reached FARM-COMPLETE/FARM-DEADLINE — it is still banking seeds"; exit 1
+  }
+  $b = @(Get-ChildItem "$d\*.bin" -ErrorAction SilentlyContinue)
+  if (-not $b) { L "ABORT: no .bin tap files in $d"; exit 1 }
+  $bins += $b; $csvs += @(Get-ChildItem "$d\*.csv" -ErrorAction SilentlyContinue)
+  L "GUARD-OK $d : $($b.Count) tap file(s)"
 }
-$bins = Get-ChildItem "$DataDir\*.bin" -ErrorAction SilentlyContinue
-$csvs = Get-ChildItem "$DataDir\*.csv" -ErrorAction SilentlyContinue
-if (-not $bins) { L "ABORT: no .bin tap files in $DataDir"; exit 1 }
-L "GUARD-OK: $($bins.Count) tap file(s), $($csvs.Count) verdict manifest(s), $([math]::Round(($bins|Measure-Object Length -Sum).Sum/1GB,2)) GB"
+L "GUARD-OK total: $($bins.Count) tap file(s), $($csvs.Count) verdict manifest(s), $([math]::Round(($bins|Measure-Object Length -Sum).Sum/1GB,2)) GB across $($DataDir.Count) corpus dir(s)"
 
 # ---------------------------------------------------------------------------------------------
 # 1. TRAIN — verdict-filtered (the teacher is a SEARCH; its failures must never become labels)

@@ -31,6 +31,7 @@
  * flag parse compiles either way — in a no-CUDA build it stays 0 and the CLI refuses --mppi-cuda). */
 extern int g_mppi_use_cuda;
 extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the composite (student-warm-started MPPI); defined in sim.c */
+extern int g_shadow_rfly;        /* D-041 ORACLE DAGGER: --shadow-rfly logs GM_RFLY's command at the student's visited states; defined in sim.c */
 extern int g_shadow_reactive;    /* E2' (D-032): --shadow-reactive logs the hoverslam divert as the DAgger teacher label; defined in sim.c */
 
 static int g_fail = 0;
@@ -387,7 +388,8 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--cfly")) gmode=GM_CFLY;     /* N2-S2: optimizer-in-the-loop (D-040) */
         else if(!strcmp(argv[i],"--rfly")) gmode=GM_RFLY;     /* D-040 PIVOT: CEM over the native reactive stack (guidance_rfly.h) */
         else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
-        else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;   /* E2' D-032: reactive (hoverslam) DAgger teacher label */
+        else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;
+        else if(!strcmp(argv[i],"--shadow-rfly")) g_shadow_rfly=1;   /* D-041: ORACLE-DAgger teacher label (theta re-solved at the student's state) */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -473,7 +475,8 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--cfly")) gmode=GM_CFLY;     /* N2-S2: optimizer-in-the-loop (D-040) */
         else if(!strcmp(argv[i],"--rfly")) gmode=GM_RFLY;     /* D-040 PIVOT: CEM over the native reactive stack (guidance_rfly.h) */
         else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
-        else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;   /* E2' D-032: reactive (hoverslam) DAgger teacher label */
+        else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;
+        else if(!strcmp(argv[i],"--shadow-rfly")) g_shadow_rfly=1;   /* D-041: ORACLE-DAgger teacher label (theta re-solved at the student's state) */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }

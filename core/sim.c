@@ -35,6 +35,10 @@ int g_mppi_warm_neural = 0;
  * (v6 8/60 ≈ 13%) so distilling it regressed; reactive (hoverslam+D-030) is 9–10/60, the best. Set
  * from main.c (--shadow-reactive). 0 => the MPPI shadow (D-023) => byte-identical. */
 int g_shadow_reactive = 0;
+/* D-041 ORACLE DAGGER: --shadow-rfly logs what GM_RFLY would command at the states the STUDENT
+ * visits (theta re-solved there by the CEM). Default 0 => the shadow path is the D-023 MPPI one
+ * => byte-identical. */
+int g_shadow_rfly = 0;
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -165,7 +169,7 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     s->impact_v=s->impact_tilt=s->impact_lat=0.0; s->impact_target_xy[0]=s->impact_target_xy[1]=0.0;
     s->max_qbar=0; s->peak_qdot=0; s->done=0; s->touched=0;
     s->gcmd.mode=guidance_mode; s->gcmd.n_eng=1;
-    if(guidance_mode==GM_RFLY) rfly_init(s);    /* D-040 pivot: identity warm-start + replan arming */
+    if(guidance_mode==GM_RFLY || g_shadow_rfly) rfly_init(s);   /* D-040 pivot: identity warm-start + replan arming; also armed for the D-041 oracle-DAgger shadow under GM_NEURAL */
     if(guidance_mode==GM_CFLY){ cfly_init(s);   /* N2-S2 (D-040): theta warm-start + replan arming */
         s->st.relights_left=4; }   /* GM_CFLY coast-relight needs >2 ignitions (entry + landing + 2 coast
                                  * cycles); mode-scoped plant config (Merlin-class relight budget).
@@ -545,7 +549,50 @@ int sim_step(Sim* s){
                  * holds from the hoverslam_step above — distilling the reactive divert (the best EO
                  * teacher, D-031). Default: the MPPI shadow OVERWRITES shadow.a_lat with the planner's
                  * answer (D-023). g_shadow_reactive==0 => byte-identical to the D-023 MPPI shadow. */
-                if(!g_shadow_reactive){
+                if(g_shadow_rfly){
+                    /* ---- ORACLE DAGGER (D-041, --shadow-rfly): THE covariate-shift fix. --------
+                     * The pilot flight test settled that behaviour cloning alone does not fly:
+                     * imitation R^2 0.9966 on held-out RUNS, and 0/12 landings. A feedback law that
+                     * is 99.7% right per tick still walks off the teacher's state distribution, and
+                     * every step off it is evaluated on states the corpus never contained.
+                     *
+                     * So: re-solve theta AT THE STATE THE STUDENT ACTUALLY VISITED (the CEM copies
+                     * this Sim and flies candidates from here — see rfly_eval_candidate, which
+                     * forces GM_RFLY on the copy), then log what the ORACLE would have commanded
+                     * from that state while the PLANT keeps flying the student. That is DAgger with
+                     * an optimal expert, which is the one thing the D-031/D-032 rounds never had.
+                     *
+                     * Cost: one warm CEM per RFLY_REPLAN_DT of student flight — about the same as
+                     * an RFLY flight, so a DAgger round costs roughly one farm pass. */
+                    if(!s->rfly.noreplan && st->t >= s->rfly.next_replan_t){
+                        int big = (s->rfly.next_replan_t<=0.0);
+                        rfly_replan(s, big);
+                        s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
+                    }
+                    memcpy(shadow.rt, s->rfly.th, sizeof(shadow.rt));
+                    shadow.rt_on = 1;
+                    hoverslam_step(&nav, &shadow);      /* the oracle's command at the student's state */
+                    /* The D-009 wind trim is PART of the teacher's executed command (the GM_RFLY
+                     * corpus carries it), so the shadow label must carry it too or BC and DAgger
+                     * rounds would be supervised on two different conventions. Deliberately
+                     * DUPLICATED rather than factored out of the flight-path block below: that
+                     * block is byte-critical and shared with GM_HOVERSLAM, and a refactor to save
+                     * ten lines is not worth risking the TERMINAL golden. The shadow keeps its OWN
+                     * integral, since the flight path under GM_NEURAL never runs the trim at all. */
+                    if(st->engine_on && st->fins_deployed && st->phase==PH_LANDING_BURN && st->ign_timer>=2.0){
+                        const double KI_WIND=0.012, EINT_CAP=2.0;
+                        MassProps mpw; mass_props(nav.y[S_MLOX],nav.y[S_MRP1],0,0,&mpw);
+                        double h_feet_w = nav.y[S_RZ]-mpw.com-1.0*st->deploy_frac;
+                        double wfade=(h_feet_w-40.0)/160.0; if(wfade<0.0)wfade=0.0; if(wfade>1.0)wfade=1.0;
+                        double rr[2]={nav.y[S_RX],nav.y[S_RY]};
+                        for(int ax=0;ax<2;ax++){
+                            s->shadow_eint[ax] += KI_WIND*rr[ax]*GUIDANCE_DT;
+                            if(s->shadow_eint[ax]> EINT_CAP) s->shadow_eint[ax]= EINT_CAP;
+                            if(s->shadow_eint[ax]<-EINT_CAP) s->shadow_eint[ax]=-EINT_CAP;
+                            shadow.a_lat[ax] -= s->shadow_eint[ax]*wfade;
+                        }
+                    } else { s->shadow_eint[0]=0.0; s->shadow_eint[1]=0.0; }
+                } else if(!g_shadow_reactive){
                     if((s->mppi.gtick % MPPI_REPLAN_DECIM)==0) mppi_step(&s->mppi, &nav, &s->env, &shadow);
                     else                                        mppi_execute(&s->mppi, &nav, &shadow);
                     s->mppi.gtick++;
