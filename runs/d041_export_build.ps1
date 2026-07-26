@@ -56,10 +56,21 @@ L "KAT from the C pass: $e0 | $e1 | $e2"
 $src = Get-Content core\main.c -Raw
 # Targets the REAL-WEIGHTS branch only: it writes three separate `const double EXPn = ...;` lines,
 # while the NP_VERSION==0 placeholder branch puts all three on one line without spaces around '='.
+#
+# Verify each pattern MATCHES — do not infer success from the text having CHANGED. Those differ, and
+# the difference bit once already: re-exporting the same checkpoint at a different --action-tier
+# produces identical KAT values (the forward pass is unchanged; only whether a[2] is applied
+# differs), so the substitution matched perfectly and produced byte-identical text, which a
+# changed-text test reads as "matched nothing". Same for any idempotent re-run of the ceremony.
+foreach ($p in '(?m)^\s*const double EXP0 = [^;]+;',
+               '(?m)^\s*const double EXP1 = [^;]+;',
+               '(?m)^\s*const double EXP2 = [^;]+;') {
+  if ($src -notmatch $p) { L "ABORT: KAT pin pattern not found in core/main.c ($p) — layout changed, re-pin by hand"; exit 1 }
+}
 $new = $src -replace '(?m)^(\s*)const double EXP0 = [^;]+;', "`${1}const double EXP0 = $e0;" `
             -replace '(?m)^(\s*)const double EXP1 = [^;]+;', "`${1}const double EXP1 = $e1;" `
             -replace '(?m)^(\s*)const double EXP2 = [^;]+;', "`${1}const double EXP2 = $e2;"
-if ($new -eq $src) { L "ABORT: KAT substitution matched nothing — main.c layout changed, re-pin by hand"; exit 1 }
+if ($new -eq $src) { L "KAT pin already correct for this policy (unchanged) — proceeding" }
 Set-Content core\main.c -Value $new -NoNewline
 
 L "build 2/2"
