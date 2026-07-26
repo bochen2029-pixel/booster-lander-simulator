@@ -6,6 +6,23 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-07-25 ~23:30 [opus] — PILOT-TRAINED ON PARTIAL FARM DATA; found a second label defect and
+  DRY-RAN THE WHOLE PHASE-3 CEREMONY.** Rather than idle until the farm lands, trained on the first two
+  banked seeds (31 runs / 179k rows, 9 s on the RTX). Two payoffs. **(1) The throttle don't-care mask
+  (D-041 addendum 4):** the Tier-A throttle head was refusing to learn — val_mse 0.0919→0.0854 over 60
+  epochs (7%) while a_lat0 improved 82%. The label is exactly 0 whenever the engine is off (54.6% of
+  rows, perfectly correlated), but the policy's output range is [0.4,1.0], so **0 is unemittable** and
+  those rows alone contribute an irreducible 0.0873 — i.e. essentially ALL the measured "learning" was
+  the floor. They are also DON'T-CARES (engine_cmd==0 ⇒ the value is discarded), so half the gradient
+  was chasing an unreachable target on rows the plant throws away. Masked to engine-on rows ⇒
+  **val_mse 0.0854 → 0.00101**, moving 30× within the run. Same class as the output-range trap: *a
+  label outside what the policy can express.* Both would have been invisible until the compound eval
+  failed for unattributable reasons — **pilot-training on partial data is now standard practice.**
+  **(2) The Phase-3 ceremony is PROVEN end to end** (in `build_kat/`, never touching the farm's exe):
+  export → 39-in/Tier-2 header (1.8 MB) → build → **the KAT fails loudly** (a silent weights swap is
+  impossible) → `--np-kat` → the pipeline's automated re-pin (placeholder branch correctly untouched)
+  → rebuild → **SELFTEST: PASS**. Tree then restored via git; verified back at NP_VERSION 6 KAT-exact.
+  ⇒ when the farm lands, `runs\d041_pipeline.ps1` is a known-good path, not a hopeful one.
 - **2026-07-25 ~22:40 [opus] — THE OUTPUT-RANGE TRAP: 45% of the teacher's steering was outside the
   policy's ENTIRE output range (D-041 addendum 1).** Profiled the first oracle rows BEFORE spending the
   farm — worth doing every time. `A_LAT_GAMUT=3.2` is **MPPI's sampler bound, not a plant limit**; MPPI
