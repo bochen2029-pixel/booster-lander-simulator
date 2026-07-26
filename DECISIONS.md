@@ -2410,3 +2410,24 @@ corpus with one teacher is fine.
 architecture failed", the second would have failed the gate battery at the end of an 8-hour farm with
 no data to fix it. This is the payoff for pilot-training and flight-testing on partial data rather
 than waiting. Tree restored to NP_VERSION 6, KAT-exact, selftest PASS.
+
+**D-041 ADDENDUM 7 — CORRECTION to the parallelism finding in ADDENDUM/commit history
+(2026-07-26).** The earlier claim — "4 concurrent processes at OMP=4 gave 159.6 s/run vs 150 s/run
+single-process, therefore the CEM saturates the box and process fan-out buys nothing" — rests on a
+comparison that does not test what it was used to conclude. **Both arms used 16 threads in total**
+(4 × OMP=4 vs 1 × OMP=16). That measures whether SPLITTING a fixed thread budget across processes
+helps (it does not, marginally), NOT whether the box has spare capacity for additional work.
+
+Measured directly instead, with both farms running: **CPU pegged at 100% across six samples.** The
+box is genuinely saturated, so the original conclusion happens to be right — but it was right for a
+reason the experiment had not established. A second trap was nearly missed alongside it: the "solo"
+AERO baseline of 47.7 s/run was itself taken while the compound farm was running, so the parallel
+figure of 48.8 s/run demonstrates nothing about parallel benefit; both numbers were measured under
+contention. Two contaminated comparisons in the same direction very nearly became a confident wrong
+claim about free throughput.
+
+**The operational decision is unchanged, but its justification is different.** Running Phase 2 and
+Phase 2b concurrently does NOT increase work per second. It is still correct because Phase 3 requires
+BOTH corpora: concurrent and serial reach "both ready" at the same wall-clock moment, and concurrent
+leaves partial data from both regimes rather than complete data from one if anything interrupts.
+Speed was never the argument.
