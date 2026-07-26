@@ -313,8 +313,38 @@ def main():
     #   (simpler + matches export): we de-normalize the net output and compute MSE in physical units.
     A_out = np.array([gamut, gamut, 1.0], dtype=np.float64)   # -> NP_OUT_SCALE in the frozen header
 
+    # ---- THE THROTTLE DON'T-CARE MASK (found 2026-07-25 in the pilot train) ----------------------
+    # The throttle label is exactly 0 whenever the engine is commanded OFF — measured 54.6% of rows,
+    # and the correlation is perfect (rows with label 0 and engine_on==1: 0.00%). But the policy's
+    # throttle output is tanh-de-normalized into [ENG_THR_MIN, 1] = [0.4, 1.0], so **0 is not a value
+    # the net can emit**. The best it can do on those rows is 0.4, which alone contributes an
+    # irreducible 0.4^2 * 0.546 = 0.0873 of MSE. The pilot's measured val_mse(throttle) was 0.0854 —
+    # i.e. essentially ALL of the throttle "learning" was that floor, and the channel had barely moved
+    # in 60 epochs (0.0919 -> 0.0854) while a_lat0 improved 82%.
+    #
+    # Those rows are DON'T-CARES: with engine_cmd==0 the plant is not firing and the throttle value is
+    # discarded (sim.c's GM_NEURAL block keeps ignition on the analytic trigger, Tier A). So over half
+    # the throttle gradient was pulling the head toward an unreachable target on rows where the output
+    # is thrown away — actively spending capacity that the engine-ON rows need.
+    #
+    # Fix: score the throttle channel ONLY where the engine is on, renormalized so the channel keeps
+    # its intended weight. On those rows the labels are well inside the range (mean 0.953, p5 0.812),
+    # so the head now learns the distribution it is actually consumed on. This is the same class of
+    # defect as THE OUTPUT-RANGE TRAP above: a label living outside what the policy can express.
+    engon = (obs_np[:, rf.OBS_NAMES.index("eng_on")] > 0.5).astype(np.float64)
+    on_frac = float(engon[tr_mask].mean())
+    if on_frac < 1e-6:
+        sys.exit("error: no engine-on rows — the throttle channel would have no signal at all.")
+    thr_w = engon / on_frac                      # 0 where off; 1/on_frac where on => mean weight 1
+    print(f"  throttle mask: scored on {100*engon.mean():.1f}% engine-ON rows "
+          f"(the other {100*(1-engon.mean()):.1f}% carry label 0, which is outside the "
+          f"policy's [{ENG_THR_MIN}, 1] output range and is discarded by the plant anyway)")
+
     obs_t = torch.tensor((obs_np - mu) / sd, dtype=torch.float32, device=dev)
     act_t = torch.tensor(act_np, dtype=torch.float32, device=dev)
+    rw_t = torch.tensor(np.stack([np.ones_like(thr_w), np.ones_like(thr_w), thr_w], axis=1),
+                        dtype=torch.float32, device=dev)      # per-ROW, per-CHANNEL weight
+    engon_t = torch.tensor(engon > 0.5, device=dev)
     tr_idx = torch.tensor(np.where(tr_mask)[0], device=dev)
     va_idx = torch.tensor(np.where(va_mask)[0], device=dev) if va_mask.any() else None
 
@@ -343,14 +373,24 @@ def main():
     opt = torch.optim.Adam(net.parameters(), lr=args.lr)
     wch = torch.tensor([args.w_alat, args.w_alat, args.w_throttle], dtype=torch.float32, device=dev)
 
-    def weighted_mse(pred, targ):
-        return (wch * (pred - targ) ** 2).mean()
+    def weighted_mse(pred, targ, rw):
+        """Per-channel weights (wch) x per-ROW weights (rw — the throttle don't-care mask)."""
+        return (wch * rw * (pred - targ) ** 2).mean()
 
     def per_channel_mse(idx):
+        """Report a_lat over all rows, throttle over ENGINE-ON rows only.
+
+        Scoring throttle over every row would report the irreducible floor from the unreachable
+        engine-off zeros (0.087 on this data) and hide whatever the head actually learned — the
+        metric would move by a few percent no matter how good or bad the policy got.
+        """
         net.eval()
         with torch.no_grad():
             p = net(obs_t[idx]); t = act_t[idx]
-            return ((p - t) ** 2).mean(dim=0).cpu().numpy()
+            se = (p - t) ** 2
+            on = engon_t[idx]
+            thr_mse = float(se[on, 2].mean()) if bool(on.any()) else float("nan")
+            return np.array([float(se[:, 0].mean()), float(se[:, 1].mean()), thr_mse])
 
     n_tr = tr_idx.numel()
     print(f"[train_s0] params={sum(p.numel() for p in net.parameters())}  n_in={n_in} hidden={args.hidden} layers={args.layers}")
@@ -362,7 +402,7 @@ def main():
         for i in range(0, n_tr, args.batch):
             bi = perm[i:i + args.batch]
             pred = net(obs_t[bi])
-            loss = weighted_mse(pred, act_t[bi])
+            loss = weighted_mse(pred, act_t[bi], rw_t[bi])
             opt.zero_grad(); loss.backward(); opt.step()
             tot += float(loss) * bi.numel()
         if (ep + 1) % max(1, args.epochs // 10) == 0 or ep == 0:

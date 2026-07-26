@@ -2299,3 +2299,39 @@ minimum height is usually reached well inside the parked period rather than at t
 **First seed's yield (the honest teacher-quality number):** seed 5000, 16 runs on a recipe never
 flown before — **16/16 landed, 10 PERFECT + 6 GOOD, zero HARD, 100% verdict-filter yield**, median
 td_lat **0.22 m** (max 0.92), median td_v 1.50 m/s. The oracle holds on fresh draws.
+
+**D-041 ADDENDUM 4 — THE THROTTLE DON'T-CARE MASK (found 2026-07-25 by running a PILOT train on the
+first two banked seeds rather than waiting for the farm).** With Tier-A handing the net the throttle
+channel, the pilot showed that channel refusing to learn: val_mse moved 0.0919 → 0.0854 over 60 epochs
+(7%) while `a_lat0` improved 82%.
+
+Cause: the throttle label is exactly **0** whenever the engine is commanded off — **54.6%** of rows,
+with a perfect correlation (rows carrying label 0 with `engine_on==1`: **0.00%**). But the policy's
+throttle output is tanh-de-normalized into `[ENG_THR_MIN, 1] = [0.4, 1.0]`, so **0 is not a value the
+net can emit**. The best it can do there is 0.4, contributing an irreducible `0.4² × 0.546 = 0.0873`
+of MSE — against a measured 0.0854. **Essentially all of the throttle "learning" was that floor.**
+
+Worse than a misleading metric: those rows are DON'T-CARES (with `engine_cmd==0` the plant is not
+firing and the throttle value is discarded — ignition stays on the analytic trigger under Tier A), so
+over half the throttle gradient was pulling the head toward an unreachable target on rows whose output
+is thrown away, spending capacity the engine-ON rows needed.
+
+Fix: score the throttle channel only where the engine is on, renormalized so it keeps its intended
+weight; report it the same way, since scoring over all rows reports the floor and hides whatever the
+head learned. Result on the identical pilot: **val_mse(throttle) 0.0854 → 0.00101**, and it now moves
+30× within the run (0.0300 → 0.00101) instead of 7%. RMSE 0.032 — throttle predicted to ~3% absolute
+on the rows where it is consumed. `a_lat` is unchanged within noise (a_lat1 improved 0.2347 → 0.2110).
+
+This is the same class of defect as ADDENDUM 1's output-range trap — **a label living outside what the
+policy can express** — and it would have been invisible until the compound eval failed for
+unattributable reasons. Running a pilot train on partial farm data, rather than waiting for the full
+corpus, is what surfaced both. Worth making standard practice.
+
+**Stated limit:** low imitation error is necessary, not sufficient. The claim here is that two
+structural defects in the objective are fixed, not that the policy flies. That is settled only by the
+held-out compound eval in Phase 4.
+
+**Pilot pipeline result (the Phase-3 dry run, 31 runs / 179k rows):** verdict filter 31/32 runs
+(13 PERFECT, 18 GOOD, 1 HARD dropped) · parked-tail 34.2% removed · auto-gamut chose **±37.0 m/s²**
+and independently reported the v6 range would clip **43.1%** of labels, reproducing ADDENDUM 1 on a
+second dataset · 82,371 params · 9.4 s to train on the RTX. The whole Phase-3 chain runs end to end.
