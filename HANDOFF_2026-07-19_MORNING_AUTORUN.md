@@ -6,6 +6,25 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-07-25 ~22:00 [opus] — D-041 SHIPPED (Phase 1) + the ORACLE TEACHER FARM IS FLYING.** The App-G v2
+  re-architecture, done once and wide per the §14-N0 doctrine, and **APPEND-ONLY so it cost the shipped
+  policy nothing**: socket 30→39 (achieved specific force + body angular accel + last executed command),
+  Tier-A full action gated by a frozen-header `NP_ACTION_TIER` (absent ⇒ compiles out ⇒ NP6 bit-identical),
+  and the GM_RFLY **oracle tap** — placed AFTER the D-009 wind-trim, the last thing that can still edit
+  `a_lat`, because a row logged before it carries a label the plant never flew. Rows also carry the CEM's
+  **θ as privileged teacher context** (own block, never in the obs slice) so the θ̂ prior can be trained
+  later without a second farm. **The channel is not theoretical — measured on the first tap:** the
+  engine-out at t=4.02 reads `sf_z` 52.37→36.67 m/s² + `wdot_y` +0.021→−0.135 rad/s² in the failure tick.
+  Two honest measurements that changed the plan: the oracle costs **~150 s/solve** (not 60 — SEA-armed
+  runs stretch to the cap), and **4 concurrent × OMP=4 = 159.6 s/run vs 150 s/run single-process** ⇒ the
+  CEM saturates the box, process fan-out buys NOTHING, farm is sequential + deadline-paced. Also caught a
+  latent buffer overrun (`neural_policy_step` sized its obs buffer `NP_N_IN` while the builder writes
+  `NPOBS_N` — harmless while equal, an overrun the instant they weren't). Gates green at every edit.
+  Farm: `data/s0rf`, seeds 5000-5011 ×16, deadline 07:30, monitor armed on the artifact stream (never a
+  PID). **NEXT on farm completion: verdict-filtered train → export NP_VERSION 7 (`--action-tier 2`) → KAT
+  from the C pass → gate battery → the compound eval vs hoverslam 2/12. KILL: ≤2/12 after 3 DAgger rounds
+  ⇒ ledger the null and ship θ̂-prior + RFLY-in-the-loop.** NOTE for whoever resumes: **do not rebuild
+  while the farm holds the exe** (LNK1104 stale-exe trap) — Python/ledger/FE work only until FARM-COMPLETE.
 - **2026-07-25 [opus] — PHASE 0 (hygiene): the TERMINAL FREEZE was UNCOMMITTED — committed under the full
   battery; the ORACLE-DISTILL arc opened in ROADMAP.** Bootstrap found the load-bearing N3 fix
   (`rfly_async_poll`'s landing-burn freeze — the thing that turned the first live demo's LOC-at-13-m into three

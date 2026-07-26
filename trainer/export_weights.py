@@ -54,6 +54,11 @@ def main():
     ap.add_argument("--out", required=True, help="path to core/neural_policy_weights.h")
     ap.add_argument("--np-version", type=int, default=None,
                     help="override NP_VERSION (default: the checkpoint's np_version)")
+    ap.add_argument("--action-tier", type=int, default=1, choices=(1, 2),
+                    help="1 = Tier-A' lateral-only (hoverslam keeps throttle; every NP_VERSION "
+                         "through 6). 2 = Tier-A full action (the net owns throttle too). The tier "
+                         "is stamped into the header so it travels with the artifact that earned "
+                         "it — guidance_neural.c compiles the throttle line in ONLY for tier 2.")
     args = ap.parse_args()
 
     import torch
@@ -101,6 +106,8 @@ def main():
     L.append(f" * GENERATION STAMP: date={date}  NP_VERSION={npv}  weights_sha256[:16]={weights_hash}")
     L.append(f" *   val_mse[a_lat0,a_lat1,throttle] = [{val_mse[0]:.6e}, {val_mse[1]:.6e}, {val_mse[2]:.6e}]")
     L.append(f" *   dataset: n_rows={ck.get('n_rows','?')} n_runs={ck.get('n_runs','?')} ckpt={os.path.basename(args.ckpt)}")
+    L.append(f" *   action tier: {args.action_tier} "
+             f"({'Tier-A FULL ACTION — the net owns throttle' if args.action_tier >= 2 else 'Tier-A prime — lateral-only, hoverslam keeps throttle'})")
     L.append(" */")
     L.append("#ifndef BL_NEURAL_POLICY_WEIGHTS_H")
     L.append("#define BL_NEURAL_POLICY_WEIGHTS_H")
@@ -111,6 +118,7 @@ def main():
     L.append(f"#define NP_N_LAYERS  {layers}")
     L.append(f"#define NP_N_OUT     {n_out}")
     L.append(f"#define NP_ENG_THR_MIN {eng_thr_min:.17g}   /* throttle de-norm floor (== core/constants.h ENG_THR_MIN) */")
+    L.append(f"#define NP_ACTION_TIER {args.action_tier}   /* 1 = Tier-A' lateral-only; 2 = Tier-A, the net owns throttle */")
     L.append("")
     L.append("/* frozen input normalization (mu, sd) — computed from the TRAINING set, §C.3 */")
     L.append(fmt_vec("NP_IN_MU", mu))

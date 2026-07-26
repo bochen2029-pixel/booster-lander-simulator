@@ -2134,3 +2134,89 @@ self-verify loop via the DIRECTOR camera (fixed-pose captures cannot track a 1 k
 onboard-down 2-engine burn at 41 km, the top-down burn-over-bullseye at 185 m, the landed tableau + the
 standing shadow shot — `runs/shots/n3d_*.jpg`, `runs/shots/n3b_*.jpg`. Remaining N3 garnish: the §G.2
 honest manufactured out-of-frontier failure, constellation scoring overlay, replay-from-journal.
+
+## D-041 — ORACLE-DISTILL opens: the App-G v2 self-sensed socket, Tier-A full action, and the RFLY oracle tap (2026-07-25)
+
+**The situation D-040 left.** GM_RFLY sweeps the compound 36/36 across the 3-seed held-out battery
+(29 PERFECT, every draw sub-meter) — but it does it by spending **~150 s of CEM per flight** (measured
+this session on the i9-9900K; the 60 s figure in the D-040 note was the no-SEA case). Canon §1/§9.8/
+§14-N3 wants that same case flown by a **10 µs feedforward policy**. NP_VERSION 6 is 30-input,
+lateral-only, 37k params, and scores **0/30 on the compound** — worse than the hoverslam it steers.
+M4 (defined as AERO ≥54/60 *via GM_NEURAL*), N4 perception/worlds, and any real-time cockpit are all
+gated behind converting that search into a policy. This ADR opens that arc; the results append below.
+
+**Why the earlier distillation nulls do not forbid this.** D-031/D-032 (and KESTREL's residual-distill
+null) proved you cannot imitate past a ~10%-success teacher. That is a fact about *those teachers*.
+The teacher is now 36/36. `oracle_distill_design.md` §1.5 additionally names a SECOND, independent
+cause those ADRs did not isolate — the policy could not *observe* or *express* the contingency — and
+this ADR fixes exactly that half.
+
+**1. The socket (`policy_obs.h`, NPOBS_N 30 → 39), APPEND-ONLY.** Nine ingredients appended past the
+frozen v1 prefix: achieved specific force `sf_x/y/z` (= dv/dt + g(h)ẑ — the accelerometer), body
+angular acceleration `wdot_x/y/z`, and the last executed command `a_lat0/1_prev, thr_prev`. All are
+derived from two consecutive NAV views plus the §4.1 g(h) law — nothing from `wind_world`/`wind_filt`/
+truth-target (§8.1 provenance, checked field by field). `eng_health[0..2]` is the cheat-sheet version
+of the same fact; **these are the honest sensor version**, and they are what make the operator's
+"hide the flags and see if it still lands" litmus possible at all.
+
+**The signal is real, measured on the first RFLY tap** (`data/s0rf_probe`): the engine-out at t=4.02
+is unmistakable in the same tick the health flag flips — `sf_z` **52.37 → 36.67 m/s²** (thrust
+deficit, ≈2/3 of three engines) and `wdot_y` **+0.021 → −0.135 rad/s²** (surviving-centroid induced
+torque). No flag required.
+
+Exposed as raw channels, NOT a pre-differenced "residual": the difference is a linear combination the
+first layer learns for free, whereas computing it in C would drag an engine + atmosphere model into
+the observation path and re-open the exact drift risk `policy_obs.h` exists to close.
+
+**Append-only is what makes it free.** A frozen policy consumes the FIRST `NP_N_IN` features — the
+prefix it was trained against — so `guidance_neural.c`'s equality check becomes `NP_N_IN <= NPOBS_N`
+and NP_VERSION 6 cannot tell the socket grew. Its KAT stays bit-exact. (This also fixed a latent
+buffer overflow: `neural_policy_step` sized its buffer `NP_N_IN` while `policy_build_obs` writes
+`NPOBS_N` — harmless while they were equal, an overrun the moment they were not.)
+
+**2. Tier-A full action (`guidance_neural.c`).** The net may now own throttle, declared by the FROZEN
+WEIGHTS HEADER via `NP_ACTION_TIER`, so the tier travels with the artifact that earned it and an
+older policy can never be silently promoted. Absent (every header through v6) ⇒ 1 ⇒ the throttle line
+compiles out ⇒ bit-identical. Tier-A' lateral-only was correct at v6 (throttle was the weakest
+imitation channel and the vertical law was already 97% at TERMINAL); a compound recovery is a
+*coordinated* steer+throttle+timing maneuver a lateral-only head cannot express — the design's
+dominant explanation for v6's 0/30.
+
+**3. The oracle tap (`sim.c`).** GM_RFLY now taps every guidance tick. Placement matters: the row is
+written **after** the D-009 wind-trim integral, the last thing that can still edit `a_lat` — a row
+logged before it would carry a label the plant never flew, which is precisely the train/fly skew
+`policy_obs.h` exists to prevent. Rows also carry the CEM's **θ as PRIVILEGED teacher context** in a
+separate block past the action columns (never inside the obs slice): θ was chosen by flying candidates
+through the real plant with the actual disturbance realization — i.e. by seeing the future — so
+feeding it to the student would be a §8.1 violation and the assist term directive 6 forbids. It is
+logged because it is the training target for the **θ̂ prior** (the CEM warm-start = AlphaZero's policy
+network), and capturing it now costs nothing where capturing it later costs a second 8-hour farm.
+
+**4. Trainer.** `rowformat.py` mirrors the 55-column row (3 meta + 39 obs + 3 action + 10 θ = 440 B)
+and **refuses a v1-width dataset by name** rather than reshaping it into silently sheared columns.
+`train_s0.py` gains `--verdict-csv`: only rows from runs that ACTUALLY LANDED are trained on, joined
+on (seed, run) against the headless CSV manifest. This is not optional — the teacher is a SEARCH, and
+a search that fails still emits a full trajectory of confident-looking commands.
+
+**Gates (green at every step, re-run after each edit):** selftest PASS (NP6 KAT bit-exact) · TERMINAL
+×200 **byte-identical** to `runs/n0main_terminal.txt` · MPPI run-1 AERO s42 **2.63/10.48** exact ·
+neural AERO **46/60** unchanged · RFLY compound run-0 **PERFECT td_v 1.72 / lat 0.38 with the tap
+armed** (the D-014 instrument-without-touching gate).
+
+**Measured, and it kills a lever honestly:** ~150 s per compound solve, and **4 concurrent processes
+at OMP=4 gave 159.6 s/run effective vs 150 s/run for one process at full threads** — the CEM already
+saturates the box, so process-level fan-out buys nothing. `runs/rfly_farm.ps1` is therefore SEQUENTIAL
+by design and paced by a wall-clock deadline instead of a run count. Overnight ≈ 190 solves ≈ 1.2M
+verdict-filtered rows. If volume proves binding, the documented next lever is θ-transfer augmentation
+(re-fly a solved θ on neighbouring draws at ~1 s each, verdict-filter) — NOT a fleet rental.
+
+**PRE-REGISTERED, so the outcome cannot be rationalized after the fact.** (1) A full-action head may
+regress clean flight — mixed-distribution training, v6 stays shippable, revert on any no-regression
+floor failure (AERO≥46 / gust≥45 / ENTRY≥57), the D-031/032 precedent. (2) The teacher is privileged,
+so the student must INFER what θ encodes; that is the bet the self-sensed channel exists to pay for.
+(3) **KILL CRITERION:** if the student ≤ hoverslam's 2/12 on the held-out compound after 3
+DAgger rounds, this is ledgered as a NULL with data and the showcase ships θ̂-as-prior + RFLY-in-the-
+loop as its controller. Either outcome is decisive.
+
+**Status: architecture SHIPPED and gated; the teacher farm is flying (`data/s0rf`, seeds 5000-5011 ×16,
+deadline-paced). Results append here.**
