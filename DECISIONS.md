@@ -2431,3 +2431,37 @@ Phase 2b concurrently does NOT increase work per second. It is still correct bec
 BOTH corpora: concurrent and serial reach "both ready" at the same wall-clock moment, and concurrent
 leaves partial data from both regimes rather than complete data from one if anything interrupts.
 Speed was never the argument.
+
+**D-041 ADDENDUM 8 — `--shadow-rfly`: the ORACLE-DAgger mechanism, built and verified while the farms
+ran (2026-07-26).** Addendum 6 established that behaviour cloning alone will not fly. This is the fix.
+
+A GM_NEURAL flight runs normally; on the RFLY replan cadence the CEM **re-solves θ from the state the
+student has actually reached**, and the tap logs what the oracle would have commanded there. The plant
+keeps flying the student — only the label is the oracle's. That is DAgger with an optimal expert,
+which is precisely what D-031/D-032 lacked (their teachers were ~10% controllers).
+
+**A latent bug had to be fixed first, and it would have silently produced nonsense.**
+`rfly_eval_candidate` never set `c2.guidance_mode` on its Sim copy. Under the normal GM_RFLY path
+that is a no-op — the mode is already GM_RFLY. But a search running while the sim's mode is GM_NEURAL
+would have flown every candidate with the STUDENT policy, i.e. scored θ against a controller that
+never reads θ. The candidate copy now forces GM_RFLY.
+
+**The shadow keeps its own D-009 wind-trim integral.** The trim is part of the teacher's executed
+command (the GM_RFLY corpus carries it), but the GM_NEURAL flight path never runs the trim, so
+sharing `lat_eint` was not an option and omitting it would have supervised the BC and DAgger rounds
+on two different conventions. The trim block is **duplicated rather than refactored**: it is
+byte-critical and shared with GM_HOVERSLAM, and saving ten lines is not worth risking the TERMINAL
+golden.
+
+**Gates** (in `build_kat/`, so neither live farm was ever relinked): selftest PASS · TERMINAL ×200
+byte-identical · MPPI run-1 2.63/10.48 · `--neural` without the flag still **exactly 46/60** (default
+off ⇒ the D-023 MPPI shadow path ⇒ byte-identical).
+
+**Verified functionally, not merely structurally** — the distinction matters, because a shadow that
+silently logged the student's own command would look identical in every gate above:
+- θ present on **2551/2551** rows, re-solved **5** times across the flight;
+- **42.3% of logged labels lie ABOVE the student's own ±3.2 `NP_OUT_SCALE` clamp**, so they cannot be
+  the student's command — they are demonstrably the oracle's;
+- `gbest` **rises 37.8 → 495.5** across the flight: the oracle's best achievable cost from the
+  student's progressively worse state. That number IS the covariate shift, measured directly, and it
+  is the quantity DAgger rounds should drive back down.
