@@ -2465,3 +2465,127 @@ silently logged the student's own command would look identical in every gate abo
 - `gbest` **rises 37.8 → 495.5** across the flight: the oracle's best achievable cost from the
   student's progressively worse state. That number IS the covariate shift, measured directly, and it
   is the quantity DAgger rounds should drive back down.
+
+
+## D-041 ADDENDUM 9 — THE FULL-SESSION AUDIT (2026-07-26, operator-ordered truth-up)
+
+A deliberate stop-and-audit of everything this arc built, cross-checked against the code on disk and
+the canon. Two CRITICAL findings (one live in a running loop, one architectural at the root), plus the
+honest accounting of what held and what I got wrong. Every claim below was checked against source
+(cites inline), not recollection.
+
+### CRITICAL 1 (live, fixed this session) — the DAgger loop verdict-filtered away its own data
+`d041_dagger.ps1` passed the DAgger dirs through `--verdict-csv --keep-verdicts 1,2`. A DAgger
+flight's verdict is the STUDENT's outcome (round 1: 0/24, all CRASHED) while its label quality is the
+ORACLE's — so the retrain would have silently dropped ~every shadow row, re-trained on effectively
+the BC corpus, and re-stamped it "NP_VERSION 7" (a second, different artifact under an existing
+version number — a provenance violation on its own). The loop was STOPPED mid-round-1-retrain; the
+collection itself (3 seeds, 24 flights, 120,846 rows, banked) is valid and reusable.
+
+**Root cause is a rule collision I created:** "verdict-filter EVERY oracle trajectory" (correct for
+teacher-flown corpora) applied blindly to student-flown corpora, where filtering by outcome deletes
+the covariate-shift evidence the round exists to collect. Fix: `train_s0.py --dagger-data` — loaded,
+held-out-law-enforced, tail-trimmed, verdict-filter EXEMPT; the loop now passes teacher and DAgger
+corpora separately, resumes idempotently (banked seeds skip), and rounds export NP_VERSION 8+ (BC
+stays NP7; one version = one artifact, since np_version rides HELLO/TLM as replay provenance).
+
+**A third defect surfaced by the fix's dry run:** with DAgger rows pooled, the auto-gamut inflated
+±41 → ±73 m/s² — the oracle's least-bad demands from the student's doomed states, far beyond the
+plant's physical tilt saturation (~30 m/s²). Demands beyond saturation are effect-equivalent, so the
+gamut is now derived from the TEACHER corpus only (±38, stable across rounds) and DAgger labels clip
+into it. Letting it float would have drifted the frozen NP_OUT_SCALE per round with the worst data in
+it and wasted tanh resolution where the real commands live.
+
+**Live covariate-shift datum from the aborted round:** mean shadow gbest **80,198** over 254 replans
+(vs ~60–300 for the oracle's own flights; the never-lands floor is ~8,000). The BC student's visited
+states are mostly OUTSIDE the recoverable funnel — DAgger's round-1 labels are heavily "least-bad
+from doomed states." Expect slow early rounds; the metric to watch is gbest falling round-over-round
+(compare across rounds, never across scenarios).
+
+### CRITICAL 2 (architectural, at the root) — the AUTHORITY GAP: the student cannot express 4 of the oracle's 10 θ dimensions, and they are the four that decide the compound
+Verified in code, not inferred:
+- **Entry divert:** `sim.c:308` — `kr *= rt_gain(EKR); kv *= rt_gain(EKV); bank_deg *= rt_gain(EBANK)`
+  inside the entry supervisor. Under GM_NEURAL the block runs `entry_supervisor` FIRST and only calls
+  `neural_policy_step` when it returns 0 — **the policy is never invoked during the entry burn**, and
+  `rt_on==0` there ⇒ the entry flies IDENTITY gains. The oracle's compound wins lean exactly on these
+  three (logged θ means: EKR often at the 4.0 ceiling), and D-029 established ~75% of compound EO
+  losses are decided at the entry-burn cut.
+- **Ignition timing:** `guidance_hoverslam.c:226` — `LANDING_IGNITE_MARGIN * rt_gain(IGNM)`. Tier-A
+  keeps ignition on the analytic trigger, which under GM_NEURAL reads identity ⇒ the student cannot
+  reproduce the teacher's burn TIMING (IGNM ran 1.5–3.4 in the corpus), and its throttle labels
+  assume ignition states it will never be in. LODESTAR §11.2 named burn-timing the knife edge.
+- Expressible-through-labels (no gap): ADECEL/TLEAD/KDIV/KVNEAR/TGTLEAD/KV
+  (`guidance_hoverslam.c:151/181/205/260`) — these shape a_lat/throttle demands the student imitates
+  directly.
+
+**The sharpest part: this is a REBUILD of a documented root cause.** LODESTAR §1.3's #1 finding —
+"the neural policy is never invoked during the entry burn... you can distill a perfect teacher and
+still lose them" — was in the ledger before D-041 was designed, and I did not diff the new design
+against it. Process remediation adopted: every new ADR gets checked against prior postmortem
+root-cause lists mechanically, not from memory.
+
+**Consequence, stated before the data comes in:** even a perfect post-cut DAgger student caps well
+below the oracle's 12/12 on EO-during-entry draws (identity entry + identity ignition + oracle-grade
+post-cut steering). The kill criterion (>2/12) may clear while the showcase bar does not. The running
+corrected DAgger loop therefore MEASURES the post-cut ceiling — a needed number either way.
+
+**Remediation ladder (in order):**
+- **R1 (running):** corrected DAgger, 3 rounds — the honest post-cut ceiling.
+- **R2 (recommended next ADR):** **θ̂-as-gain-schedule under GM_NEURAL** — the theta-prior net (GO on
+  proxy, addendum 5) feeds `gcmd.rt` each tick from the legal obs; the entry supervisor + ignition
+  trigger then run with PREDICTED gains while π keeps the continuous channels. Covers exactly the
+  four inexpressible dims through machinery that already exists (the `gcmd.rt` carriage), both nets
+  frozen + obs-only + byte-clean default-off. This is LODESTAR §13's rolling-θ̂ — nulled there as a
+  SOLE controller on a ±5% knife-edge law, but as a gain-schedule composed with π its bar is only
+  "beat identity gains," which is the D-030 bar, not the knife edge. Retrain θ̂ on the full 381-run
+  corpus first (the pilot GO was 3 seeds, best-epoch-2).
+- **R3:** Tier-B ignition logit (App-G's sanctioned "re-time the burn" step).
+- **R4:** full policy authority during the entry burn (the big ADR; only if R2 falls short).
+- **The showcase is not hostage meanwhile:** GM_RFLY flies N3 today (36/36 + the filmed live demo).
+
+### HIGH
+- **H1 — the self-sensed channel degrades under `--nav-noisy`:** sf/wdot are finite differences of
+  nav velocity/rates; σ_v=0.1 m/s ⇒ ~7 m/s² of sf noise (√2/GUIDANCE_DT) against a ~16 m/s²
+  engine-out signature. Exact under NAV_TRUTH (every farm and gate so far). Remediation: a real IMU
+  specific-force measurement in nav.c (truth + small noise — §8.1-legal). Documented at the source
+  (`policy_obs.h`).
+- **H2 — unpromoted NP7 lives in the working tree** (weights header + KAT pin, deliberately
+  uncommitted per the D-031/032 pattern; its gates failed). Crash-recovery:
+  `git checkout core/neural_policy_weights.h core/main.c` restores v6 exactly. Stated here so no
+  resumed session commits it by accident.
+- **H3 — disk: 4.0 GB free on C:.** ~3.6 GB of v1-width datasets (`data/s0*` pre-v2) are now
+  provably unusable (the reader refuses them by name). Deletion is the operator's call — flagged,
+  not taken.
+- **H4 — np_version collision** (round 1 would have re-stamped NP7 with different weights): fixed via
+  NpBase=8.
+
+### MEDIUM / MINOR (each verified, none load-bearing today)
+- The deck-relative settle fix (addendum 3) still pending; it now also taxes every DAgger round.
+- θ̂-prior GO is preliminary (3 seeds, best-epoch-2); retrain on 381 runs before wiring R2; its real
+  metric (CEM rollouts-to-basin vs identity) remains unmeasured.
+- Entry-burn rows (~15% of the corpus) are unqueryable by the deployed student (it is never invoked
+  there) — pure dilution for π, but exactly the supervision θ̂ needs; keep them for R2.
+- `_looks_like_tap` returns ''=valid (truthy-inverted) — correct (tested) but a maintenance hazard;
+  rename candidate.
+- The a_prev↔sf pairing is one tick off under the §8.2 transport delay — consistent across train/fly
+  and swamped by the ~100 ms actuator lags; documented, not fixed.
+- The auto-gamut previously peeked at val rows (benign — a range constant); now teacher-corpus-only.
+- The DAgger gbest readout is comparable across ROUNDS only, never across scenarios (noted in-script).
+
+### TRUTH-UP — my own mispredictions this session, so the record is honest
+1. "Phase 2b closes the AERO gap ⇒ floors reachable": coverage was NECESSARY, not sufficient — BC
+   still flew 0/60 on a corpus that is 92% PERFECT in-regime. The real blocker was compounding error.
+2. "~60 s/solve ⇒ 500 scenarios overnight": actual ~150 s (ledgered in the cost addendum).
+3. The parallelism A/B tested thread-splitting, not spare capacity (corrected, addendum 7).
+4. "sf_z separates engine-out cleanly (~1σ)": overlapping distributions — honest phrasing is
+   "separable in aggregate, marginal per-frame"; the wdot-transient argument for a frame stack stands.
+5. The freeze ceremony's changed-text guard false-aborted on an idempotent re-export (fixed, dfa6add).
+
+### WHAT HELD (verified end-to-end this session)
+Every leak anchor at every step: selftest PASS, TERMINAL ×200 byte-identical, MPPI 2.63/10.48 exact,
+`--neural` v6 46/60 unchanged through every default-off addition. The held-out law: train seeds
+5xxx/6xxx/7xxx only; 42/7/99 eval-only, enforced in code twice. Determinism: seeded CEM, journaled
+injections, deterministic shadow replans. Directive 6: no assist entered the plant — every fix this
+session was label-side or observation-side. The oracle itself: 388 farmed runs, 98.2% verdict yield,
+sub-meter medians on fresh recipes — the teacher is real, and the corpus + the verified DAgger
+machinery are exactly what R2 consumes.

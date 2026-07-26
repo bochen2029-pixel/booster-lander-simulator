@@ -253,6 +253,15 @@ def main():
     ap.add_argument("--keep-parked-tail", action="store_true",
                     help="keep post-touchdown deck-sitting rows (default: drop them — see "
                          "drop_parked_tail; they are ~a third of every SEA run and teach nothing)")
+    ap.add_argument("--dagger-data", nargs="+", default=[],
+                    help="DAgger shadow corpora (--shadow-rfly collections): loaded WITHOUT the "
+                         "verdict filter. The verdict filter keys on the flight's outcome, and a "
+                         "DAgger flight's outcome is the STUDENT's — mostly CRASHED in early rounds "
+                         "— while the label quality is the ORACLE's, which re-solved at each visited "
+                         "state. Filtering DAgger rows by student outcome silently discards the "
+                         "exact covariate-shift data the round exists to collect (found 2026-07-26: "
+                         "round 1 would have trained on effectively the BC corpus again). Held-out "
+                         "law and parked-tail trimming still apply.")
     ap.add_argument("--a-lat-gamut", default="auto",
                     help="policy lateral-accel output range [m/s^2], frozen into NP_OUT_SCALE. "
                          f"'auto' = p{A_LAT_GAMUT_AUTO_PCTL} of |a_lat| in the training set, rounded up "
@@ -272,19 +281,34 @@ def main():
     if args.verdict_csv:
         keep = set(int(x) for x in args.keep_verdicts.split(","))
         rows = verdict_filter(rows, load_verdicts(args.verdict_csv), keep)
+    # ---- THE OUTPUT RANGE IS A TEACHER-CORPUS PROPERTY (audit 2026-07-26). Auto-derive it BEFORE
+    # DAgger rows join: the shadow's labels at the student's doomed states include least-bad demands
+    # far beyond the plant's physical tilt saturation (~30 m/s²; the pooled p99.5 hit ±73 vs the
+    # teacher corpus's ±41). Demands beyond saturation are EFFECT-EQUIVALENT — the plant realises the
+    # same capped tilt — so clipping them into the teacher-derived range changes nothing the vehicle
+    # would do, while letting them inflate NP_OUT_SCALE would (a) drift the frozen output range per
+    # round with the worst data in it and (b) waste tanh resolution where the real commands live.
+    teacher_act = rows[:, rf.ACT_SLICE]
+    if args.a_lat_gamut == "auto":
+        gamut = float(np.ceil(np.percentile(np.abs(teacher_act[:, :2]), A_LAT_GAMUT_AUTO_PCTL)))
+        gamut = max(gamut, A_LAT_GAMUT)
+    else:
+        gamut = float(args.a_lat_gamut)
+
+    if args.dagger_data:
+        dag = load_dataset(args.dagger_data)   # held-out law enforced here too; NO verdict filter
+        print(f"  DAgger corpus: +{dag.shape[0]} rows (verdict-filter EXEMPT — labels are the "
+              f"oracle's, outcomes are the student's; labels clip into the teacher-derived "
+              f"gamut ±{gamut:.0f})")
+        rows = np.concatenate([rows, dag], axis=0)
     if not args.keep_parked_tail:
         rows = drop_parked_tail(rows)
     obs_np, act_np = rf.split(rows)            # obs (n, NPOBS_N), act (n, 3) = [a_lat0, a_lat1, thr]
 
-    # ---- OUTPUT RANGE (see THE OUTPUT-RANGE TRAP at the top of this file). Choose the range the
-    # policy's tanh de-norm spans, then clip the labels into it. Auto-ranging from the data is what
-    # keeps this honest across teachers: an MPPI dataset auto-ranges back to ~3.2 on its own, while
-    # a reactive/RFLY dataset asks for the range that law actually commands.
-    if args.a_lat_gamut == "auto":
-        gamut = float(np.ceil(np.percentile(np.abs(act_np[:, :2]), A_LAT_GAMUT_AUTO_PCTL)))
-        gamut = max(gamut, A_LAT_GAMUT)      # never narrower than the historical range
-    else:
-        gamut = float(args.a_lat_gamut)
+    # ---- OUTPUT RANGE (see THE OUTPUT-RANGE TRAP at the top of this file). `gamut` was derived
+    # above from the TEACHER corpus only (never from DAgger rows — audit 2026-07-26); here the labels
+    # are clipped into it. Auto-ranging from teacher data keeps this honest across teachers: an MPPI
+    # dataset auto-ranges back to ~3.2 on its own, a reactive/RFLY dataset asks for what it commands.
     clipped = float((np.abs(act_np[:, :2]) > gamut).mean())
     would_clip_v6 = float((np.abs(act_np[:, :2]) > A_LAT_GAMUT).mean())
     print(f"  a_lat output range: +-{gamut:.1f} m/s^2 ({args.a_lat_gamut}) — clips {100*clipped:.2f}% of "

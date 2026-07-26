@@ -30,7 +30,10 @@
 
 param(
   [int]$Rounds        = 3,
-  [int]$NpBase        = 7,        # round k exports NP_VERSION (NpBase + k - 1)
+  [int]$NpBase        = 8,        # round k exports NP_VERSION (NpBase + k - 1). NP7 is the BC
+                                  # baseline; a round must NEVER re-stamp an existing version with
+                                  # different weights (np_version rides HELLO/TLM as provenance —
+                                  # two artifacts under one number would make replays unattributable)
   [string[]]$BaseData = @("data\s0rf", "data\s0rf_clean"),
   [int]$SeedBase      = 7000,     # disjoint from gate seeds {42,7,99}, the farms (5000s/6000s)
   [int]$RunsPerSeed   = 8,
@@ -63,7 +66,10 @@ function Measure-Compound($tag) {
   L "RATE $tag :: compound s42 x12 -> $line"
 }
 
-$corpora = @($BaseData)
+# Teacher-flown corpora (verdict-filtered) vs DAgger shadow corpora (verdict-filter EXEMPT — the
+# outcome is the student's, the labels are the oracle's; filtering by the student's crashes would
+# discard exactly the covariate-shift rows the round exists to collect).
+$dagDirs = @()
 
 for ($k = 1; $k -le $Rounds; $k++) {
   if ($deadline -and (Get-Date) -ge $deadline) { L "DEADLINE reached before round $k — stopping cleanly"; break }
@@ -81,6 +87,16 @@ for ($k = 1; $k -le $Rounds; $k++) {
     $peak = 12 + ($i % 3) * 6                     # 12,18,24 m/s
     $tr = 15 + ($i % 3) * 5                       # circle radius 15,20,25 m
     $bin = "$dir\dag_s$seed.bin"; $csv = "$dir\dag_s$seed.csv"; $err = "$dir\dag_s$seed.err"
+    # Idempotent resume: a completed seed has both its bin and a csv with all RunsPerSeed rows
+    # (the csv is written at process end, so a partial/interrupted seed re-flies — deterministically,
+    # since the collection is (seed,run)-keyed and the binary is the same student).
+    if ((Test-Path $bin) -and (Test-Path $csv) -and ((Get-Content $csv | Measure-Object -Line).Lines -ge ($RunsPerSeed + 1))) {
+      L "collect seed=$seed SKIP (already banked: $([math]::Round((Get-Item $bin).Length/1MB,1))MB)"
+      $g = Select-String -Path $err -Pattern 'gbest=([0-9.]+)' -AllMatches -ErrorAction SilentlyContinue |
+           ForEach-Object { $_.Matches } | ForEach-Object { [double]$_.Groups[1].Value }
+      if ($g) { $gb += $g }
+      continue
+    }
     L "collect seed=$seed gust=$peak@6000:1000 target=circle:${tr}:40 runs=$RunsPerSeed"
     & ".\$Exe" --headless --scenario entry --seed $seed --runs $RunsPerSeed --neural --shadow-rfly `
         --engine-out random --gust "$peak@6000:1000" --target "circle:${tr}:40" --sea 1.5 --sea-wander 3 `
@@ -90,16 +106,17 @@ for ($k = 1; $k -le $Rounds; $k++) {
          ForEach-Object { $_.Matches } | ForEach-Object { [double]$_.Groups[1].Value }
     if ($g) { $gb += $g; L "  shadow gbest seed=$seed : n=$($g.Count) mean=$([math]::Round(($g | Measure-Object -Average).Average,1)) max=$([math]::Round(($g | Measure-Object -Maximum).Maximum,1))" }
   }
-  if ($gb.Count) { L "ROUND $k COVARIATE-SHIFT: mean shadow gbest = $([math]::Round(($gb | Measure-Object -Average).Average,1)) over $($gb.Count) replans" }
-  $corpora += $dir
+  if ($gb.Count) { L "ROUND $k COVARIATE-SHIFT: mean shadow gbest = $([math]::Round(($gb | Measure-Object -Average).Average,1)) over $($gb.Count) replans (compare across rounds, not scenarios)" }
+  $dagDirs += $dir
 
-  # ---- 2. RETRAIN on every corpus so far (BC rows + all DAgger rounds). Verdict-filtered and
-  # parked-tail-trimmed as always; the auto-gamut re-derives the output range from the merged data.
+  # ---- 2. RETRAIN: teacher corpora verdict-filtered as always; DAgger corpora EXEMPT (the outcome
+  # is the student's, the labels are the oracle's). Parked-tail trimming + auto-gamut on the merge.
   $ckpt = "runs\s0rf_dag$k.pt"
-  L "retrain on $($corpora.Count) corpus dir(s) -> $ckpt"
-  python trainer\train_s0.py --data $corpora --verdict-csv $corpora --keep-verdicts 1,2 `
+  L "retrain: $($BaseData.Count) teacher corpus dir(s) + $($dagDirs.Count) DAgger dir(s) -> $ckpt"
+  python trainer\train_s0.py --data $BaseData --verdict-csv $BaseData --keep-verdicts 1,2 `
+      --dagger-data $dagDirs `
       --out $ckpt --hidden $Hidden --epochs $Epochs 2>&1 |
-    Select-String "verdict filter|parked-tail|a_lat output|throttle mask|runs:|metrics" | ForEach-Object { L "  $_" }
+    Select-String "verdict filter|DAgger corpus|parked-tail|a_lat output|throttle mask|runs:|metrics" | ForEach-Object { L "  $_" }
   if ($LASTEXITCODE -ne 0) { L "ABORT: trainer failed in round $k"; exit 1 }
 
   # ---- 3. FREEZE + verify (the one shared ceremony), then measure.

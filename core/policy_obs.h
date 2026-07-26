@@ -89,11 +89,20 @@ enum {
      * both safer and strictly more informative.
      *
      * PROVENANCE (§8.1, checked field by field). Specific force = dv/dt + g(h)ẑ, from two consecutive
-     * NAV velocities and the §4.1 g(h) law (a pure function of altitude) — this is precisely what a
-     * real IMU accelerometer reads, and it is derived ONLY from the nav view. Angular acceleration =
-     * dω/dt from two consecutive NAV body rates. The last command is the vehicle's own output. Nothing
-     * from wind_world / wind_filt / the truth target enters. All of it comes from PolicyHist below,
-     * which is written AFTER each guidance tick resolves — never from the plant's hidden state. */
+     * NAV velocities and the §4.1 g(h) law (a pure function of altitude) — it is derived ONLY from
+     * the nav view. Angular acceleration = dω/dt from two consecutive NAV body rates. The last
+     * command is the vehicle's own output. Nothing from wind_world / wind_filt / the truth target
+     * enters. All of it comes from PolicyHist below, which is written AFTER each guidance tick
+     * resolves — never from the plant's hidden state.
+     *
+     * KNOWN LIMITATION (audit 2026-07-26): differencing the nav velocity is a FINITE-DIFFERENCE
+     * accelerometer, not a modeled IMU. Under NAV_TRUTH (the default, and every farm/gate so far)
+     * it is exact. Under NAV_NOISY it AMPLIFIES the velocity noise by sqrt(2)/GUIDANCE_DT ≈ 70×:
+     * σ_v = 0.1 m/s ⇒ ~7 m/s² of noise on sf — against an engine-out signature of ~16 m/s². So the
+     * self-sensed channel is marginal under --nav-noisy until nav.c grows a real IMU measurement
+     * (truth specific force + its own small noise — legal §8.1, it is what an accelerometer IS).
+     * Do not read a --nav-noisy regression of an NP≥7 policy as a policy defect without checking
+     * this channel first. */
     OBS_SFX, OBS_SFY, OBS_SFZ,   /* 30,31,32  ACHIEVED specific force, world [m/s^2] (the accelerometer) */
     OBS_WDOTX, OBS_WDOTY, OBS_WDOTZ, /* 33,34,35  body angular acceleration dω/dt [rad/s^2]           */
     OBS_ALATPX, OBS_ALATPY,      /* 36,37  the LAST EXECUTED lateral command [m/s^2]                  */
