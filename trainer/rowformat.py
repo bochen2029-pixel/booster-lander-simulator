@@ -14,6 +14,7 @@ target/health). The three action columns are the EXECUTED command (the imitation
 """
 
 from __future__ import annotations
+import os
 import numpy as np
 
 # ----------------------------------------------------------------------------------------------------
@@ -102,31 +103,76 @@ ACT_SLICE    = slice(3 + NPOBS_N, 3 + NPOBS_N + 3)            # cols 42 .. 44
 THETA_SLICE  = slice(3 + NPOBS_N + 3, 3 + NPOBS_N + 3 + N_THETA)   # cols 45 .. 54 (PRIVILEGED)
 
 
-def read_rows(path: str) -> np.ndarray:
+def _looks_like_tap(rows: np.ndarray) -> str:
+    """Return '' if the reshaped array really is a tap of this width, else a reason string.
+
+    WHY A POSITIVE CHECK IS NEEDED. Refusing a wrong-width file on `size % ROW_N != 0` alone is NOT
+    sufficient, and the earlier comment here claiming otherwise was wrong. A v1 row is 36 f64 and a
+    v2 row is 55; gcd(36, 55) = 1, so ANY v1 file whose row count is a multiple of 55 has a total
+    element count divisible by 55 and would reshape cleanly into sheared v2 columns — exactly the
+    silent garbage the width guard exists to prevent, just rarer and therefore worse.
+
+    The structural signature is cheap and decisive: columns 1 and 2 of every v2 row are the master
+    seed and the run index, both written as exact integers, and column 0 is a non-negative sim time.
+    Arbitrary observation floats landing in those slots do not satisfy that.
+    """
+    seed, run, t = rows[:, I_SEED], rows[:, I_RUN], rows[:, I_T]
+    if not np.all(seed == np.floor(seed)) or not np.all(run == np.floor(run)):
+        return "columns 1/2 are not integral, so they are not (seed, run)"
+    if seed.min() < 0 or run.min() < 0 or t.min() < 0:
+        return "negative seed/run/t"
+    if run.max() > 1e6 or seed.max() > 1e9:
+        return f"implausible seed/run magnitudes (max seed {seed.max():.0f}, max run {run.max():.0f})"
+    return ""
+
+
+def read_rows(path: str, allow_torn_tail: bool = False) -> np.ndarray:
     """Read one .bin tap file -> float64 array of shape (n_rows, ROW_N).
 
-    Validates the file size is an exact multiple of ROW_BYTES (no partial/truncated rows — a clean
-    tap always closes on a whole row). Raises ValueError otherwise.
+    Strict by default: the size must be an exact multiple of ROW_BYTES, the file must not be a
+    v1-width dataset, and the result must pass the positive v2 structural check above.
 
-    ALSO detects a v1-width (288 B/row) dataset and refuses it by name. This matters because 288
-    and 360 share no common factor issue that would make the mistake loud on its own: a v1 file
-    whose row count happens to divide by 45 would reshape into silently sheared columns, and the
-    trainer would learn from garbage without ever erroring. Refuse explicitly.
+    `allow_torn_tail` drops a final partial row instead of refusing. Only the corpus loader sets it,
+    and only because a torn tail is the NORMAL state of a file that a live farm is still writing (or
+    that a deadline/sleep/kill interrupted mid-run). The remainder is always < one row by
+    construction, so this can only ever discard a single incomplete record — it cannot paper over
+    real corruption, and it says so out loud when it fires.
     """
     raw = np.fromfile(path, dtype="<f8")   # little-endian float64
-    if raw.size % ROW_N != 0:
-        if raw.size % ROW_N_V1 == 0:
+    rem = raw.size % ROW_N
+
+    # Try the v2 interpretation FIRST and let the structural check decide, rather than testing widths
+    # in a fixed order. Width arithmetic alone is ambiguous in both directions: a v1 file can reshape
+    # cleanly as v2 when its row count is a multiple of 55, and a TORN v2 file (one a live farm is
+    # still writing) can have a byte count that happens to divide by 36 and be mistaken for v1 —
+    # which is exactly what the first version of this function did to a mid-write farm file. Only the
+    # positive check on the (t, seed, run) columns distinguishes them.
+    if rem == 0 or allow_torn_tail:
+        trimmed = raw[:raw.size - rem] if rem else raw
+        if trimmed.size >= ROW_N:
+            rows = trimmed.reshape(-1, ROW_N)
+            if not _looks_like_tap(rows):
+                if rem:
+                    print(f"  NOTE {os.path.basename(path)}: dropping a torn trailing row "
+                          f"({rem*8} bytes < one {ROW_BYTES}-byte record) — file is mid-write "
+                          f"or was interrupted")
+                return rows
+
+    # v2 did not validate. Is this a v1-socket dataset?
+    if raw.size % ROW_N_V1 == 0 and raw.size >= ROW_N_V1:
+        if not _looks_like_tap(raw.reshape(-1, ROW_N_V1)):
             raise ValueError(
                 f"{path}: this is a v1-socket dataset ({ROW_N_V1} f64 = {ROW_N_V1*8} B/row, "
-                f"NPOBS_N=30). The socket was widened to NPOBS_N={NPOBS_N} on 2026-07-25 "
+                f"NPOBS_N={NPOBS_N_V1}). The socket was widened to NPOBS_N={NPOBS_N} on 2026-07-25 "
                 f"(App-G v2, the self-sensed contingency channel), so this file must be re-farmed "
                 f"against the current binary. Mixing widths shears every column silently."
             )
-        raise ValueError(
-            f"{path}: {raw.size*8} bytes is not a multiple of ROW_BYTES={ROW_BYTES} "
-            f"(row is {ROW_N} f64). Truncated/corrupt tap file?"
-        )
-    return raw.reshape(-1, ROW_N)
+
+    raise ValueError(
+        f"{path}: {raw.size*8} bytes does not read as a v{2 if rem == 0 else 2} tap "
+        f"({ROW_N} f64 = {ROW_BYTES} B/row) nor as a v1 one. Truncated/corrupt tap file?"
+        + ("" if allow_torn_tail else "  Pass allow_torn_tail=True if a live farm is writing it.")
+    )
 
 
 def split(rows: np.ndarray):

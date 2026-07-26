@@ -195,7 +195,11 @@ def load_dataset(specs):
         sys.exit(f"error: --data matched no .bin files: {specs}")
     all_rows = []
     for p in files:
-        rows = rf.read_rows(p)
+        # allow_torn_tail: a corpus directory routinely contains one file a farm is still writing,
+        # or one an interrupted farm left mid-run. That is a torn final record, not corruption, and
+        # refusing the whole corpus over it would strand the pipeline at its very first step —
+        # unattended, at the end of an overnight farm, which is exactly when nobody is watching.
+        rows = rf.read_rows(p, allow_torn_tail=True)
         seeds = set(int(s) for s in rf.seeds_in(rows).tolist())
         # THE HELD-OUT LAW, ENFORCED IN CODE (a hard refusal, not a warning).
         bad = seeds & HELD_OUT_SEEDS
