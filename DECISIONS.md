@@ -2905,3 +2905,26 @@ The other branch (the 0.70·D_phys plateau → plant-authority ADR) is not neede
 a 10 µs learned net over the reactive stack — realizes the authority the D-018-era samplers couldn't,
 on the held-out law. Combined with R2/R2b/D-042: the learned tuning owns the broad envelope (M4 GREEN),
 the search owns the compound (GM_RFLY 36/36), each honestly bounded.
+
+**D-044 ADDENDUM — the M4 claim REPRODUCES FROM A CLEAN CLONE (2026-07-27).** Because M4 GREEN is now
+a public claim in the README, it was verified the strongest way available: `git clone` the PUBLISHED
+repo (github.com/bochen2029-pixel/booster-lander-simulator @ `addd962`) into a scratch dir, fresh
+`cmake` configure + Release build from those sources alone (CUDA path included), and re-run the gates
+against nothing but the committed tree.
+
+| check | claimed | clean-clone result |
+|---|---|---|
+| selftest | PASS, both KATs | **PASS** — NP_VERSION 6 + TP_VERSION 2 |
+| TP KAT triple | bit-exact pin | **bit-exact** (1.5239198764193458, …) |
+| held-out AERO s42 | 57/60 | **57/60** |
+| held-out AERO s7 | 58/60 | **58/60** |
+| held-out AERO s99 | 56/60 | **56/60** |
+| **aggregate** | **171/180 (95.0%)** | **171/180 — EXACT MATCH** |
+| TERMINAL ×200 | byte-identical | **byte-identical** to the committed golden |
+| MPPI run-1 anchor | 2.63/10.48 | **2.63/10.48** exact |
+| neural v6 AERO | 46/60 | **46/60** |
+
+⇒ the M4 GREEN result is not an artifact of the working tree, an incremental build, or uncommitted
+state: the frozen `theta_policy_weights.h` + the fixed-order fp64 forward pass + the deterministic
+plant reproduce it from a clean checkout of what is public. This is the determinism contract (canon
+§0.4) doing exactly the job it exists for.
