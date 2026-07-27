@@ -55,6 +55,7 @@ def main():
     ap.add_argument("--val-frac", type=float, default=0.15)
     ap.add_argument("--batch", type=int, default=4096)
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--weight-decay", type=float, default=0.0, help="AdamW L2 (M4 push: tames overfit)")
     args = ap.parse_args()
 
     import torch
@@ -97,6 +98,10 @@ def main():
     lo = torch.tensor(RT_LO, dtype=torch.float32, device=dev)
     hi = torch.tensor(RT_HI, dtype=torch.float32, device=dev)
 
+    # NOTE (M4 push): overfitting is θ̂'s ceiling (best-val at epoch 1-2; effective sample size is
+    # RUNS not rows). The fixes here are architecture-NEUTRAL so export_theta's body.0/2/4 keys stay
+    # valid: weight_decay (--weight-decay, AdamW) + optional smaller --hidden. Dropout would shift the
+    # Sequential indices and break the exporter, so it is deliberately not added.
     class ThetaPrior(nn.Module):
         def __init__(self, n_in, hidden, layers):
             super().__init__()
@@ -111,7 +116,7 @@ def main():
             return lo + (hi - lo) * 0.5 * (u + 1.0)          # -> the RT box, always
 
     net = ThetaPrior(obs_np.shape[1], args.hidden, args.layers).to(dev)
-    opt = torch.optim.Adam(net.parameters(), lr=args.lr)
+    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     # ---- SCALE-FREE ERROR. The ten coordinates have very different ranges (EKR spans 0.3-4.0,
     # TGTLEAD 0.0-1.5), so a raw MSE would be dominated by whichever happens to be widest. Score in
