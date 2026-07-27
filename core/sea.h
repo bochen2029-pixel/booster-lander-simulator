@@ -37,10 +37,13 @@ void sea_init(SeaState* S, uint32_t seed, double Hs, double wander_amp);
  *   deck_z  = Σ amp[k]·cos(omega[k]·t + phase[k])                 heave [m]
  *   deck_vz = −Σ amp[k]·omega[k]·sin(omega[k]·t + phase[k])       heave rate [m/s] (deck-relative leg loads)
  *   deck_quat[4] (xyzw) = small pitch/roll from the wave slope (renderer/HELLO; not fed to contact in 1b)
- *   target_x/y = (x0,y0) + slow wander sum                        horizontal deck station (world) [m] */
+ *   target_x/y = (x0,y0) + slow wander sum                        horizontal deck station (world) [m]
+ *   target_vx/vy = d/dt of the wander sum                         horizontal deck velocity [m/s]
+ *                  (D-043: needed for the DECK-RELATIVE settle test; NULL-safe like deck_quat) */
 void sea_deck_pose(const SeaState* S, double t,
                    double* deck_z, double* deck_vz,
                    double deck_quat[4],
-                   double* target_x, double* target_y);
+                   double* target_x, double* target_y,
+                   double* target_vx, double* target_vy);
 
 #endif /* BL_SEA_H */

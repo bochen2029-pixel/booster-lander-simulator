@@ -43,6 +43,8 @@ typedef struct Sim {
      * leg loads. Default OFF (memset 0 => sea never evaluated, deck_vz_live=0) => byte-identical. */
     SeaState    sea;
     double      deck_vz_live;   /* live deck heave rate deck_vz(t) [m/s]; 0 when SEA off */
+    double      deck_vxy_live[2];/* D-043: live horizontal deck velocity [m/s]; 0 when SEA off. Used by the
+                                  * DECK-RELATIVE settle test so a vehicle riding the moving deck settles. */
     uint32_t seed;
     int modules;
     int scenario;

@@ -50,7 +50,8 @@ void sea_init(SeaState* S, uint32_t seed, double Hs, double wander_amp){
 void sea_deck_pose(const SeaState* S, double t,
                    double* deck_z, double* deck_vz,
                    double deck_quat[4],
-                   double* target_x, double* target_y){
+                   double* target_x, double* target_y,
+                   double* target_vx, double* target_vy){
     double z=0.0, vz=0.0, sx=0.0, sy=0.0;
     for(int k=0;k<SEA_N;k++){
         double ph = S->omega[k]*t + S->phase[k];
@@ -80,4 +81,7 @@ void sea_deck_pose(const SeaState* S, double t,
     double wy = S->wander_amp[1]*cos(S->wander_omega[1]*t + S->wander_phase[1]);
     if(target_x) *target_x = S->x0 + wx;
     if(target_y) *target_y = S->y0 + wy;
+    /* D-043: analytic horizontal deck velocity (d/dt of the wander) for the deck-relative settle test. */
+    if(target_vx) *target_vx = -S->wander_amp[0]*S->wander_omega[0]*sin(S->wander_omega[0]*t + S->wander_phase[0]);
+    if(target_vy) *target_vy = -S->wander_amp[1]*S->wander_omega[1]*sin(S->wander_omega[1]*t + S->wander_phase[1]);
 }

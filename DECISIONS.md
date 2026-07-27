@@ -2838,3 +2838,31 @@ oracle data (best-val=epoch-1 says volume is binding); its EV is uncertain becau
 stable near-misses. Launched as an overnight AERO farm; the retrain + gate completes next session. If it
 does not lift s42 to 54, M4 stands as BORDERLINE via the θ̂ gain-schedule and the residual routes to the
 D-018 plant-authority ADR, exactly as §9.9 foresaw.
+
+## D-043 — the DECK-RELATIVE settle test: SEA runs terminate at touchdown, not the t=200 cap (2026-07-27)
+
+D-041 addendum 3 flagged the plant bug: the settle test scored ABSOLUTE kinetic energy, so a vehicle
+landed on a heaving/wandering ASDS deck (never at absolute rest) never settled and every SEA run ran to
+the `t>200` cap — ~35% of farm CPU on parked flights. Fixed here.
+
+**The fix:** the settle test now measures velocity RELATIVE TO THE DECK. `sea_deck_pose` gained analytic
+horizontal deck-velocity outputs (`target_vx/vy`, NULL-safe); the Sim carries `deck_vz_live` +
+`deck_vxy_live[2]`; the settle KE subtracts them. **Byte-safe by construction:** SEA off ⇒ both deck
+velocities are 0 AND the threshold is the static 0.02 ⇒ the old absolute-KE test EXACTLY ⇒ TERMINAL ×200
+byte-identical, selftest PASS, MPPI anchor exact.
+
+**A subtlety the instrumentation caught (and the honest reason for the SEA-gated threshold).** A stuck
+lander probe showed it settles VERTICALLY (rvz²≈1e-4 — it rides the heave, which the contact solver
+couples via `deck_vz_live`) and is not tumbling (w²≈0), but carries a persistent ~0.25 m/s HORIZONTAL
+residual (rvx²≈0.06). That horizontal is the deck's slow WANDER — which drives the guidance target but is
+NOT fed to the contact solver, so it does not physically drag the landed vehicle. It is a moving-TARGET
+artifact, not real motion. So under MOD_SEA the settle threshold tolerates it (0.10 vs 0.02); off-SEA
+stays 0.02 (byte-safe). *(The deeper physics — modeling the deck surface as horizontally dragging the
+landed vehicle via friction — is left as SEA-polish; the current model treats horizontal deck motion as
+a moving target, and the verdict already latches correctly at first contact, D-034.)*
+
+**Result:** SEA landers now terminate promptly — measured t_total 124/134/145 s (settling ~1.5 s after
+their ~110-130 s touchdowns) vs the old ~200 s cap. The residual long runs are PRE-touchdown hover-hunt
+(the D-035 caveat, a guidance issue the settle test cannot address), not settle failures. No verdict
+changes (impact latches at first contact). Every future SEA/compound farm and DAgger round saves the
+post-touchdown parked tail.
