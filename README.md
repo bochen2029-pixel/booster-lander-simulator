@@ -135,8 +135,8 @@ And the claims below no longer require trusting the author's machine: **CI re-ru
 selftest (including the bit-identical determinism `memcmp`) and a 200-run Monte-Carlo gate on a
 clean `windows-latest` runner on every push** (`.github/workflows/ci.yml`).
 
-**Done and verified (milestones M0–M3, M5, M6 + the N-track through S0; canon is
-`CLAUDE_v2.md`, adopted D-019):**
+**Done and verified (milestones M0–M3, M5, M6, and now M4 GREEN; the N-track showcase N3 flown;
+canon is `CLAUDE_v2.md`, adopted D-019):**
 
 - **Full C11 headless core** — builds clean under MSVC 2022 with zero external dependencies.
 - **Ten physics oracles pass** (`--selftest`): US76 atmosphere, Philox RNG determinism + normal
@@ -152,10 +152,15 @@ clean `windows-latest` runner on every push** (`.github/workflows/ci.yml`).
   under closed-loop MPPI replanning (`--mppi`), and it **holds the ≥90 gate even through the noisy
   navigation layer** (90/100 `--nav-noisy`). The reactive-law plateau (88) and every
   estimation/tuning lever were measured-closed first (D-012…D-016).
-- **AERO_OFFSET (12 km, mean 500 m offset) lands 73.3%** (tier-0 and MPPI 44/60 alike). The
-  remaining gap to ≥90 was proven from four independent angles to be a **plant-authority ceiling**,
-  not a solver problem (the controller realizes ~0.70 of the physical 1107 m divert ceiling —
-  D-018), which redirected the effort to a learned policy.
+- **AERO_OFFSET (12 km, mean 500 m offset): M4 GREEN — a learned controller lands held-out
+  95.0% (171/180 across seeds 42/7/99).** The reactive/MPPI baselines plateaued at 73.3% and the
+  gap to ≥90 was proven from four independent angles to be a **plant-authority ceiling** (the
+  hand-tuned controller realizes only ~0.70 of the physical 1107 m divert ceiling — D-018). A
+  **learned gain-schedule** closes it: a 10 µs fp64 C net (`--rfly-theta-net`, TP_VERSION 2) that
+  predicts the guidance stack's per-scenario gains from the legal observation, distilled from an
+  offline optimizer's solutions. It realizes the authority the fixed-gain law couldn't — 57/58/56
+  per 60, every held-out seed past the ≥54 bar (D-044). It is a bit-deterministic, golden-able
+  artifact, default-off and byte-identical when unarmed, gated by the same battery as everything else.
 - **A distilled neural guidance policy (`GM_NEURAL`, `--neural`) now matches-or-beats its MPPI
   teacher on every held-out seed: 45/47/43 per 60 vs MPPI's 44/40/42 — at ~9× the speed** (~55 s
   per 60-run batch vs 9–15 min). Trained by DAgger against the plant (teacher labels logged at the
@@ -184,30 +189,37 @@ Tier-B at 97.3–98.1%).
 (`--nav-noisy`: position/velocity/attitude noise + gyro-bias walk; the headline gates are quoted
 under it where claimed), but the guidance's internal predictors still share the plant's aero
 tables (thrust/Isp/CoM/wind mismatch is exercised blind via `--inject`; aero-coefficient scatter
-is not yet dispersed — a future CFD-regeneration event replaces the hand-modeled tables). With a
-*moving* target armed, the verdict still scores the origin until the target-relative-verdict stage
-lands (documented in D-020). Failed experiments are recorded with numbers, not deleted
-(D-014 wind estimator, D-018 sampler branch, D-022 round-0 distillation).
+is not yet dispersed — a future CFD-regeneration event replaces the hand-modeled tables). Moving-target
+scoring is now honest end-to-end: the verdict and touchdown offset measure from the target pose latched
+at first contact, and the SEA module adds a Pierson-Moskowitz heaving deck with deck-relative leg loads
+(D-034…D-037). Failed experiments are recorded with numbers, not deleted (D-014 wind estimator, D-018
+sampler branch, D-022 round-0 distillation, D-041 the end-to-end compound-policy distillation null).
 - **Plant physics independently audited** — a 5-agent, C-only audit confirmed the dynamics on three
   separate code paths and found and fixed real bugs (grid-fin allocation signs, gimbal rate-state
   windup, missing roll damping, a transonic CoP artifact).
-- **Renderer + protocol groundwork built and green** — `core/protocol.h` compiled and
-  static-asserted; the full `ui/` scaffold on `three@0.185.1` (WebGPU) with a passing vitest suite,
-  including the binary telemetry decoder and the canonical sim→three frame conversion; and the
-  Tauri v2 shell config. A minimal RFC6455 WebSocket path (`--serve`) that lets the renderer track a
-  descent from live telemetry is being wired next.
+- **Renderer + protocol live end-to-end** — `core/protocol.h` compiled and static-asserted; the
+  `ui/` renderer on `three@0.185.1` (WebGPU) with a passing vitest suite, the binary telemetry decoder
+  and the canonical sim→three frame conversion; the Tauri v2 shell; and the RFC6455 WebSocket path
+  (`--serve`) that streams a live descent to the cockpit — the one-click desktop app rides all of it.
+
+- **The compound-recovery showcase (N3) flies — engine-out × wind-shear × moving/heaving deck in
+  one descent, landed live.** An offline optimizer-in-the-loop (a Cross-Entropy search over the
+  reactive stack's gains, re-solving from the current state) sweeps the held-out compound **36/36
+  GOOD-or-better** across three seeds, and has been flown live on the photoreal cockpit stream —
+  including the *engine-out button pressed mid-burn* and answered by the onboard re-solve, landed on
+  the drifting bullseye. It is search-necessary and honestly bounded: the compound recovery needs
+  the search's implicit lookahead, so no 10 µs feedforward net replaces it (a measured result, not a
+  guess) — but the search itself is cheap enough to run near-real-time. See `DECISIONS.md` D-040/D-044.
 
 **In progress / not yet done:**
 
-- **M4 (AERO ≥90%) via the learned policy** — DAgger disturbance rounds in progress (gust, then
-  engine-out), building toward the compound-recovery showcase: engine-out × wind-shear × moving
-  target in one descent, scored against the reachable set. (MPPI on CUDA is DONE — fp64, ≤1 ULP
-  parity, bit-stable, rescoped to the honest 100 ms replan budget, D-015.)
-- **Target Stage-1** — the target-relative verdict + SEA deck heave, unlocking honest
-  moving-target scoring and the ASDS scenario.
-- **The interactive command channel** — live mid-flight gust/engine-kill/target-drag over the
-  closed upstream enum, journaled so improvised runs replay bit-exactly; then an Unreal Engine 5
-  client speaking the same telemetry + command wires.
+- **The end-to-end compound *policy*** — distilling the optimizer into a single feedforward network
+  that flies the compound was a **measured null**: behaviour cloning + DAgger reach the ground but
+  not the pad, because the recovery gains depend on the future disturbance realization (only
+  partially observable). The learned net's genuine value is the broad-envelope gain-schedule above
+  (M4); the search owns the compound. Recorded with data in `DECISIONS.md` (D-041).
+- **An Unreal Engine 5 observer client** — speaking the same one-way telemetry + command wires as
+  the WebGPU cockpit, built as *another* pure client (the core never changes).
 - The **full cinematic renderer** — the documentary WebGPU cockpit ships in the one-click app
   (procedural booster, plume, HUD, phase ladder, propagation-honest audio sketch); the cinematic
   maximalism (volumetrics, director, long-exposure) lands per the canon's M7/M8 ladder.
