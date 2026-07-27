@@ -28,6 +28,16 @@
   `d041_export_build.ps1` (the single shared freeze ceremony — KAT pinned from the C pass) +
   `d041_dagger.ps1` (the loop; reports the landed rate AND the mean shadow gbest, the covariate-shift
   readout). **Farms at 00:55: compound 5 seeds banked 80/80 landed; clean 4 AERO seeds 63/64.**
+- **2026-07-27 [opus] — R2b = NULL: the theta-hat CEM warm-start doesn't help; the real-time win is
+  budget-reduction alone.** Built --rfly-warm-net (seed the CEM mean from theta-hat) + --rfly-budget
+  (scale POP x ITERS), byte-clean default-off (run-0 PERFECT 0.38 exact). Compound s42 x12 sweep:
+  cold GM_RFLY holds 12/12 SURVIVABLE from budget 1.0 down to 0.125 (1642 -> 62 s, 26x faster,
+  ~0.4 s/replan = real-time) -- the reactive theta-basin is wide, the search is intrinsically cheap.
+  Precision degrades though (10 PERFECT -> 1P/9G/2 HARD), a latency<->precision trade. theta-hat
+  warm-starting is NEGATIVE at low budget (12->10->9): re-seeding every replan discards the search's
+  accumulated theta. Arc conclusion: compound is search-necessary AND the search is cheap/robust; the
+  NN is a broad-envelope gain-schedule (R2), not a compound controller (Phase 3) nor a search
+  accelerator (R2b). Real-time GM_RFLY = reduced budget or KESTREL's GPU CEM. Tree clean, gates green.
 - **2026-07-27 [opus] — R2 = PARTIAL WIN (D-042, TP_VERSION 1): theta-hat gain-schedule beats the
   analytic baseline held-out (AERO 131->162/180), the FIRST learned artifact of the arc to do so; but
   the engine-out compound stays 2/12 (search-necessary, triply confirmed).** Built the second net
