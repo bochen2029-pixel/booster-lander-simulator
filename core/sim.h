@@ -10,6 +10,7 @@
 #include "policy_tap.h"   /* N1 S0: the teacher (o,a) logging tap (--policy-log; GM_MPPI only) */
 #include "guidance_cfly.h"   /* N2-S2: GM_CFLY optimizer-in-the-loop (CflyState; default OFF) */
 #include "guidance_rfly.h"   /* D-040 pivot: GM_RFLY CEM over the native reactive stack (RflyState; default OFF) */
+#include "guidance_theta.h"  /* R2 (D-042): the theta-prior net driving GM_RFLY gains in place of the CEM */
 #include "sea.h"          /* SEA module (§4.4): P-M droneship deck-motion spectrum (--sea; default OFF) */
 
 /* DIAL-A-GUST (canon §10.6 INJECT_DISTURBANCE type=gust; §4.3 layer-3 discrete 1-cosine).

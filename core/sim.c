@@ -39,6 +39,8 @@ int g_shadow_reactive = 0;
  * visits (theta re-solved there by the CEM). Default 0 => the shadow path is the D-023 MPPI one
  * => byte-identical. */
 int g_shadow_rfly = 0;
+/* R2 (D-042): --rfly-theta-net routes GM_RFLY theta from the prior net, not the CEM. Default 0. */
+int g_rfly_theta_net = 0;
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -654,7 +656,13 @@ int sim_step(Sim* s){
      * elitism keeps it in-population, so the search can only match-or-beat the baseline. Guarded
      * by GM_RFLY; default OFF => rt_on never set => every legacy mode byte-identical. */
     if(is_gtick && s->guidance_mode==GM_RFLY){
-        if(rfly_async_on()){
+        if(g_rfly_theta_net){
+            /* R2 (D-042): the THETA-PRIOR replaces the CEM. theta_hat(obs) fills gcmd.rt each tick —
+             * a 10 us gain schedule where D-040 spent ~150 s of search. Everything downstream (entry
+             * supervisor + hoverslam + the D-009 trim) is unchanged: only the theta SOURCE differs.
+             * Uses the previous resolved tick's phist (the same obs the RFLY tap logged). */
+            theta_policy_step(&nav, &s->gcmd, &s->phist, s->rfly.th);
+        } else if(rfly_async_on()){
             /* N3 LIVE (serve --interactive, §M2 waived): worker-thread replans; the sim
              * never blocks — it flies the current theta until a solve swaps in. */
             rfly_async_poll(s);

@@ -18,6 +18,11 @@
 #include "protocol.h"
 #include "ws.h"
 #include "guidance_neural.h"          /* N1 §9.8: GM_NEURAL forward pass (the KAT oracle + provenance) */
+#include "guidance_theta.h"           /* R2 D-042: theta-prior forward pass (the --tp-kat oracle) */
+/* NOTE: theta_policy_weights.h is deliberately NOT included here — its TP_* macros collide with the
+ * Windows thread-pool identifiers (TP_CALLBACK_ENVIRON) in winnt.h, which this TU pulls in. The obs
+ * width TP_N_IN == NPOBS_N by the compile guard in guidance_theta.c, so use NPOBS_N (from policy_obs.h,
+ * already included via sim.h) for the --tp-kat vector. */
 #include "neural_policy_weights.h"    /* NP_VERSION / NP_N_IN — the KAT is header-versioned */
 #include "guidance_mppi.h"        /* MPPI_K/MPPI_H/MPPI_NCH for the CUDA harness (also via sim.h) */
 #ifdef BL_HAVE_CUDA
@@ -31,6 +36,7 @@
  * flag parse compiles either way — in a no-CUDA build it stays 0 and the CLI refuses --mppi-cuda). */
 extern int g_mppi_use_cuda;
 extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the composite (student-warm-started MPPI); defined in sim.c */
+extern int g_rfly_theta_net;     /* R2 (D-042): --rfly-theta-net flies GM_RFLY gains from the prior net, not the CEM; defined in sim.c */
 extern int g_shadow_rfly;        /* D-041 ORACLE DAGGER: --shadow-rfly logs GM_RFLY's command at the student's visited states; defined in sim.c */
 
 /* R2 (D-042 ablation): --rfly-fixed "v0,..,v9" flies GM_RFLY with a CONSTANT theta and NO CEM.
@@ -249,12 +255,36 @@ static void test_neural_kat(void){
     CHECK(isfinite(a[0]) && isfinite(a[1]) && isfinite(a[2]), "NP KAT output is finite");
 }
 
+/* R2 (D-042) THETA-PRIOR KAT — the Philox-KAT discipline applied to the second net. The fixed obs
+ * -> the fixed-order fp64 forward pass -> a bit-exact 10-vector. Regenerate (from --tp-kat, %.17g,
+ * FROM THE C PASS never numpy) on every theta export = a new TP_VERSION. bit-exact => tol 0.0.
+ * Uses NPOBS_N (== TP_N_IN by the guidance_theta.c guard) so this TU never pulls the TP_* macros
+ * that collide with winnt.h. */
+static void test_theta_kat(void){
+    printf("[oracle: GM_RFLY theta-prior KAT] TP_VERSION=%d\n", theta_policy_version());
+    double o[NPOBS_N]; for(int i=0;i<NPOBS_N;i++) o[i]=0.5*((double)((i*37+11)%13)-6.0);
+    double th[10]; theta_policy_forward(o, th);
+    /* TP_VERSION 1 (theta_prior_full.pt, 381 runs, val_nrmse 0.2617) — dumped from THIS binary's
+     * fixed-order pass at %.17g. */
+    const double EXP[10] = {
+        2.8480396341788068, 0.81287560349986276, 1.3990392745873574, 1.1183102149744797,
+        0.52503558749101198, 0.43777414380092844, 0.6649190675022385, 1.9381933959255302,
+        1.0454782930807158, 1.7219339252277734 };
+    for(int i=0;i<10;i++) CHECKF(th[i], EXP[i], 0.0, "TP KAT theta (TP_VERSION 1 bit-exact)");
+    double th2[10]; theta_policy_forward(o, th2);
+    int det=1; for(int i=0;i<10;i++) if(th[i]!=th2[i]) det=0;
+    CHECK(det, "TP KAT forward pass is deterministic (bit-identical)");
+    int fin=1; for(int i=0;i<10;i++) if(!isfinite(th[i])) fin=0;
+    CHECK(fin, "TP KAT output is finite");
+}
+
 static int cmd_selftest(void){
     g_fail=0;
     test_atmosphere(); test_rng(); test_quat();
     test_ballistic(); test_energy_quat(); test_massprops();
     test_hover_impossible(); test_fin_damping(); test_aero_stability(); test_determinism();
     test_neural_kat();
+    test_theta_kat();
     if(g_fail==0){ printf("SELFTEST: PASS\n"); return 0; }
     printf("SELFTEST: FAIL (%d)\n", g_fail); return 1;
 }
@@ -410,6 +440,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;
         else if(!strcmp(argv[i],"--shadow-rfly")) g_shadow_rfly=1;   /* D-041: ORACLE-DAgger teacher label (theta re-solved at the student's state) */
         else if(!strcmp(argv[i],"--rfly-fixed")&&i+1<argc){ if(!parse_rfly_fixed(argv[++i])){ fprintf(stderr,"error: --rfly-fixed needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_on=1; }   /* R2 D-042: constant-theta GM_RFLY */
+        else if(!strcmp(argv[i],"--rfly-theta-net")) g_rfly_theta_net=1;   /* R2 D-042: theta-prior drives GM_RFLY gains */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -499,6 +530,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;
         else if(!strcmp(argv[i],"--shadow-rfly")) g_shadow_rfly=1;   /* D-041: ORACLE-DAgger teacher label (theta re-solved at the student's state) */
         else if(!strcmp(argv[i],"--rfly-fixed")&&i+1<argc){ if(!parse_rfly_fixed(argv[++i])){ fprintf(stderr,"error: --rfly-fixed needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_on=1; }   /* R2 D-042: constant-theta GM_RFLY */
+        else if(!strcmp(argv[i],"--rfly-theta-net")) g_rfly_theta_net=1;   /* R2 D-042: theta-prior drives GM_RFLY gains */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -1231,10 +1263,21 @@ static int cmd_np_kat(void){
     return 0;
 }
 
+/* R2 (D-042): dump the theta-prior C forward pass on the KAT-convention obs — validates the C net
+ * against the Python reference (train_theta) and proves guidance_theta.c is linked. */
+static int cmd_tp_kat(void){
+    double o[NPOBS_N]; for(int i=0;i<NPOBS_N;i++) o[i]=0.5*((double)((i*37+11)%13)-6.0);
+    double th[10]; theta_policy_forward(o, th);
+    printf("TP_VERSION %d TP_N_IN %d\n", theta_policy_version(), NPOBS_N);
+    for(int i=0;i<10;i++) printf("    TP_EXP[%d] = %.17g;\n", i, th[i]);   /* %.17g round-trips a double (the KAT-pin precision) */
+    return 0;
+}
+
 int main(int argc, char** argv){
     const char* mode = (argc>1)? argv[1] : "--selftest";
     if(!strcmp(mode,"--selftest")) return cmd_selftest();
     if(!strcmp(mode,"--np-kat")) return cmd_np_kat();
+    if(!strcmp(mode,"--tp-kat")) return cmd_tp_kat();
     if(!strcmp(mode,"--headless")) return cmd_headless(argc,argv);
     if(!strcmp(mode,"--run")) return cmd_run(argc,argv);
     if(!strcmp(mode,"--serve")) return cmd_serve(argc,argv);

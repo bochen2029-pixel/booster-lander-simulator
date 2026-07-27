@@ -25,6 +25,7 @@ set(BL_C_COMMON
     guidance_neural.c   # N1 §9.8: tier-3 GM_NEURAL inference (fixed-order fp64; ships dead behind --neural)
     guidance_cfly.c     # N2-S2: GM_CFLY optimizer-in-the-loop (theta-law + warm CEM replan; default OFF)
     guidance_rfly.c     # D-040 PIVOT: GM_RFLY CEM over the native reactive stack's gains (default OFF)
+    guidance_theta.c    # R2 D-042: the theta-prior net driving GM_RFLY gains in place of the CEM (default OFF)
 )
 # ---- plant physics: compiled by the C target ONLY when CUDA is off (else the .cu owns them) ----
 set(BL_C_PLANT

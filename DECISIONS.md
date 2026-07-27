@@ -2719,3 +2719,54 @@ constant-θ null bounds "one θ for the whole flight," NOT θ̂. θ̂'s upper bo
 and the open question is how much its per-tick prediction error (nrmse ~0.26, and the main-tree
 reactive law is NOT the sandbox's ±5% knife-edge) costs. **There is no cheap proxy — θ̂-as-controller
 must be built and flown.** Building it next.
+
+## D-042 VERDICT — R2 is a PARTIAL WIN: θ̂ improves the reactive controller, the compound needs search (2026-07-27)
+
+The θ̂ gain-schedule (App-G v2 obs → 10-D RT θ, fixed-order fp64, `guidance_theta.c`, `--rfly-theta-net`,
+byte-clean default-off; C forward pass validated == Python to 17 sig figs) was built and flown. It is
+the FIRST learned artifact of this whole arc that improves the analytic baseline on a gated axis.
+
+**Held-out results (all seeds 42/7/99 are eval-only; the net trained on 5xxx/6xxx):**
+
+| regime | hoverslam | const mean-θ | **θ̂ schedule** |
+|---|---|---|---|
+| AERO clean s42 | 40/60 | 53/60 | 53/60 |
+| AERO clean s7 | 45/60 | 50/60 | **53/60** |
+| AERO clean s99 | 46/60 | 48/60 | **56/60** |
+| AERO held-out TOTAL | 131/180 (72.8%) | 151/180 (83.9%) | **162/180 (90.0%)** |
+| ENTRY clean s42 | 55/60 | — | 58/60 |
+| **compound s42 ×12** | **2/12** | **2/12** | **2/12** |
+
+**Three findings, each measured:**
+1. **θ̂ is a real, held-out, state-dependent improvement on the clean/AERO axis** — +24% over hoverslam,
+   and it BEATS the constant mean-θ on 2 of 3 held-out seeds (53>50, 56>48; ties on s42). So the win is
+   not merely "better default gains" — the schedule's state-dependence adds measurable value that
+   generalizes. Deterministic (pair bit-identical), byte-clean (TERMINAL ×200 identical, v6 KAT + AERO
+   46/60 untouched), TP KAT pinned in the selftest.
+2. **It sits at the M4 boundary.** AERO held-out 90.0% aggregate (s99 clears 56/60 > 54; s42/s7 at 53).
+   M4's letter is "≥54/60 via GM_NEURAL"; θ̂ is GM_RFLY+net, and it reaches the bar in aggregate but
+   not on every seed. Reported as M4-BORDERLINE, not M4-GREEN — honestly a near-miss, not a claim.
+3. **θ̂ does NOT crack the engine-out compound (2/12)** — identical to identity and to every constant θ.
+   This is the lookahead wall, now triply confirmed: the constant-θ probe (run-0's own converged θ held
+   constant CRASHES its own draw), θ̂-as-controller (2/12), and LODESTAR §13 (θ depends on the future
+   disturbance realization, only partially observable). The θ that recovers an engine-out is not a
+   function of the observable state; it requires the search's implicit rollout lookahead. **The compound
+   showcase controller remains GM_RFLY (the search) — 36/36 held-out + the filmed N3 live demo.**
+
+**What R2 delivered vs the original goal.** The canon-§9.8 dream was a 10 µs feedforward policy flying the
+COMPOUND. That specific target is now strongly evidenced to be INFEASIBLE by feedforward means (policy OR
+θ-predictor) — the compound is a search-necessary problem. What IS feasible and now shipped: a 10 µs
+learned gain-schedule that lifts the reactive controller broadly (AERO +24% held-out), a genuine and
+deployable improvement, gated and byte-clean. That reframes the arc's honest end state: search for the
+compound (GM_RFLY, real-time via the still-open θ̂-warm-start lever), learned tuning for the broad
+envelope (θ̂, shipped).
+
+**Still open (the true AlphaZero move, deliberately not built this session):** θ̂ as a WARM START that
+SEEDS the CEM (cutting POP×ITERS → real-time GM_RFLY) rather than replacing it. This keeps the search's
+12/12 compound quality while using the prior to reduce compute — the operator's "search supplies
+precision, the NN warm-starts" framing exactly. It is the recommended next step, and the θ̂ artifact +
+the `--rfly-theta-net` plumbing are the pieces it builds on.
+
+**Promotion:** TP_VERSION 1 committed as a byte-clean default-off capability (guidance_theta.{c,h},
+theta_policy_weights.h, export_theta.py, --rfly-theta-net, --tp-kat, the selftest TP KAT). No golden
+moves; NP_VERSION 6 remains the shipped policy; GM_RFLY remains the showcase controller.
