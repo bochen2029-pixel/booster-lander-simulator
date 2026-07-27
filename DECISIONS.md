@@ -2810,3 +2810,31 @@ survivable). The NN's value is NOT as a compound controller (Phase 3 null) nor a
 deployable showcase stack is therefore: **GM_RFLY for the compound (full budget offline / reduced
 budget or KESTREL's GPU CEM for real-time), θ̂ for the broad envelope.** The `--rfly-warm-net` lever is
 kept (byte-clean, default-off) as a negative result on the record, not a shipped path.
+
+## D-042 ADDENDUM 2 — the M4 push: cheap levers NULL, θ̂ is M4-BORDERLINE (90.0%), data lever queued (2026-07-27)
+
+Operator asked to push θ̂ past M4's AERO ≥54/60. The overfitting-fix levers were swept and all NULL:
+
+| lever | held-out AERO s42/s7/s99 | note |
+|---|---|---|
+| TP_VERSION 1 (baseline) | 53 / 53 / 56 = 162/180 (90.0%) | s99 clears; s42/s7 one draw short |
+| weight-decay 1e-4 … 1e-2 × hidden 64/128 (6 configs) | ≤ 162/180 | **best-val is always EPOCH 1** — the net overfits before regularization can act, so weight decay can't move it; stronger wd + smaller nets are strictly worse (down to 156/180) |
+| clean-only θ̂ (drop compound rows) | WEAK (val_nrmse 0.272 > baseline 0.262) | fewer runs ⇒ worse; doesn't even beat a constant |
+
+**Root cause = data volume, not capacity.** best-val at epoch 1 across every config means ~381 near-
+constant-per-run θ targets are memorized in one pass; the effective sample size is RUNS. Regularization
+and specialization cannot fix a one-epoch overfit.
+
+**The failing draws are NOT a plant-authority ceiling (checked, ruling out the D-018 explanation).**
+The 7–9 s42 non-landers miss by **31–91 m off a 26 m pad** — several touching down SOFT (td_v 1.7–2.4,
+fuel 4300+) but 30–40 m short — i.e. controller/θ shortfalls (the predicted divert stops short), not the
+700 m+ out-of-frontier crashes a physical ceiling would produce. So a better θ prediction CAN close them
+in principle; the lever is more data, not more authority.
+
+**Verdict: M4-BORDERLINE.** θ̂ delivers **90.0% aggregate held-out AERO** (162/180, +24% over hoverslam's
+131/180) — a genuine learned-controller improvement — but the standard gate seed s42 sits at 88.3%
+(53/60), one draw under the 54/60 line. Not forced to GREEN. The honest remaining lever is more AERO
+oracle data (best-val=epoch-1 says volume is binding); its EV is uncertain because the failing draws are
+stable near-misses. Launched as an overnight AERO farm; the retrain + gate completes next session. If it
+does not lift s42 to 54, M4 stands as BORDERLINE via the θ̂ gain-schedule and the residual routes to the
+D-018 plant-authority ADR, exactly as §9.9 foresaw.
