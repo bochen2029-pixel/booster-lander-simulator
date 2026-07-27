@@ -2959,3 +2959,46 @@ byte-equality gates that were run at each step were telling the truth.
 
 **Both headline claims are now verified reproducible from what is public:** the compound 36/36
 (D-040) and M4 GREEN 171/180 (D-044).
+
+## D-045 — §G.2 the HONEST FAILURE BOUNDARY: the reach ladder, measured (2026-07-27)
+
+Canon §1 requires the showcase to ship with its own honest adjacent failure — "a showcase that
+includes its own honest failure boundary is the anti-cheat thesis made visible." This measures it.
+
+**Manufacturing it took three dead ends, each informative:**
+- **Center-engine-out** (`--engine-out 0@t`) — lands GOOD/PERFECT. The plant only kills an engine
+  during a MULTI-engine burn, so a late center-out never fires at all (0@60 and 0@100 are
+  byte-identical to no-EO — worth knowing before anyone builds a demo on it).
+- **Gust escalation** — 15 → 30 → 45 → 60 → **80 m/s** all land 6/6. The 1-cosine pulse hits at 6 km
+  where there is ample recovery time; gust magnitude is simply not the binding constraint.
+- **Late/violent shear** (40@500, 60@300) and **fast targets** (circle:50:10, circle:100:8) — 5-6/6.
+  The optimizer-in-the-loop absorbs all of them.
+
+**What DOES bound it: LATERAL REACH.** Target displaced to a fixed offset then held (`--target
+line:D:80:0`, clean, no EO/gust), GM_RFLY at FULL budget, seed 42 run 0:
+
+| target offset | result | miss | tilt | fuel left |
+|---|---|---|---|---|
+| 4 km | **GOOD** | **0.19 m** | 0.33° | 2345 kg |
+| 5 km | CRASHED | **84.5 m short** | 2.89° | 2088 kg |
+| 6 km | CRASHED | **1070 m short** | 2.85° | 2075 kg |
+
+**The failure signature is exactly what an honest boundary looks like:** the vehicle flies as well as
+it can, arrives **UPRIGHT** (2.9°), with **2.1 t of fuel still aboard**, and simply lands SHORT. It
+does not tumble, does not run dry, does not do anything pathological — it runs out of *reach* while
+falling. And the full-strength search does BETTER than the reduced-budget one at the boundary (84.5 m
+vs 191 m short at 5 km), which is what a controller pressing against a physical limit should do.
+
+**HONEST SCOPING — what this is NOT (yet).** This is the measured **controller** reach limit (~4-5 km
+for GM_RFLY from the ENTRY state), not a certified out-of-frontier claim. Per §9.9 the distinction is
+load-bearing: an IN-frontier crash is a controller shortfall, only an OUT-of-frontier crash is
+"physics says it can't." Certifying it needs the reachability oracle (`runs/sandbox/ceiling.c`
+computes the lateral D_phys slice) re-run for the ENTRY state — D-018 measured the AERO controller
+realizing ~0.70·D_phys, so a similar factor here would put the true frontier near ~6 km and make the
+5 km case genuinely marginal rather than clearly forbidden. **Until that oracle runs, the showcase
+must present this as "the controller's measured reach boundary," not "physics forbids it."** Saying
+otherwise would be precisely the §9.9 anti-pattern, inverted.
+
+**Ready to use as the showcase's adjacent failure** (the degradation is legible and honest: 0.19 m →
+84 m → 1070 m as the demand grows), with the oracle certification as the remaining step to upgrade
+the caption from "the controller cannot" to "physics cannot."
