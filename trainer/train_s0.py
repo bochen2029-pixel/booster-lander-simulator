@@ -170,6 +170,27 @@ def drop_parked_tail(rows):
     return rows[keep]
 
 
+def drop_parked_tail_with_mask(rows, side_mask):
+    """drop_parked_tail that also filters a parallel per-row bool array (e.g. the dag-origin mask).
+
+    Kept as a wrapper rather than a signature change so every existing caller of drop_parked_tail
+    (pipelines, probes, analysis snippets) stays valid.
+    """
+    PARKED_BAND_M = 1.0
+    h = rows[:, 3 + rf.OBS_NAMES.index("h")]
+    key = rows[:, [rf.I_SEED, rf.I_RUN]].astype(np.int64)
+    keep = np.zeros(len(rows), dtype=bool)
+    for k in np.unique(key, axis=0):
+        idx = np.where((key == k).all(axis=1))[0]
+        hk = h[idx]
+        landed = np.where(hk <= hk.min() + PARKED_BAND_M)[0]
+        cut = int(landed[0]) if len(landed) else len(hk) - 1
+        keep[idx[:cut + 1]] = True
+    print(f"  parked-tail filter: kept {int(keep.sum())}/{len(rows)} rows "
+          f"({100*(1-keep.mean()):.1f}% were post-touchdown deck-sitting)")
+    return rows[keep], side_mask[keep]
+
+
 def _iter_bin_files(specs):
     """Expand --data specs (file | glob | directory) into a de-duplicated list of .bin paths."""
     out = []
@@ -253,6 +274,12 @@ def main():
     ap.add_argument("--keep-parked-tail", action="store_true",
                     help="keep post-touchdown deck-sitting rows (default: drop them — see "
                          "drop_parked_tail; they are ~a third of every SEA run and teach nothing)")
+    ap.add_argument("--dagger-weight", type=float, default=1.0,
+                    help="loss weight on DAgger rows (audit follow-up 2026-07-26: at weight 1.0 the "
+                         "dag rows measurably ERODE the teacher-regime fit — ENTRY-clean RMSE 0.203 "
+                         "-> 0.669 by round 2, interference concentrated where the dag flights' "
+                         "chaotic rows neighbour the clean manifold. Down-weighting lets them teach "
+                         "the off-distribution correction without out-shouting the teacher corpus.)")
     ap.add_argument("--dagger-data", nargs="+", default=[],
                     help="DAgger shadow corpora (--shadow-rfly collections): loaded WITHOUT the "
                          "verdict filter. The verdict filter keys on the flight's outcome, and a "
@@ -295,14 +322,18 @@ def main():
     else:
         gamut = float(args.a_lat_gamut)
 
+    n_teacher_rows = rows.shape[0]
     if args.dagger_data:
         dag = load_dataset(args.dagger_data)   # held-out law enforced here too; NO verdict filter
         print(f"  DAgger corpus: +{dag.shape[0]} rows (verdict-filter EXEMPT — labels are the "
               f"oracle's, outcomes are the student's; labels clip into the teacher-derived "
-              f"gamut ±{gamut:.0f})")
+              f"gamut ±{gamut:.0f}; loss weight {args.dagger_weight})")
         rows = np.concatenate([rows, dag], axis=0)
+    # mark origin BEFORE the tail-trim (which reorders nothing but drops rows) so the dag loss
+    # weight lands on exactly the rows that came from the shadow collections
+    is_dag_row = np.zeros(rows.shape[0], dtype=bool); is_dag_row[n_teacher_rows:] = True
     if not args.keep_parked_tail:
-        rows = drop_parked_tail(rows)
+        rows, is_dag_row = drop_parked_tail_with_mask(rows, is_dag_row)
     obs_np, act_np = rf.split(rows)            # obs (n, NPOBS_N), act (n, 3) = [a_lat0, a_lat1, thr]
 
     # ---- OUTPUT RANGE (see THE OUTPUT-RANGE TRAP at the top of this file). `gamut` was derived
@@ -370,8 +401,10 @@ def main():
 
     obs_t = torch.tensor((obs_np - mu) / sd, dtype=torch.float32, device=dev)
     act_t = torch.tensor(act_np, dtype=torch.float32, device=dev)
-    rw_t = torch.tensor(np.stack([np.ones_like(thr_w), np.ones_like(thr_w), thr_w], axis=1),
-                        dtype=torch.float32, device=dev)      # per-ROW, per-CHANNEL weight
+    row_w = np.stack([np.ones_like(thr_w), np.ones_like(thr_w), thr_w], axis=1)
+    if args.dagger_data and args.dagger_weight != 1.0:
+        row_w[is_dag_row, :] *= args.dagger_weight          # interference control (see --dagger-weight)
+    rw_t = torch.tensor(row_w, dtype=torch.float32, device=dev)  # per-ROW, per-CHANNEL weight
     engon_t = torch.tensor(engon > 0.5, device=dev)
     tr_idx = torch.tensor(np.where(tr_mask)[0], device=dev)
     va_idx = torch.tensor(np.where(va_mask)[0], device=dev) if va_mask.any() else None

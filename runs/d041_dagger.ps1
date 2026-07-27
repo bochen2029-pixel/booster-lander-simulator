@@ -40,6 +40,7 @@ param(
   [int]$SeedsPerRound = 3,
   [int]$Hidden        = 192,
   [int]$Epochs        = 400,
+  [double]$DaggerWeight = 1.0,   # <1 tames dag-row interference with the teacher-regime fit (audit: ENTRY-clean RMSE tripled at 1.0)
   [string]$DeadlineLocal = "",
   [string]$Exe        = "build\bin\Release\booster-core.exe"
 )
@@ -69,20 +70,28 @@ function Measure-Compound($tag) {
 # Teacher-flown corpora (verdict-filtered) vs DAgger shadow corpora (verdict-filter EXEMPT — the
 # outcome is the student's, the labels are the oracle's; filtering by the student's crashes would
 # discard exactly the covariate-shift rows the round exists to collect).
-$dagDirs = @()
+#
+# RESUME ACROSS INVOCATIONS (audit follow-up): pick up every prior round's collection from disk.
+# A fresh invocation that started with an empty list silently DROPPED rounds 1-N's dag data from
+# the retrain — the probe would have trained on base + its own round only.
+$dagDirs = @(Get-ChildItem -Directory "data\s0rf_dag*" -ErrorAction SilentlyContinue | ForEach-Object { "data\$($_.Name)" })
+if ($dagDirs.Count) { L "resuming with $($dagDirs.Count) prior DAgger dir(s): $($dagDirs -join ', ')" }
 
+$dagBase = $dagDirs.Count   # rounds already collected by prior invocations
 for ($k = 1; $k -le $Rounds; $k++) {
   if ($deadline -and (Get-Date) -ge $deadline) { L "DEADLINE reached before round $k — stopping cleanly"; break }
   $npv = $NpBase + $k - 1
-  $dir = "data\s0rf_dag$k"
+  $gRound = $dagBase + $k     # GLOBAL round index: a resumed invocation must not collide with
+                              # (or skip-reuse!) a prior invocation's dag dirs and seeds
+  $dir = "data\s0rf_dag$gRound"
   New-Item -ItemType Directory -Force $dir | Out-Null
-  L "=== ROUND $k / $Rounds  (NP_VERSION $npv, collecting into $dir) ==="
+  L "=== ROUND $k / $Rounds (global $gRound; NP_VERSION $npv, collecting into $dir) ==="
 
   # ---- 1. COLLECT. Fly the CURRENT student; the oracle labels the states it visits. The compound
   # recipe is varied per seed so the round covers the disturbance product, not one corner of it.
   $gb = @()
   for ($i = 0; $i -lt $SeedsPerRound; $i++) {
-    $seed = $SeedBase + $k * 100 + $i
+    $seed = $SeedBase + $gRound * 100 + $i   # keyed to the GLOBAL round ($g is the local gbest array below!)
     if (@(42, 7, 99) -contains $seed) { L "SKIP held-out gate seed $seed"; continue }
     $peak = 12 + ($i % 3) * 6                     # 12,18,24 m/s
     $tr = 15 + ($i % 3) * 5                       # circle radius 15,20,25 m
