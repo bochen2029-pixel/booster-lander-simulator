@@ -2685,3 +2685,37 @@ byte-identical · neural AERO exactly 46/60) — no unpromoted artifact remains 
 The probe's ckpt-naming clobber (local vs global round index) fixed for any future invocation.
 NP7–NP12's weights headers were transient by design; their hashes, KATs, metrics and the full data
 (dag1–5, 361k shadow rows) are preserved in this ledger, the dagger log, and `data/s0rf_dag*`.
+
+## D-042 — R2 opens: θ̂-as-gain-schedule. The constant-θ ablation, and a REASONING CORRECTION (2026-07-26)
+
+Phase 3 closed on the authority gap + label conflict. R2 attacks the four inexpressible θ dims by
+letting a predictor drive `gcmd.rt` (the reactive stack's gains) instead of asking π to imitate
+commands. Before building the predictor net, a cheap ablation lever — `--rfly-fixed "v0..v9"` (fly
+GM_RFLY with a CONSTANT θ and NO CEM; byte-clean, default-off, verified: identity-θ reproduces
+hoverslam's 2/12 exactly, TERMINAL ×200 byte-identical, v6 KAT intact).
+
+**The constant-θ ladder, canonical compound s42 ×12 (hoverslam 2/12, GM_RFLY 12/12):**
+
+| θ source | landed | landed-means note |
+|---|---|---|
+| identity (= hoverslam) | 2/12 | byte-identical sanity |
+| constant MEAN-θ (corpus) | 2/12 | tighter td_lat/tilt, same count |
+| constant MEDIAN-θ | 2/12 | same |
+
+⇒ **no single θ beats identity** — the oracle's compound win is entirely per-scenario.
+
+**Then the decisive probe — is a per-scenario constant enough, or are the replans load-bearing?**
+Run 0's OWN converged θ (EKR 0.94 … the gentle LANDING tune), held constant from t=0, **CRASHES the
+very draw GM_RFLY lands PERFECT** (15.47 m/s / 48.8 m vs 1.72 / 0.38). Its t=0 solve wanted EKR≈4.0.
+**⇒ θ must CHANGE across phases** — aggressive entry divert, gentle landing. The replans are the
+mechanism; no constant, even the per-scenario optimum, flies the whole descent.
+
+**REASONING CORRECTION (recorded because I nearly acted on the wrong conclusion).** Mid-analysis I
+reasoned "constant-θ ≈ θ̂ in nrmse, and constant-θ = 2/12, so θ̂-as-controller probably won't fly →
+pivot to warm-start." **That is wrong.** θ̂ predicts θ PER TICK from the observation — a time-varying
+SCHEDULE that tracks the phase (its training labels ARE the phase-appropriate per-tick θ). A constant
+cannot express that schedule; the run-0 probe proves the schedule is exactly what matters. So the
+constant-θ null bounds "one θ for the whole flight," NOT θ̂. θ̂'s upper bound is GM_RFLY's own 12/12,
+and the open question is how much its per-tick prediction error (nrmse ~0.26, and the main-tree
+reactive law is NOT the sandbox's ±5% knife-edge) costs. **There is no cheap proxy — θ̂-as-controller
+must be built and flown.** Building it next.

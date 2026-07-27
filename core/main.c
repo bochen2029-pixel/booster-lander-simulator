@@ -32,6 +32,25 @@
 extern int g_mppi_use_cuda;
 extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the composite (student-warm-started MPPI); defined in sim.c */
 extern int g_shadow_rfly;        /* D-041 ORACLE DAGGER: --shadow-rfly logs GM_RFLY's command at the student's visited states; defined in sim.c */
+
+/* R2 (D-042 ablation): --rfly-fixed "v0,..,v9" flies GM_RFLY with a CONSTANT theta and NO CEM.
+ * The question it answers cheaply: how much of the oracle's compound win is a better DEFAULT gain
+ * vector (a shippable 10 numbers) vs the per-scenario SEARCH? Applied after sim_init (which armed
+ * the identity warm start); sets noreplan so rfly_replan never runs. g_rfly_fixed_on==0 => no CLI
+ * flag => GM_RFLY behaves exactly as D-040 (byte-identical). */
+static int    g_rfly_fixed_on = 0;
+static double g_rfly_fixed_theta[10];
+static int parse_rfly_fixed(const char* csv){   /* returns 1 on a clean 10-value parse */
+    int n=0; const char* p=csv;
+    while(n<10 && *p){ char* end; double v=strtod(p,&end); if(end==p) return 0;
+        g_rfly_fixed_theta[n++]=v; p=end; while(*p==','||*p==' ') p++; }
+    return (n==10 && *p=='\0');
+}
+static void apply_rfly_fixed(Sim* s){
+    if(!g_rfly_fixed_on || s->guidance_mode!=GM_RFLY) return;
+    for(int i=0;i<10;i++) s->rfly.th[i]=g_rfly_fixed_theta[i];
+    s->rfly.noreplan=1;   /* fly the constant theta; the CEM never runs */
+}
 extern int g_shadow_reactive;    /* E2' (D-032): --shadow-reactive logs the hoverslam divert as the DAgger teacher label; defined in sim.c */
 
 static int g_fail = 0;
@@ -390,6 +409,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
         else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;
         else if(!strcmp(argv[i],"--shadow-rfly")) g_shadow_rfly=1;   /* D-041: ORACLE-DAgger teacher label (theta re-solved at the student's state) */
+        else if(!strcmp(argv[i],"--rfly-fixed")&&i+1<argc){ if(!parse_rfly_fixed(argv[++i])){ fprintf(stderr,"error: --rfly-fixed needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_on=1; }   /* R2 D-042: constant-theta GM_RFLY */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -412,6 +432,7 @@ static int cmd_run(int argc, char** argv){
         if(gmode!=GM_MPPI && gmode!=GM_NEURAL && gmode!=GM_RFLY) fprintf(stderr,"warning: --policy-log logs only under --mppi (executed teacher), --neural (DAgger shadow teacher, D-023) or --rfly (THE ORACLE teacher, D-040 / oracle-distill)\n");
     }
     Sim s; sim_init(&s,scen,seed,run,modules,gmode);
+    apply_rfly_fixed(&s);   /* R2 ablation: constant-theta GM_RFLY, no CEM (no-op without --rfly-fixed) */
     sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
     if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, run); }
     if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
@@ -477,6 +498,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--mppi-warm-neural")){ gmode=GM_MPPI; g_mppi_warm_neural=1; }  /* E1 D-029: composite = student-warm-started MPPI */
         else if(!strcmp(argv[i],"--shadow-reactive")) g_shadow_reactive=1;
         else if(!strcmp(argv[i],"--shadow-rfly")) g_shadow_rfly=1;   /* D-041: ORACLE-DAgger teacher label (theta re-solved at the student's state) */
+        else if(!strcmp(argv[i],"--rfly-fixed")&&i+1<argc){ if(!parse_rfly_fixed(argv[++i])){ fprintf(stderr,"error: --rfly-fixed needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_on=1; }   /* R2 D-042: constant-theta GM_RFLY */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -523,6 +545,7 @@ static int cmd_headless(int argc, char** argv){
     double vmax=0;
     for(long r=0;r<runs;r++){
         Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,gmode);
+        apply_rfly_fixed(&s);   /* R2 ablation: constant-theta GM_RFLY, no CEM (no-op without --rfly-fixed) */
         if(tapf){ s.tap.f=tapf; s.tap.seed=seed; s.tap.run=(uint32_t)(r+1); }   /* attach tap after sim_init (memset) */
         sim_set_gust(&s, g_peak, g_alt, g_hw, g_dir);   /* DIAL-A-GUST arm (no-op when g_peak==0) */
         if(modules&MOD_ENGINE_OUT){ arm_engine_out(&s, eo_eng, eo_t, eo_rnd, seed, (uint32_t)(r+1)); }
