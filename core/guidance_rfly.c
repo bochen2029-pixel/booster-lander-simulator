@@ -74,10 +74,14 @@ static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], d
     return rfly_cost(&c2, &R);
 }
 
+/* R2b (D-042): CEM budget scale. 1.0 => the D-040 POP/ITERS exactly (byte-clean). <1 shrinks the
+ * search — the lever that shows how much θ̂-warm-starting saves. Set by --rfly-budget. */
+double g_rfly_budget = 1.0;
+
 void rfly_replan(Sim* s, int big){
     RflyState* rf=&s->rfly;
-    int POP   = big ? 192 : 48;
-    int ITERS = big ? 10  : 4;
+    int POP   = (int)((big ? 192 : 48) * g_rfly_budget); if(POP<8)  POP=8;
+    int ITERS = (int)((big ? 10  : 4 ) * g_rfly_budget); if(ITERS<2)ITERS=2;
     double sd_scale = big ? 1.0 : 0.35;
     double t_horizon = s->st.t + 160.0;              /* the reactive descent is ~117-140 s */
     if(t_horizon < 210.0) t_horizon = 210.0;

@@ -41,6 +41,10 @@ int g_shadow_reactive = 0;
 int g_shadow_rfly = 0;
 /* R2 (D-042): --rfly-theta-net routes GM_RFLY theta from the prior net, not the CEM. Default 0. */
 int g_rfly_theta_net = 0;
+/* R2b (D-042): --rfly-warm-net SEEDS the CEM mean from θ̂ each replan (the AlphaZero move — the search
+ * still runs, the prior just centres it), so a reduced --rfly-budget can still reach the basin.
+ * Default 0 => the CEM cold-starts from the previous θ exactly as D-040. */
+int g_rfly_warm_net = 0;
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -668,6 +672,11 @@ int sim_step(Sim* s){
             rfly_async_poll(s);
         } else if(!s->rfly.noreplan && st->t >= s->rfly.next_replan_t){
             int big = (s->rfly.next_replan_t<=0.0);
+            /* R2b: seed the CEM mean from θ̂(obs) — rfly_replan starts mean at rf->th and keeps it as
+             * the guaranteed elite, so the search centres on the prior yet can only match-or-beat it.
+             * Seeds EVERY replan: after an engine-out the θ̂ obs carries the sf/wdot signature, so the
+             * prior tracks the phase. Default off => rf->th unchanged => byte-identical. */
+            if(g_rfly_warm_net) theta_policy_step(&nav, &s->gcmd, &s->phist, s->rfly.th);
             rfly_replan(s, big);
             s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
         }
