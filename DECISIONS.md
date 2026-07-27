@@ -2928,3 +2928,34 @@ against nothing but the committed tree.
 state: the frozen `theta_policy_weights.h` + the fixed-order fp64 forward pass + the deterministic
 plant reproduce it from a clean checkout of what is public. This is the determinism contract (canon
 §0.4) doing exactly the job it exists for.
+
+## D-040 ADDENDUM 2 — the compound 36/36 REPRODUCES FROM A CLEAN CLONE, digit for digit (2026-07-27)
+
+Companion to the D-044 addendum (which verified M4). The D-040 headline was measured on branch
+`cfly-port @ f3624c6`, BEFORE the merge to main and before this session added: the terminal freeze,
+the App-G v2 socket widening (NPOBS_N 30→39), Tier-A full action, the GM_RFLY oracle tap,
+`--shadow-rfly`, `--rfly-fixed`/`--rfly-theta-net`/`--rfly-warm-net`/`--rfly-budget`, D-043's
+deck-relative settle change, and the entire θ̂ stack. Every one of those is default-off or SEA-gated
+and *should* leave GM_RFLY bit-identical — this verifies it instead of asserting it.
+
+Method: `git clone` the PUBLISHED repo (@ `5811b9d`) to scratch, fresh cmake configure + Release
+build, then re-run the battery **exactly as originally measured** — `--run --run $r` for r in 0..11
+per seed (NOT `--headless --runs 12`, which uses run indices 1..12 and would be a different draw set;
+reproducing the wrong indices would have been a subtly false "reproduction").
+
+| | D-040 ledger | clean clone |
+|---|---|---|
+| s42 | 10 PERFECT / 2 GOOD | **10P / 2G** |
+| s7 | 10 PERFECT / 2 GOOD | **10P / 2G** |
+| s99 | 9 PERFECT / 3 GOOD | **9P / 3G** |
+| total | **36/36, 29P + 7G, zero crashes** | **36/36, 29P + 7G, zero crashes** |
+| max lateral | sub-meter | **0.99 m** |
+
+**Digit-level identity, not just matching tallies:** s42 run 0 `td_v=1.72 lat=0.38 fuel=3296 t=113.4
+maxq=50311`, run 11 `td_v=1.91 lat=0.69` — every value identical to the ledger, including fuel and
+peak dynamic pressure. ⇒ the compound showcase controller is bit-stable across a branch merge, a
+socket re-architecture, a plant settle-test change, six new CLI levers and two new frozen nets. The
+byte-equality gates that were run at each step were telling the truth.
+
+**Both headline claims are now verified reproducible from what is public:** the compound 36/36
+(D-040) and M4 GREEN 171/180 (D-044).
