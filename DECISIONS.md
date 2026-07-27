@@ -2635,3 +2635,53 @@ observation-motivated experiment recorded AFTER the registered null — not a re
 labeled for both nets · the DAgger machinery works and measures its own covariate shift · the
 authority gap is the named blocker with a remediation ladder (R2 next, operator's blessing pending) ·
 the showcase flies today on GM_RFLY.
+
+
+## D-041 ADDENDUM 11 — PROBE CLOSED AT ITS HARD STOP: the post-cut-DAgger lane is CLOSED (2026-07-26, 20:37)
+
+The bounded probe (declared in addendum 10 BEFORE its data existed) ran rounds 4–5 and hit its hard
+stop. **All three pre-declared criteria failed.** The lane closes on its own terms.
+
+**The complete arc, five rounds + BC:**
+
+| round | policy | dag weight | compound s42 | mean shadow gbest | teacher fit (AERO/ENTRY/compound RMSE) |
+|---|---|---|---|---|---|
+| BC | NP7 | — | 0/12 | 80,198 (its states) | 0.218 / 0.203 / 0.299 |
+| 1 | NP8 | 1.0 | 0/12 | — | — |
+| 2 | NP9 | 1.0 | 0/12 | 51,988 (−35%) | 0.361 / 0.669 / 0.565 |
+| 3 | NP10 | 1.0 | 0/12 | 23,470 (−55%) | 0.423 / 0.442 / 0.586 |
+| 4 | NP11 | 0.3 | 0/12 | 21,464 (−8.5%, the knee) | 0.383 / 0.445 / **0.819** |
+| 5 | NP12 | 0.3 | **0/12** | **26,681 (REVERSED, +24%)** | — |
+
+**Criterion (a) — teacher fit returns toward 0.2–0.3: FAILED.** Weight 0.3 was marginal on AERO,
+flat on ENTRY, and WORSE on compound-teacher rows (0.586→0.819).
+**Criterion (b) — gbest continues toward ~8k: FAILED.** The decay knee'd at round 4 and REVERSED at
+round 5 (15.4k→31.5k on the g12 lane; round mean 21.5k→26.7k).
+**Criterion (c) — any nonzero rate: FAILED.** 0/12 at every round, NP8 through NP12.
+
+**The three-mechanism attribution this arc measured (each with its own data):**
+1. **Covariate shift** — real, and DAgger FIXED it: visited-state cost fell 71% over rounds 1–3,
+   monotone on every matched recipe. The mechanism works.
+2. **The authority gap** (addendum 9, CRITICAL 2) — structural: 4 of the oracle's 10 θ dims
+   (entry EKR/EKV/EBANK + ignition IGNM) act through machinery the student can never touch. The
+   rate-vs-gbest divergence and the round-4 knee at ~2.5× the recoverable floor are its signature,
+   predicted before the data.
+3. **Label conflict** — the oracle's least-bad answers from doomed states contradict its nominal-
+   manifold answers at nearby observations. Down-weighting shifted the average without resolving the
+   contradiction (criterion a's failure pattern), and muting the dag signal degraded the correction
+   (criterion b's reversal). A unimodal 82k-param head cannot represent both modes — the same
+   MSE-mode-averaging wall LODESTAR §1.3(3) measured as "~54° apart, opposite hemispheres 27%".
+
+**Verdict: the post-cut-DAgger lane is CLOSED.** Not because DAgger is broken — because what remains
+after it works is exactly what it cannot reach. The remediation ladder's next rung is **R2:
+θ̂-as-gain-schedule under GM_NEURAL** (addendum 9), which sidesteps all three mechanisms for the
+decisive dims: a gain schedule imitates nothing (no conflict), acts through the supervisor and
+trigger (no authority gap), and is evaluated by the plant, not by regression (no covariate chase).
+Its A/B design (identity vs constant-mean-θ vs θ̂, plus the single-t=0-solve middle rung) is
+pre-scoped in the ledger. Awaiting the operator's blessing.
+
+**Hygiene at closure:** tree RESTORED to v6 and re-verified (NP_VERSION 6 KAT PASS · TERMINAL ×200
+byte-identical · neural AERO exactly 46/60) — no unpromoted artifact remains in the working tree.
+The probe's ckpt-naming clobber (local vs global round index) fixed for any future invocation.
+NP7–NP12's weights headers were transient by design; their hashes, KATs, metrics and the full data
+(dag1–5, 361k shadow rows) are preserved in this ledger, the dagger log, and `data/s0rf_dag*`.

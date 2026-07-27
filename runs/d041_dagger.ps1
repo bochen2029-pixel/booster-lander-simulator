@@ -120,7 +120,7 @@ for ($k = 1; $k -le $Rounds; $k++) {
 
   # ---- 2. RETRAIN: teacher corpora verdict-filtered as always; DAgger corpora EXEMPT (the outcome
   # is the student's, the labels are the oracle's). Parked-tail trimming + auto-gamut on the merge.
-  $ckpt = "runs\s0rf_dag$k.pt"
+  $ckpt = "runs\s0rf_dag$gRound.pt"   # GLOBAL round: a resumed probe must not clobber a prior round's ckpt
   L "retrain: $($BaseData.Count) teacher corpus dir(s) + $($dagDirs.Count) DAgger dir(s) -> $ckpt"
   python trainer\train_s0.py --data $BaseData --verdict-csv $BaseData --keep-verdicts 1,2 `
       --dagger-data $dagDirs `

@@ -28,6 +28,15 @@
   `d041_export_build.ps1` (the single shared freeze ceremony — KAT pinned from the C pass) +
   `d041_dagger.ps1` (the loop; reports the landed rate AND the mean shadow gbest, the covariate-shift
   readout). **Farms at 00:55: compound 5 seeds banked 80/80 landed; clean 4 AERO seeds 63/64.**
+- **2026-07-26 ~20:45 [fable] — PHASE 3 CLOSED AT THE PROBE'S HARD STOP; TREE RESTORED TO v6 AND
+  RE-GATED.** All three pre-declared probe criteria failed: teacher fit not restored (compound rows
+  WORSE at weight 0.3, 0.586→0.819), gbest decay REVERSED (21.5k→26.7k), rate 0/12 at every round
+  NP8-NP12. The five-round arc's attribution, each mechanism with its own data: covariate shift
+  (DAgger fixed it, −71%) · the authority gap (structural, predicted pre-data, the round-4 knee at
+  ~2.5× the floor) · label conflict (the LODESTAR mode-averaging wall, resistant to down-weighting
+  in BOTH directions). Full tables: D-041 addenda 9-11. Tree restored: NP6 KAT PASS, TERMINAL ×200
+  byte-identical, neural AERO exactly 46/60 — nothing unpromoted remains. NEXT: **R2
+  (θ̂-as-gain-schedule)** awaits the operator; the showcase flies GM_RFLY regardless.
 - **2026-07-26 ~19:15 [fable] — R1 VERDICT LEDGERED (kill criterion fired as registered, 0/12 ×3 with
   gbest −71%); the BOUNDED PROBE is flying (rounds 4-5 global, NP11/12, dagger-weight 0.3, HARD STOP
   after round 5); operator freed disk (C: 21.8 GB — audit H3 CLOSED, v1 datasets stay).** Full data +
