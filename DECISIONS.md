@@ -2589,3 +2589,49 @@ injections, deterministic shadow replans. Directive 6: no assist entered the pla
 session was label-side or observation-side. The oracle itself: 388 farmed runs, 98.2% verdict yield,
 sub-meter medians on fresh recipes — the teacher is real, and the corpus + the verified DAgger
 machinery are exactly what R2 consumes.
+
+
+## D-041 ADDENDUM 10 — R1 VERDICT: the pre-registered KILL CRITERION FIRES (2026-07-26, 19:10)
+
+**The number, exactly as registered:** held-out compound s42 ×12 after 3 corrected oracle-DAgger
+rounds = **0/12, 0/12, 0/12** (NP8, NP9, NP10). The D-041 criterion — "if the student ≤ hoverslam's
+2/12 after 3 DAgger rounds, ledger the null with data" — fires. **This is a NULL on "BC + post-cut
+DAgger alone reaches the compound," recorded without goalpost-moving.**
+
+**The full data, because the null is precise, not empty:**
+
+| round | student policy | compound s42 | mean shadow gbest | matched-recipe gbest (g12 / g18 / g24) |
+|---|---|---|---|---|
+| BC | NP7 | 0/12 | (80,198 measured on its flights) | 67.4k / 71.9k / 100.1k |
+| 1 | NP8 | 0/12 | 80,198 → | — |
+| 2 | NP9 | 0/12 | 51,988 (−35%) | 51.8k / 47.9k / 55.7k |
+| 3 | NP10 | 0/12 | **23,470 (−71% cum.)** | 26.7k / 18.6k / 25.0k |
+
+**What the null does and does not say:**
+1. **The DAgger mechanism WORKED.** The covariate shift fell 71% in three rounds, monotone on every
+   matched recipe, accelerating (×0.65 then ×0.45), from 10× the ~8,000 recoverable floor to ~3×.
+   The student's visited states improved dramatically; landings did not appear because the states
+   are still outside the funnel — and, per the audit (addendum 9, CRITICAL 2), because the four θ
+   dims that decide entry and burn timing are structurally outside the student's authority. The
+   rate-vs-gbest divergence is exactly the authority-gap signature predicted BEFORE the data.
+2. **A second, independent cap was measured mid-loop: interference.** The dag rows eroded the
+   teacher-regime fit — ENTRY-clean RMSE 0.203 (NP7) → 0.669 (NP9) → 0.442 (NP10); AERO-clean
+   0.218 → 0.361 → 0.423 — so later rounds were simultaneously better-targeted (dag data) and
+   worse-fitted (teacher data). Fixed post-loop with `--dagger-weight` (origin-marked rows,
+   down-weighted loss); the fix is committed but UNMEASURED as of this addendum.
+3. **The kill criterion's action is already true:** the showcase controller is GM_RFLY (36/36
+   held-out + the filmed N3 live demo). Nothing regresses.
+
+**THE BOUNDED PROBE (declared before it runs, so it cannot become goalpost-moving):** the gbest decay
+is a clean converging curve that the 3-round budget cut mid-fall, and the interference fix is
+unmeasured. Therefore ONE bounded follow-on: rounds 4–5 (global), `-DaggerWeight 0.3`, NP11/NP12,
+**hard stop after round 5 regardless of outcome.** Success criteria, fixed now: (a) teacher-regime
+RMSE returns toward NP7's ~0.2–0.3 (the weighting works), (b) gbest continues its decay toward ~8k,
+(c) any nonzero compound rate. If round 5 is still 0/12, the post-cut-DAgger lane is CLOSED and the
+arc moves to R2 (θ̂-as-gain-schedule) with the probe's data as its design input. The probe is an
+observation-motivated experiment recorded AFTER the registered null — not a revision of it.
+
+**Where the arc stands after R1:** the oracle is proven (388 runs, 98.2% yield) · the corpus is
+labeled for both nets · the DAgger machinery works and measures its own covariate shift · the
+authority gap is the named blocker with a remediation ladder (R2 next, operator's blessing pending) ·
+the showcase flies today on GM_RFLY.
