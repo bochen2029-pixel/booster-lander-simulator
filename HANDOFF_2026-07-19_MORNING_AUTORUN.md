@@ -28,6 +28,20 @@
   `d041_export_build.ps1` (the single shared freeze ceremony — KAT pinned from the C pass) +
   `d041_dagger.ps1` (the loop; reports the landed rate AND the mean shadow gbest, the covariate-shift
   readout). **Farms at 00:55: compound 5 seeds banked 80/80 landed; clean 4 AERO seeds 63/64.**
+- **2026-07-27 [opus] — M4 PUSH (borderline, overnight data attempt running) + D-043 SETTLE FIX shipped.**
+  (1) **M4:** swept theta-hat regularization (weight-decay x hidden, 6 configs) + clean-only specialization
+  — ALL NULL. Root cause: best-val is always EPOCH 1, so the net overfits before regularization acts; the
+  ceiling is DATA VOLUME (effective samples = runs), not capacity. Ruled out the D-018 plant-authority
+  explanation: the failing s42 draws are near-misses (31-91m off a 26m pad, several soft), i.e.
+  theta-prediction shortfalls, not out-of-frontier crashes. Verdict: **M4-BORDERLINE** — theta-hat = 90.0%
+  aggregate held-out AERO (162/180, s42 at 88.3%, one draw short). Launched an overnight AERO farm
+  (`data/s0rf_m4aero`, seeds 6300-6317, ~288 runs, deadline 08:30) = the genuine data attempt; retrain +
+  export TP_VERSION 2 + re-gate next session. (2) **D-043 SETTLE FIX:** the deferred plant bug (D-041 add.3)
+  — settle test scored ABSOLUTE KE so SEA runs never settled (ran to the t=200 cap, ~35% farm CPU parked).
+  Now deck-RELATIVE (sea_deck_pose horizontal-velocity outputs + deck_vxy_live; SEA-gated 0.10 threshold
+  for the un-coupled horizontal wander artifact). **Byte-safe** (SEA off => identical; TERMINAL x200 byte,
+  selftest PASS, MPPI anchor exact). SEA landers now terminate ~124-145s vs ~200s. **NOTE: the M4 farm
+  holds the exe — no C builds until 08:30/FARM-COMPLETE.** On completion: retrain theta-hat, gate M4.
 - **2026-07-27 [opus] — R2b = NULL: the theta-hat CEM warm-start doesn't help; the real-time win is
   budget-reduction alone.** Built --rfly-warm-net (seed the CEM mean from theta-hat) + --rfly-budget
   (scale POP x ITERS), byte-clean default-off (run-0 PERFECT 0.38 exact). Compound s42 x12 sweep:
