@@ -2770,3 +2770,43 @@ the `--rfly-theta-net` plumbing are the pieces it builds on.
 **Promotion:** TP_VERSION 1 committed as a byte-clean default-off capability (guidance_theta.{c,h},
 theta_policy_weights.h, export_theta.py, --rfly-theta-net, --tp-kat, the selftest TP KAT). No golden
 moves; NP_VERSION 6 remains the shipped policy; GM_RFLY remains the showcase controller.
+
+## D-042 ADDENDUM 1 — R2b: the warm-start is a NULL; the compute win is budget-reduction alone (2026-07-27)
+
+R2b tested θ̂ as a CEM WARM START (seed the mean, keep the search) — the "search supplies precision,
+NN warm-starts" move — via `--rfly-warm-net` + `--rfly-budget FRAC` (both default-off/1.0 ⇒ D-040
+byte-exact; run-0 reproduces PERFECT 1.72/0.38). Compound s42 ×12 sweep:
+
+| budget | identity (cold CEM) | θ̂-warm | identity wall-clock |
+|---|---|---|---|
+| 1.0 | 12/12 | 12/12 | 1642 s |
+| 0.5 | 12/12 | 12/12 | 201 s |
+| 0.25 | **12/12** | 10/12 | 78 s |
+| 0.125 | **12/12** | 9/12 | 62 s |
+
+**Two findings, both clean:**
+
+1. **The search is intrinsically cheap and robust — the real-time win needs NO net.** Cold-started
+   GM_RFLY holds 12/12 (survivable, on-pad, upright) from full budget down to **1/8 budget** — a **26×
+   wall-clock cut** (1642→62 s), ~0.4 s/replan = genuinely real-time. The reactive-stack θ-basin is
+   wide (not the sandbox knife-edge), so a tiny CEM (POP 24×2 / 6×2) + elitism finds it every time.
+   **Caveat (measured):** the *landing rate* holds but *precision* degrades — full budget is 10
+   PERFECT / 2 GOOD / sub-meter; budget 0.25 and 0.125 are 1 PERFECT / 9 GOOD / 2 HARD (lat means
+   1.3–2.8 m, td_v to ~5.2). All 12 still land on-pad/upright, but the strict all-GOOD+ showcase bar
+   wants full budget. So real-time-via-budget-cut is a precision↔latency trade, not free.
+
+2. **θ̂-warm-starting is a NULL, and negative at low budget** (12→10→9 as budget shrinks). Re-seeding
+   the CEM mean from θ̂ EVERY replan discards the search's accumulated θ; for the small warm replans the
+   previous converged θ is a better start than θ̂'s imperfect prediction, and a 2-iteration budget can't
+   recover from the reset. Seed-big-only was not pursued: identity's cold solve NEVER breaks across the
+   sweep, so there is no regime a warm-start is needed to rescue, and the low-budget precision loss is a
+   too-few-refinement-iterations artifact that θ̂ seeding cannot restore. The prior adds no value to a
+   search this robust.
+
+**R2/R2b arc conclusion (the honest through-line):** the compound is SEARCH-NECESSARY (Phase 3 +
+D-042 constant-θ probe + LODESTAR §13), and the search is CHEAP and ROBUST (real-time at 1/8 budget,
+survivable). The NN's value is NOT as a compound controller (Phase 3 null) nor as a search accelerator
+(R2b null) — it is a broad-envelope GAIN-SCHEDULE (R2: held-out AERO +24%, M4-borderline). The
+deployable showcase stack is therefore: **GM_RFLY for the compound (full budget offline / reduced
+budget or KESTREL's GPU CEM for real-time), θ̂ for the broad envelope.** The `--rfly-warm-net` lever is
+kept (byte-clean, default-off) as a negative result on the record, not a shipped path.
