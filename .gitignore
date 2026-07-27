@@ -75,3 +75,4 @@ trainer/*.pt
 build_kat/
 runs/theta_prior*.pt
 runs/s0rf*.pt
+runs/theta_*.pt

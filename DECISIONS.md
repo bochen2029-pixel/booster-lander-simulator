@@ -2866,3 +2866,42 @@ their ~110-130 s touchdowns) vs the old ~200 s cap. The residual long runs are P
 (the D-035 caveat, a guidance issue the settle test cannot address), not settle failures. No verdict
 changes (impact latches at first contact). Every future SEA/compound farm and DAgger round saves the
 post-touchdown parked tail.
+
+## D-044 — M4 GREEN: the θ̂ gain-schedule clears held-out AERO ≥90% (TP_VERSION 2) (2026-07-27)
+
+**M4 is GREEN.** Open since D-018 (which redirected it from the closed sampler branch to "the N3 policy
+or a plant-authority ADR"), the AERO ≥90% milestone is cleared by a LEARNED controller — the θ̂
+gain-schedule (`--rfly-theta-net`, TP_VERSION 2):
+
+| seed (held-out) | hoverslam | θ̂ TP_VERSION 1 | **θ̂ TP_VERSION 2** |
+|---|---|---|---|
+| s42 | 40/60 (66.7%) | 53/60 | **57/60 (95.0%)** |
+| s7 | 45/60 (75.0%) | 53/60 | **58/60 (96.7%)** |
+| s99 | 46/60 (76.7%) | 56/60 | **56/60 (93.3%)** |
+| **aggregate** | 131/180 (72.8%) | 162/180 (90.0%) | **171/180 (95.0%)** |
+
+All three held-out seeds ≥54/60. Arrival quality (§9.9 sub-metric, reported honestly): GOOD-dominant
+with a HARD fraction (~10-16/60 HARD), not PERFECT-dominant — the landed-RATE gate is cleared; the
+touchdowns are survivable-and-on-pad, not pinpoint.
+
+**What cleared it: more AERO oracle data (the honest lever).** The regularization + specialization
+sweep (D-042 add.2) was NULL — best-val stuck at epoch 1. The M4 farm tripled AERO coverage (160 → 443
+runs). Retrained θ̂ then flew **162 → 171/180**, clearing every seed.
+
+**A methodology lesson worth the ledger: val_nrmse is a POOR proxy for landing rate.** The TP_VERSION 2
+net has WORSE val_nrmse than v1 (0.2707 vs 0.2617) and the trainer's VERDICT called it WEAK — yet it
+lands +9 more draws. The per-tick θ regression error and the closed-loop landing outcome are only loosely
+coupled; the only trustworthy M4 metric is flying it. (This also corrects my mid-analysis pessimism — I
+judged the data lever low-EV from the sweep's rate-insensitivity; the enlarged corpus proved otherwise.
+Flying the candidate, not trusting the proxy, is what caught the win.)
+
+**Gates (full battery, all green):** selftest PASS (TP KAT re-pinned from the C pass, NP6 KAT intact) ·
+TERMINAL ×200 byte-identical · MPPI run-1 AERO s42 2.63/10.48 exact · neural v6 AERO 46/60 unchanged ·
+θ̂ determinism pair identical. θ̂ is default-off, so every existing golden reproduces (the §13.6 leak
+gate). NP_VERSION 6 remains the shipped GM_NEURAL policy; θ̂/GM_RFLY are the added learned+search stack.
+
+**The N3 §14 routing resolved:** M4's "AERO ≥54/60 ⇒ M4 GREEN via a learned policy" branch is TAKEN.
+The other branch (the 0.70·D_phys plateau → plant-authority ADR) is not needed. The θ̂ gain-schedule —
+a 10 µs learned net over the reactive stack — realizes the authority the D-018-era samplers couldn't,
+on the held-out law. Combined with R2/R2b/D-042: the learned tuning owns the broad envelope (M4 GREEN),
+the search owns the compound (GM_RFLY 36/36), each honestly bounded.

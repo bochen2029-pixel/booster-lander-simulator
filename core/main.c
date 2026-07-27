@@ -266,13 +266,13 @@ static void test_theta_kat(void){
     printf("[oracle: GM_RFLY theta-prior KAT] TP_VERSION=%d\n", theta_policy_version());
     double o[NPOBS_N]; for(int i=0;i<NPOBS_N;i++) o[i]=0.5*((double)((i*37+11)%13)-6.0);
     double th[10]; theta_policy_forward(o, th);
-    /* TP_VERSION 1 (theta_prior_full.pt, 381 runs, val_nrmse 0.2617) — dumped from THIS binary's
-     * fixed-order pass at %.17g. */
+    /* TP_VERSION 2 (theta_m4.pt, 443 AERO-enriched runs; M4 GREEN — held-out AERO 57/58/56) — dumped
+     * from THIS binary's fixed-order pass at %.17g, FROM THE C PASS never numpy (accumulation order). */
     const double EXP[10] = {
-        2.8480396341788068, 0.81287560349986276, 1.3990392745873574, 1.1183102149744797,
-        0.52503558749101198, 0.43777414380092844, 0.6649190675022385, 1.9381933959255302,
-        1.0454782930807158, 1.7219339252277734 };
-    for(int i=0;i<10;i++) CHECKF(th[i], EXP[i], 0.0, "TP KAT theta (TP_VERSION 1 bit-exact)");
+        1.5239198764193458, 0.68113889895500035, 1.4583740347558167, 2.1564796781244531,
+        0.38429049942481941, 1.0311814431132125, 1.1578430413786227, 2.6701921795223562,
+        0.38773413801240431, 1.254681781695179 };
+    for(int i=0;i<10;i++) CHECKF(th[i], EXP[i], 0.0, "TP KAT theta (TP_VERSION 2 bit-exact)");
     double th2[10]; theta_policy_forward(o, th2);
     int det=1; for(int i=0;i<10;i++) if(th[i]!=th2[i]) det=0;
     CHECK(det, "TP KAT forward pass is deterministic (bit-identical)");
