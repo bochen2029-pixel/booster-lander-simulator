@@ -28,6 +28,11 @@
   `d041_export_build.ps1` (the single shared freeze ceremony — KAT pinned from the C pass) +
   `d041_dagger.ps1` (the loop; reports the landed rate AND the mean shadow gbest, the covariate-shift
   readout). **Farms at 00:55: compound 5 seeds banked 80/80 landed; clean 4 AERO seeds 63/64.**
+- **2026-07-26 ~19:15 [fable] — R1 VERDICT LEDGERED (kill criterion fired as registered, 0/12 ×3 with
+  gbest −71%); the BOUNDED PROBE is flying (rounds 4-5 global, NP11/12, dagger-weight 0.3, HARD STOP
+  after round 5); operator freed disk (C: 21.8 GB — audit H3 CLOSED, v1 datasets stay).** Full data +
+  the probe's pre-declared success criteria: D-041 addenda 9-10. Unpromoted NP artifacts still
+  quarantined in the working tree (git checkout the two files restores v6).
 - **2026-07-25 ~23:30 [opus] — PILOT-TRAINED ON PARTIAL FARM DATA; found a second label defect and
   DRY-RAN THE WHOLE PHASE-3 CEREMONY.** Rather than idle until the farm lands, trained on the first two
   banked seeds (31 runs / 179k rows, 9 s on the RTX). Two payoffs. **(1) The throttle don't-care mask
