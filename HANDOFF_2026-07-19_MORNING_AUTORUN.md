@@ -28,6 +28,18 @@
   `d041_export_build.ps1` (the single shared freeze ceremony — KAT pinned from the C pass) +
   `d041_dagger.ps1` (the loop; reports the landed rate AND the mean shadow gbest, the covariate-shift
   readout). **Farms at 00:55: compound 5 seeds banked 80/80 landed; clean 4 AERO seeds 63/64.**
+- **2026-07-27 [opus] — R2 = PARTIAL WIN (D-042, TP_VERSION 1): theta-hat gain-schedule beats the
+  analytic baseline held-out (AERO 131->162/180), the FIRST learned artifact of the arc to do so; but
+  the engine-out compound stays 2/12 (search-necessary, triply confirmed).** Built the second net
+  (guidance_theta.{c,h}, --rfly-theta-net, byte-clean default-off, C==Python to 17 figs, TP KAT in the
+  selftest). Cheap ablations first proved constant-theta = identity = 2/12 on compound, and run-0's own
+  converged theta held constant CRASHES its own draw (theta must vary by phase => replans load-bearing);
+  I nearly mis-concluded from that (constant != theta-hat's schedule) and CORRECTED it in-ledger before
+  building. theta-hat then flew: clean AERO 40->53 (s42), held-out 90.0% aggregate (M4-BORDERLINE, s99
+  56/60), beating constant mean-theta on 2/3 held-out seeds -> real state-dependence. Compound 2/12 =
+  the lookahead wall. Honest reframe: a 10us feedforward controller for the COMPOUND is infeasible;
+  what ships is a 10us gain-schedule that lifts the broad envelope. NEXT (recommended): R2b theta-hat
+  as a CEM WARM START -> real-time GM_RFLY without an H200. Showcase stays GM_RFLY. Tree clean, gates green.
 - **2026-07-26 ~20:45 [fable] — PHASE 3 CLOSED AT THE PROBE'S HARD STOP; TREE RESTORED TO v6 AND
   RE-GATED.** All three pre-declared probe criteria failed: teacher fit not restored (compound rows
   WORSE at weight 0.3, 0.586→0.819), gbest decay REVERSED (21.5k→26.7k), rate 0/12 at every round
