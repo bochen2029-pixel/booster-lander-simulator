@@ -6,6 +6,65 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-09 ~03:30 [opus5] — D-046 IS IN: GM_RFLY SWEEPS THE ENGINE-OUT FRONTIER 180/180. THE
+  BOUND OPEN SINCE D-027 IS ACHIEVED.** All three held-out seeds 60/60 (42: 41P/19G · 7: 53P/7G ·
+  99: 53P/7G) = **147 PERFECT, 33 GOOD, 0 HARD, 0 TIPPED, 0 CRASHED, 0 faults, 0 crash causes of
+  any kind.** Worst touchdown across 180 draws = 3.73 m/s (GOOD threshold 4.0). Mean lateral miss
+  **0.32 / 0.34 / 0.33 m** — three independent seeds agreeing to 2 cm, which is what "arrives on the
+  bullseye" looks like rather than "scrapes through". 237.4 min wall, ~76 s/run, sequential.
+  **CONTROL RUN, same binary, same day, byte-identical faults: MPPI 4/60**, and 50 of its 56 crashes
+  were **off-pad** — the pure lateral-closure failure D-027 gilded. GM_RFLY: zero off-pad. Mechanism
+  is legible: θ carries EBANK/EKR/EKV = exactly D-030's engine-out divert knobs, solved
+  per-realization instead of at fixed multipliers (D-030's fixed values bought 0/1→9/10 of 60).
+  Price is legible too: **633 kg more propellant than MPPI.** **BASELINE CORRECTION ON THE RECORD:**
+  I first quoted E0's "MPPI 1/60" as the control — that number is from 2026-07-19, **pre-D-030**,
+  so it was a cross-version comparison; D-030 lifts EO mode-independently and MPPI is 4/60 on
+  today's HEAD. Numbers consistent, my label was wrong; corrected in D-046. **WHAT IT IS NOT:**
+  GM_RFLY is a **privileged oracle** — `rfly_eval_candidate` copies the Sim *including*
+  `eo_engine`/`eo_time`, so candidates fly the TRUE realization and the search knows which engine
+  fails and when. 180/180 is an **upper bound**, not a flight computer. **THE REFRAME:** the open
+  problem was never capability — it is **compression and latency under non-privileged observation**
+  (76 s/flight knowing the fault, vs 1-9/60 at 10 µs without it), which makes Phase 3's 0/12 a much
+  more interesting result: distillation did not fail against a weak teacher, it failed against a
+  teacher sitting at the ceiling. **A PREDICTION OF MINE IS FALSIFIED AND LEDGERED AS SUCH:** I
+  argued organ ③ (mission layer / site re-selection) was "probably where the number is" on D-027's
+  ~75%-lost-at-the-entry-burn-cut attribution; under the search that cluster is **gone** (zero
+  off-pad), so "commits to a pad it can no longer reach" is a property of the reactive/MPPI
+  controller, not of physics or of a missing global view. Organ ③ drops; organ ② rises. **NEXT,
+  PRE-REGISTERED BEFORE THE RUN: ①b the BLIND-TEACHER arm** — one line
+  (`if(!c2.eo_fired) c2.eo_engine = -1;`) hides unfired faults from candidate rollouts while the
+  real flight still takes them; ~45/60 ⇒ clairvoyance worth ~15 draws · ~6/60 ⇒ the 180/180 is made
+  of clairvoyance. **That number, not the 180/180, is the subject of this arc**, and organ ② must be
+  built blind from the start or it launders foreknowledge into a scalar. No C changed today; exe now
+  free (batch released it). Ledger: D-046 complete, ROADMAP ① ✅ + ①b opened, SCOREBOARD.md written.
+- **2026-09-08 ~23:30 [opus5] — SIX-WEEK GAP CLOSED; THE FRONTIER ARC OPENED (D-046); THE BATCH THAT
+  WAS NEVER RUN IS FLYING.** Disk verified first: HEAD `8c4b128`, selftest PASS (NP6/TP2), tracked tree
+  CLEAN (149 status lines all untracked run artifacts). **The architectural finding, from one grep:**
+  `grep "frontier|D_phys|BRS" core/*.c core/*.h` → **comments only, never a computation.** §9.9 declared
+  `P(land | in-frontier)` THE yardstick in D-019, `ceiling{,_eo}.c` compute the BRS, D-027 returned
+  **in-frontier ≈ 1.000 (~59/60 claimable vs ~9/60 achieved)** — and the oracle was filed as an offline
+  "diagnostic overlay" and never entered the flight code. Every controller here (hoverslam/MPPI/
+  GM_NEURAL/GM_RFLY/θ̂) answers *what do I do now*; **none computes *what can I still reach***. Second
+  grep: `rfly` × `engine-out|×60` → **zero hits** — the estate's best controller has never stood on the
+  estate's own yardstick (36/36 is the compound SHOWCASE battery, 3×12, a different and smaller set).
+  **LAUNCHED `runs/d046_rfly_frontier.ps1`** (detached via Start-Process per the hard laws; watch the
+  marker `D046-FRONTIER-DONE` in `runs/d046_rfly_frontier.txt`, NEVER a PID): GM_RFLY ×60 on seeds
+  42/7/99, methodology byte-identical to `eo_baseline_v6.ps1` except the guidance mode. **~76 s/run
+  measured ⇒ ~3.8 h; SEQUENTIAL by design** (Phase-2 already measured concurrency as a null — the CEM
+  saturates the box). **THE BATCH HOLDS THE EXE — no C builds until the marker appears.** Pre-registered
+  read, declared before data: high (~45/60) ⇒ build the reachability tap; low (~12/60) ⇒ the mission
+  layer is the whole game. Launch-check probe (n=1, no claim): seed 42 run 0 landed **PERFECT** in 76 s.
+  **Also ledgered: two operator-reported plant-honesty findings, both verified against disk** — (1) the
+  moving target is FED not sensed (`sim.c:411/:433/:445` write truth deck position; `nav.c:78` says
+  `--nav-noisy` adds NO target noise) and **`target_age` is a STRUCTURAL ZERO** (three assignment sites,
+  all `0.0`) while occupying protocol offset 264 and feeding the policy as `OBS_TAGE` ⇒ **one of the 39
+  observation channels is a constant in every net trained this arc**; (2) **no actuator or sensor lag in
+  either direction** (`control.c:186-195` inverts torque into gimbal angles and applies them the same
+  tick; `nav.c` has noise + gyro-bias RW but no transport delay). Consequence recorded so it is not
+  overclaimed later: **a BRS with actuator lag is strictly smaller**, so D-027's ≈1.000 is an upper bound
+  on an optimistic plant — it does not rescue a ~50-draw gap, but part of the gap is a gift. **No C
+  changed this session.** ROADMAP: new FRONTIER ARC section (①→⑤) + a PLANT HONESTY section, both with
+  the first ⬜ boxes set.
 - **2026-07-26 ~00:55 [opus] — PHASE 3 IS FULLY SCRIPTED AND THE DAgger MECHANISM IS BUILT + VERIFIED;
   PHASE 2b RUNNING IN PARALLEL.** (1) **`--shadow-rfly` = ORACLE DAgger** (`3a9fbbb`): a GM_NEURAL
   flight where the CEM re-solves θ **at the states the student visits** and the tap logs the ORACLE's

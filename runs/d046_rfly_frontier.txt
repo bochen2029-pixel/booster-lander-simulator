@@ -1,0 +1,25 @@
+D-046 GM_RFLY ENTRY --engine-out random x60, held-out seeds — started 2026-09-08 23:32:19
+baselines on this exact batch: MPPI 1/60 (E0) | neural v6 1/0/0 (E0) | reactive+D-030 9-10/60 | D-027 in-frontier bound ~59/60
+
+===== seed 42  (75.9 min) =====
+LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%)
+  PERFECT 41  GOOD 19  HARD 0  TIPPED 0  CRASHED 0
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 0  too-hard 0  fuel-out 0  other 0
+  landed means: td_v=1.76 m/s (max 3.73)  lat=0.32 m  tilt=2.40 deg  fuel=2707 kg
+
+===== seed 7  (83.6 min) =====
+LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%)
+  PERFECT 53  GOOD 7  HARD 0  TIPPED 0  CRASHED 0
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 0  too-hard 0  fuel-out 0  other 0
+  landed means: td_v=1.54 m/s (max 2.71)  lat=0.34 m  tilt=1.81 deg  fuel=2628 kg
+
+===== seed 99  (77.9 min) =====
+LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%)
+  PERFECT 53  GOOD 7  HARD 0  TIPPED 0  CRASHED 0
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 0  too-hard 0  fuel-out 0  other 0
+  landed means: td_v=1.48 m/s (max 2.38)  lat=0.33 m  tilt=1.75 deg  fuel=2670 kg
+
+D046-FRONTIER-DONE  2026-09-09 03:29:42

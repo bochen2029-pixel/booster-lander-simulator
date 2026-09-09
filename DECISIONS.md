@@ -3002,3 +3002,164 @@ otherwise would be precisely the §9.9 anti-pattern, inverted.
 **Ready to use as the showcase's adjacent failure** (the degradation is legible and honest: 0.19 m →
 84 m → 1070 m as the demand grows), with the oracle certification as the remaining step to upgrade
 the caption from "the controller cannot" to "physics cannot."
+
+## D-046 — THE FRONTIER IS NOT IN THE FLIGHT CODE (the architectural finding), and the batch that was never run (2026-09-08)
+
+**STATUS: batch FLYING (`runs/d046_rfly_frontier.ps1` → `runs/d046_rfly_frontier.txt`, ~3.8 h,
+DONE marker `D046-FRONTIER-DONE`). This entry records the finding and the pre-registration; the
+number lands here on completion.** Session re-opened after a six-week gap (last repo write
+2026-07-27); HEAD `8c4b128`, selftest PASS (NP_VERSION 6, TP_VERSION 2), tracked tree clean.
+
+### The finding, with the grep that produced it
+
+```
+grep "frontier\|D_phys\|BRS" core/*.c core/*.h   →   comments only. Never a computation.
+```
+
+D-019 §9.9 declared `P(land | in-frontier)` **THE official yardstick**. `runs/sandbox/ceiling.c`
+and `ceiling_eo.c` compute the backward-reachable set. D-027 ran the EO oracle and returned
+**in-frontier fraction ≈ 1.000** — essentially every `--engine-out random` draw is physically
+recoverable, so the claimable ceiling is ~59/60 against an achieved ~8-10/60.
+
+**And the oracle was never wired into the flight code.** It lives in `runs/sandbox/` as a
+standalone .exe, filed as a "diagnostic overlay" (D-019 line: *"as a diagnostic OVERLAY that never
+softens a landed-rate gate"*). Every controller this project has built — hoverslam, MPPI,
+GM_NEURAL, GM_RFLY, θ̂ — answers *"what do I do now?"*. **Not one computes *"what can I still
+reach?"*.** The vehicle has never, at any instant of any flight, known where its own reachable-set
+boundary is. That is the architectural gap, and it is singular; the last three arcs tuned the
+answer to a different question.
+
+### The batch that was never run
+
+`grep rfly DECISIONS.md | grep "engine-out\|×60"` → **zero hits.** The estate's best controller has
+never stood on the estate's own yardstick. The 36/36 is the compound SHOWCASE battery (3 seeds × 12
+draws), a different and much smaller set. So the repo holds a ~59/60 bound, a 1/60 MPPI floor, a
+~9/60 reactive/neural number, a 36/36 on another battery, and **no number connecting the search to
+the frontier.** D-046 produces it.
+
+**Pre-registered read (declared before the data, per the D-013/14/18/29 tradition):**
+- **high (~45/60)** ⇒ the remaining gap is small; the next build is the reachability head.
+- **low (~12/60)** ⇒ the mission layer / site-reselect is the whole game.
+- Single-run probe before launch: seed 42 run 0 landed **PERFECT** (td_v 1.52, lat 0.27 m, tilt
+  1.04°, 2113 kg left) in 76 s. n=1, no claim — recorded because it was the launch check.
+
+### Two plant honesty findings (operator-reported 2026-09-08, verified against disk here)
+
+**(1) The moving target is FED, not sensed — and one observation channel is a structural zero.**
+Every moving-target path (`sim.c:411`, `:433`, `:445`) writes the deck's exact current truth
+position into `gcmd.target_xy` and sets `target_src=TGT_SEEDED, target_valid=1, target_age=0.0`.
+`nav.c:78` states it plainly: *"NAV_NOISY adds NO target noise (beacon/VLM noise models arrive with
+those sources, §8.4)"* — so `--nav-noisy` corrupts position, velocity and gyro while delivering the
+target **noiseless, lag-free and always valid**. `target_age` is assigned `0.0` at three sites and
+nowhere else, yet it occupies protocol offset 264 and feeds the policy as `OBS_TAGE`: **one of the
+39 observation channels is a constant in every net trained this arc.** The moving-deck axis — the
+hardest thing in the N3 showcase — is graded against a perfect instantaneous oracle.
+
+**(2) The gimbal is an allocator, not a dynamic; there is no lag in either direction.**
+`control.c:186-195` algebraically inverts commanded torque into gimbal angles
+(`Tb_x = com·thr·sin(g1)`) and applies them **the same tick** — no slew rate, no deflection
+dynamics, no actuator lag; likewise fins and RCS. `nav.c` carries Gaussian position/velocity noise
+and a gyro-bias random walk (`:115-126`) but **no transport delay** — the measurement is of the
+current truth state.
+
+**Consequence for D-027, stated so it is not overclaimed later:** `ceiling_eo.c` computes D_phys
+against *this* plant. **A BRS with actuator lag is strictly smaller**, so "in-frontier ≈ 1.000" is
+an upper bound resting on an optimistic plant. It does not rescue a ~50-draw gap — lag will not
+close that — but part of the gap is a gift from an easy plant, and the frontier will shrink when
+either finding is repaired. Both are recorded as open plant work, neither is repaired here (D-046
+changes no C).
+
+### THE RESULT — 180/180. THE FRONTIER IS REACHED.
+
+**GM_RFLY, ENTRY `--engine-out random` ×60 on every held-out seed: 180/180 = 100.0%.**
+Batch complete 2026-09-09 03:29:42, 237.4 min wall (~76 s/run, sequential).
+
+| seed | landed | PERFECT | GOOD | HARD | TIPPED | CRASHED | faults | td_v mean (max) | lat mean | tilt | fuel |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 42 | **60/60** | 41 | 19 | 0 | 0 | 0 | all 0 | 1.76 (3.73) | **0.32 m** | 2.40° | 2707 kg |
+| 7  | **60/60** | 53 | 7  | 0 | 0 | 0 | all 0 | 1.54 (2.71) | **0.34 m** | 1.81° | 2628 kg |
+| 99 | **60/60** | 53 | 7  | 0 | 0 | 0 | all 0 | 1.48 (2.38) | **0.33 m** | 1.75° | 2670 kg |
+| **all** | **180/180** | **147** | **33** | **0** | **0** | **0** | **0** | — | — | — | — |
+
+Wilson95 per seed 94.0..100.0. **Zero crash causes of any kind on any seed** — no off-pad, no
+too-hard, no fuel-out, no other. No FUEL/STRUCT/THERMAL/LOC fault anywhere. Worst single touchdown
+across all 180 draws is 3.73 m/s (the GOOD threshold is 4.0). The lateral means agree to within
+2 cm across three independent seeds (0.32 / 0.34 / 0.33 m) — the search is not scraping through,
+it is arriving on the bullseye every time, and the seed-to-seed stability says so.
+
+**The claim this licenses, stated exactly:** D-027's `in-frontier ≈ 1.000` is not a theoretical
+bound. **Something on this disk reaches it.** The ~59/60 claimable ceiling that has stood open
+since 2026-07-19 is achieved — by a search, under privilege, at 76 s/flight (see WHAT THIS IS NOT).
+
+**THE BASELINE IN THIS FILE'S HEADER WAS STALE AND IS HEREBY CORRECTED.** The batch script and the
+first draft of this ADR quoted *"MPPI 1/60 (E0)"*. That number is from `runs/eo_baseline_v6.txt`,
+run **2026-07-19 — before D-030**. D-030 (E1.5) re-authorized the 2-engine entry divert in
+`entry_divert_step` (`sim.c:311`, bank 15°→35°, KR×4, KV×2.5) and lifts EO recovery
+**mode-independently**, MPPI included. Quoting E0 as the control was a cross-version comparison.
+**The correct same-binary control was therefore RUN today on the identical batch:**
+
+| arm (identical binary, batch, seed, and byte-identical faults) | landed | verdicts | crash causes | lat | fuel |
+|---|---|---|---|---|---|
+| **GM_MPPI** (control, run 2026-09-08) | **4/60** (6.7%) | 0 P · 0 G · 4 HARD · 56 CRASHED | **off-pad 50**, too-hard 6 | 20.94 m | 3340 kg |
+| **GM_RFLY** (D-046) | **60/60** (100%) | 41 P · 19 G · 0 HARD · 0 CRASHED | **all zero** | **0.32 m** | 2707 kg |
+| *(E0, 2026-07-19, pre-D-030 — NOT the control)* | *1/60* | — | — | — | — |
+
+MPPI at 1/60 → 4/60 across the D-030 boundary is exactly what D-030 predicts, so the two numbers
+are consistent; only the labelling was wrong. **The comparison that stands is same-binary,
+same-day, byte-identical faults: 4/60 vs 60/60.**
+
+**THE FAULT DEMONSTRABLY ARMS, structurally and empirically.** `arm_engine_out` (`main.c:403-417`)
+seeds `eo_engine` (a side engine) and `eo_time` (∈[4,18] s, mid-entry-burn) from
+`seed + run*2654435761u + {404,505}` — **(seed, run) ONLY, no guidance-mode term** — and
+`main.c:589` arms it inside the MC loop before guidance runs. So seed 42's sixty faults are the
+same sixty E0 dealt. The MPPI control crashing 56/60 on the same invocation confirms it empirically.
+
+**The mechanism is legible, not a fluke.** MPPI's 56 crashes are **50 off-pad** — the pure
+lateral-CLOSURE failure D-027 gilded on all four axes (*"CRASHED lat 118.85 m tilt 0.02° fault=none
+→ attitude held, NO tumble"*). GM_RFLY's θ carries `EBANK`/`EKR`/`EKV` — **exactly D-030's
+engine-out divert knobs** — so the CEM searches the precise parameters D-030 identified as the EO
+lever, and solves them *per realization* instead of at fixed multipliers. D-030's fixed multipliers
+bought 0/1 → 9/10 of 60; the per-realization solve buys 60/60. **And the price is legible: 633 kg
+more propellant than MPPI (2707 vs 3340 kg) — the search buys lateral closure with fuel.**
+
+**WHAT THIS IS NOT.** GM_RFLY is a **privileged oracle, not a controller.** `rfly_eval_candidate`
+copies the `Sim` — *including* `eo_engine`/`eo_time` — so the search flies candidates against the
+**actual realization** and knows which engine fails and when, before it happens. The ROADMAP
+already fences this ("a search that FLIES the actual realization = a privileged teacher"). 60/60 is
+therefore an **upper bound**, and it is exactly the bound this batch was run to obtain: **D-027's
+~59/60 in-frontier claim is not theoretical — something on this disk reaches it.**
+
+**A PRE-REGISTERED PREDICTION OF MINE THAT THIS FALSIFIES.** Before the batch I argued organ ③ (the
+mission layer / site re-selection) was "probably where the number is," on D-027's phase attribution
+that ~75% of the gross cluster is lost at the entry-burn cut to a vehicle committing to a pad it can
+no longer reach. **Under the search that cluster is gone — zero off-pad, zero crashes.** So
+"commits to an unreachable site and never re-decides" is a property of the *reactive/MPPI*
+controller, not of physics and not of a missing global view. Recorded per the honest-null tradition:
+the prediction was wrong, and organ ③ drops down the build order on this axis.
+
+**THE OPEN PROBLEM, RESTATED.** Not capability — **compression and latency under non-privileged
+observation.** The search reaches the frontier with privileged information in 76 s/flight;
+everything deployable sits at 1-9/60 at 10 µs. Phase 3 answered "no" for a 37k feedforward net
+(0/12 across five DAgger rounds) — and this result isolates that null cleanly for the first time:
+**distillation did not fail against a weak teacher. It failed against a teacher at the ceiling.**
+
+**THE PRE-REGISTERED READ, RESOLVED.** Declared before the data: *high (~45/60) ⇒ build the
+reachability head; low (~12/60) ⇒ the mission layer is the whole game.* The answer came in
+**above the high branch** — 100%, not 75% — which is a third outcome neither branch named, and it
+means something stronger than "the gap is small": **on this axis there is no gap at all between
+the search and the frontier.** The build order follows from that and not from the pre-registration:
+organ ② (the reachability margin tap) gains value because the search demonstrably contains the
+information needed to land 180/180 and the tap is how a usable signal gets out of it; organ ③
+(mission layer / site re-selection) drops, because the failure it was designed to fix does not
+occur under the search.
+
+**NEXT, PRE-REGISTERED NOW, BEFORE THE RUN:** the **blind-teacher** arm. One line in
+`rfly_eval_candidate` — `if(!c2.eo_fired) c2.eo_engine = -1;` — hides *unfired* faults from the
+candidate rollouts while the real flight still takes them (already-fired faults keep propagating:
+`n_eng` is decremented and the `sf_z` signature is real self-sensed state, D-041). Default-off
+behind a flag, byte-clean when off, same battery. Declared reads: **~45/60 ⇒ clairvoyance is worth
+~15 draws and the teacher's transferable content is large, so Phase 3's 0/12 becomes a puzzle worth
+re-attacking; ~6/60 ⇒ the 180/180 is MADE of clairvoyance and Phase 3's null was structural.**
+This number, not the 180/180, is the subject of the arc — and organ ② must be built blind from the
+start, because a survivable-fraction computed from clairvoyant rollouts launders foreknowledge into
+a scalar and hands it to a controller that cannot legitimately have it.
