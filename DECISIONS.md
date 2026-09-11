@@ -3238,3 +3238,73 @@ without gating it would be its own unforced error.
 *An argument the tool does not understand must never be a silent no-op — least of all one that
 leaves a 1000× default in place.* Addendum 1's harness-level law stands; this is the layer beneath
 it, and it is the layer that should have caught it first.
+
+## D-046 ADDENDUM 3 — ①b IS IN: THE 180/180 WAS NOT MADE OF CLAIRVOYANCE (2026-09-11)
+
+**Seed 42, `--rfly-blind`, ENTRY `--engine-out random` ×60, the identical sixty faults the
+clairvoyant arm and the MPPI control already flew:**
+
+```
+LANDED: 52/60 = 86.7%   (Wilson95: 75.8..93.1%)
+  PERFECT 40  GOOD 10  HARD 2  TIPPED 0  CRASHED 8
+  faults: FUEL 2  STRUCT 0  THERMAL 0  LOC 3
+  crash causes: off-pad 1  too-hard 2  fuel-out 2  other 3
+  landed means: td_v=1.75 m/s (max 4.65)  lat=0.39 m  tilt=2.27 deg  fuel=2662 kg
+```
+
+| arm, same 60 faults | landed | note |
+|---|---|---|
+| GM_RFLY **clairvoyant** (D-046) | **60/60** | 41 PERFECT · 19 GOOD · lat 0.32 m · 0 faults |
+| GM_RFLY **blind** (①b) | **52/60** | 40 PERFECT · 10 GOOD · lat 0.39 m · FUEL 2, LOC 3 |
+| D-047 optimized constant | ~34/60 | honest, re-scored on fresh seeds |
+| identity constant | 9/60 (s42) · 5/60 (s5000) | the "reactive + D-030 baseline" |
+| GM_MPPI | 4/60 | same binary, same day |
+
+**Hiding the FUTURE fault costs eight draws out of sixty. Clairvoyance was worth 13%, not 90%.**
+
+**And it costs whole flights, not accuracy.** 40 PERFECT blind against 41 clairvoyant; mean lateral
+miss 0.39 m against 0.32 m. When the blind search lands, it lands just as well — it simply loses
+eight flights entirely. The failure modes are honest about why: **FUEL 2 and LOC 3**, neither of
+which the clairvoyant arm ever produced. Not knowing *when* the engine will die means flying a
+more defensive, more expensive profile, and occasionally running dry or losing the attitude.
+
+### The pre-registration, resolved
+
+Declared before the run: *~45/60 ⇒ clairvoyance worth ~15 draws, large transferable content ·
+~6/60 ⇒ the 180/180 is MADE of clairvoyance*. A third read was added before the data once D-047
+landed: *below ~34/60 ⇒ an optimized constant beats a search that adapts but cannot foresee.*
+
+**52/60 exceeds the high branch.** The ~6/60 branch is dead. The constant boundary is cleared by
+eighteen draws.
+
+### Three consequences
+
+**1 · A DEPLOYABLE FLIGHT COMPUTER EXISTS ON THIS DISK TODAY.** The blind search uses no
+privileged information — it is legal to fly. And R2b already measured that GM_RFLY holds its rate
+from full budget down to **1/8** (1642 → 62 s, **~0.4 s/replan**) because the θ-basin is wide,
+while the outer loop replans at **0.1 Hz** (`RFLY_REPLAN_DT 10.0`). **So a blind, reduced-budget
+GM_RFLY is real-time by a factor of ~25 and carries no privilege.** The "76 s vs 10 µs" framing
+that motivated three arcs of distillation was comparing against a 500 Hz *inner*-loop requirement
+that a mission-layer setpoint never had. **Nothing in the arc required a net.**
+
+**2 · PHASE 3's 0/12 HAS EXACTLY ONE SURVIVING EXPLANATION.** It was read as *distillation is hard
+here*, then (D-046) as *distillation failed against a teacher at the ceiling*. Both are now
+incomplete: the teacher is strong (180/180) **and mostly legal** (52/60 blind), so its labels were
+always largely transferable and privilege was never the barrier. What remains is D-047's
+measurement: **eight IDENTICAL flights flip outcome from a 3.5% gain change** — the response
+surface is knife-edged, and least-squares onto the conditional mean of a discontinuous target is
+ill-posed by construction. Two independent measurements this session, one surviving story, and it
+is a statement about the OBJECTIVE rather than about the student.
+
+**3 · ADAPTATION EARNS ITS KEEP — AND D-050 IS AIMED CORRECTLY.** Blind search 52/60 against the
+optimized constant's ~34/60 is **+18 draws of real value in state-dependence**, which is precisely
+what a conditional policy searches for. Had ①b returned ~34/60, D-050 would have been pointless
+before it started; it is not.
+
+### Scope, stated plainly
+
+Seed 42 only; 7 and 99 still flying. Seed 42 is the seed contaminated during D-047's hand probes,
+but **①b performs no selection whatsoever** — it is a single pre-registered measurement of a fixed
+mechanism, so the contamination that matters for D-047's held-out does not apply here. The
+comparison is paired: same binary, same seed, same sixty (seed, run)-derived faults, the only
+variable being what the search was allowed to see.

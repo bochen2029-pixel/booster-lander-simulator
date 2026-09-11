@@ -71,7 +71,7 @@ SEED_POOL = [5000, 5001, 5002, 5003, 5004, 5005]
 SEEDS_PER_GEN, RUNS = 2, 60
 POP, ELITE, ITERS = 30, 8, 14
 W_PERFECT, W_GOOD, W_HARD = 3, 2, 1
-TD_ANCHOR = 5.8
+TD_ANCHOR_MEAN = 5.0   # gate the MEAN arrival, not the worst single draw (see score())
 RNG = random.Random(20260911)
 
 
@@ -87,7 +87,7 @@ def score(vec70, seeds):
         except subprocess.TimeoutExpired:
             return None, {}
         landed = weighted = None
-        split, max_td = {}, 0.0
+        split, max_td, mean_td = {}, 0.0, 0.0
         for line in p.stdout.splitlines():
             if line.startswith("LANDED:"):
                 landed = int(line.split()[1].split("/")[0])
@@ -96,16 +96,30 @@ def score(vec70, seeds):
                 split = {t[i]: int(t[i + 1]) for i in range(0, len(t) - 1, 2)}
                 weighted = (W_PERFECT * split.get("PERFECT", 0) + W_GOOD * split.get("GOOD", 0)
                             + W_HARD * split.get("HARD", 0))
-            if "landed means" in line and "(max" in line:
-                try:    max_td = float(line.split("(max")[1].split(")")[0])
-                except (ValueError, IndexError): max_td = 0.0
+            if "landed means" in line:
+                try:    mean_td = float(line.split("td_v=")[1].split()[0])
+                except (ValueError, IndexError): mean_td = 0.0
+                if "(max" in line:
+                    try:    max_td = float(line.split("(max")[1].split(")")[0])
+                    except (ValueError, IndexError): max_td = 0.0
         if landed is None or weighted is None:
             return None, {}                       # silence is not success
-        if max_td > TD_ANCHOR:                    # the anchor is a gate, not a term
-            detail[s] = {"w": 0, "landed": landed, "max_td_v": max_td, "ANCHOR_FAIL": True}
+        # THE ANCHOR, corrected. It first gated on the WORST arrival at 5.8 m/s, and that killed
+        # every candidate: the first three evals scored 0 at max_td_v 5.86 / 5.89 / 5.93. On a
+        # 60-draw engine-out battery there is essentially ALWAYS one marginal arrival, so a
+        # max-gate makes the objective uniformly flat and the search cannot learn at all. It also
+        # gates on a single draw -- exactly the noise artifact the anchor was meant to guard
+        # against. Receipt: runs/d050/evals_anchor_maxfail.jsonl.
+        # Gate on the MEAN instead: a controller that SYSTEMATICALLY arrives hard is unsafe; one
+        # that arrives soft with a single marginal draw is not. The weighted verdict already
+        # supplies the fine-grained preference (PERFECT is worth 3 HARDs), so the anchor only has
+        # to catch the gross failure the weight cannot express.
+        if mean_td > TD_ANCHOR_MEAN:
+            detail[s] = {"w": 0, "landed": landed, "mean_td_v": mean_td, "max_td_v": max_td,
+                         "ANCHOR_FAIL": True}
             return 0, detail
         total += weighted
-        detail[s] = {"w": weighted, "landed": landed, "max_td_v": max_td,
+        detail[s] = {"w": weighted, "landed": landed, "mean_td_v": mean_td, "max_td_v": max_td,
                      "P": split.get("PERFECT", 0), "G": split.get("GOOD", 0),
                      "H": split.get("HARD", 0)}
     return total, detail

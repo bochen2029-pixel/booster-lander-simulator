@@ -35,6 +35,7 @@ reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_fr
 | controller | rate | notes | ADR |
 |---|---|---|---|
 | **GM_RFLY** (CEM search) | **180/180 = 100%** | 147 PERFECT · 33 GOOD · 0 HARD/TIPPED/CRASHED · 0 faults · 0 crash causes. Mean lat 0.32/0.34/0.33 m. **Privileged: the search flies the true realization** | **D-046** |
+| **GM_RFLY BLIND** (`--rfly-blind`) | **52/60** (s42) | 40 PERFECT · 10 GOOD · 2 HARD · 8 crashed; lat **0.39 m**; FUEL 2, LOC 3. **Hiding the future fault costs 8 draws of 60, not 50 — and costs whole flights, not accuracy (40 PERFECT vs 41).** Carries NO privilege ⇒ **legal to deploy**; with R2b's 8× budget cut it is ~0.4 s/replan against a 0.1 Hz loop | **D-046 add.3** |
 | GM_MPPI | **4/60** (s42) | 0P · 0G · 4 HARD · 56 CRASHED, **50 off-pad**. Same binary and byte-identical faults as the row above | D-046 control |
 | reactive + D-030 | 9–10 / 60 | the 2-engine entry-divert re-authorization | D-030 |
 | **constant θ = identity** (`--rfly-fixed 1,…,1,0,1`) | **9/60** (s42) | 1P·3G·5H·51C, off-pad 36. **Validates the rig**: constant-θ GM_RFLY ≡ the reactive stack with D-030. **0.39 s/run** vs the CEM's 76 s | D-047 probe |
