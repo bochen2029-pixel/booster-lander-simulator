@@ -80,6 +80,19 @@ has *worse* val_nrmse than v1 (0.2707 vs 0.2617) and the trainer called it **WEA
 reads as **distillation failed against a teacher sitting at the ceiling** — which is a different
 and more interesting result. The teacher was never weak; the channel was never there.
 
+**And re-scoped by D-047 (2026-09-11).** On a *training* seed ×60, the optimized constant θ scores
+**31/60 (51.7%)** on this axis against identity's **7/60 (11.7%)** — 4.4×. Apply D-047's measured
+winner's-curse deflation (−19%) and the honest expectation is still **~42%**.
+
+> **What that does and does not overturn.** It does **not** refute "the compound is
+> search-necessary": the privileged search is at **100%** and the constant at ~half, so the search
+> is still buying a great deal. What it retires is the stronger reading the phrase acquired —
+> *that a non-search controller cannot fly the compound at all.* One can fly half of it, with ten
+> numbers, no inference, no privilege, and 0.39 s/run. Quality is poor (0 PERFECT · 6 GOOD ·
+> 25 HARD), one seed, and it is a training seed — so this is a direction, not a held-out result.
+> **Every controller baseline on this axis was measured against `identity`, and identity is now
+> known to be a badly tuned reference point rather than a neutral one.**
+
 ## D · Reach boundary — `--target line:D:80:0`, clean, GM_RFLY at full budget
 
 | demand | result | miss | fuel left | ADR |
