@@ -32,9 +32,12 @@ WHY THIS AND NOT ①d (n_eng). Measured, not assumed: the fault fires at t in [4
 switch barely discriminates HERE. It still protects clean flight and stays available as
 --rfly-fixed-eo, but phase is the axis the quality data actually points at.
 
-OBJECTIVE: quality-weighted (PERFECT 3, GOOD 2, HARD 1), so the search cannot buy rate by
-degrading every arrival to the edge of the envelope the way raw LANDED let D-047 do. Raw landed
-is recorded on every eval so the two are comparable.
+OBJECTIVE: quality-weighted (PERFECT 3, GOOD 2, HARD 1) PLUS A HARD ANCHOR. The weight alone
+still lets the search trade PERFECTs for HARDs at some exchange rate, and D-047's leader arrived
+at max td_v 5.83 against a 6.0 crash threshold -- one gust from a crash it was counting as a win.
+So TD_ANCHOR is a GATE, not a term: a candidate whose WORST arrival sits inside it scores zero
+regardless of rate. Rate bought at the edge of the envelope is not rate. Raw landed and max td_v
+are recorded on every eval so all three objectives stay comparable.
 
 WARM START: all three bands = D-047's winner. That makes plain D-047 exactly representable and it
 sits in elitism slot 0, so D-049 can only match-or-beat it on the training objective.
@@ -66,6 +69,7 @@ BANDS = ["entry", "aero", "landing"]
 TRAIN_SEEDS, RUNS = [5000, 5001], 60
 POP, ELITE, ITERS = 30, 8, 10
 W_PERFECT, W_GOOD, W_HARD = 3, 2, 1
+TD_ANCHOR = 5.8   # hard gate: worst arrival must clear the 6.0 crash threshold by margin
 RNG = random.Random(20260911)
 
 
@@ -82,7 +86,7 @@ def score(vec30, seeds, runs=RUNS):
         except subprocess.TimeoutExpired:
             return None, {}
         landed = weighted = None
-        split = {}
+        split, max_td = {}, 0.0
         for line in p.stdout.splitlines():
             if line.startswith("LANDED:"):
                 landed = int(line.split()[1].split("/")[0])
@@ -91,10 +95,25 @@ def score(vec30, seeds, runs=RUNS):
                 split = {t[i]: int(t[i + 1]) for i in range(0, len(t) - 1, 2)}
                 weighted = (W_PERFECT * split.get("PERFECT", 0) + W_GOOD * split.get("GOOD", 0)
                             + W_HARD * split.get("HARD", 0))
+            if "landed means" in line and "(max" in line:
+                try:
+                    max_td = float(line.split("(max")[1].split(")")[0])
+                except (ValueError, IndexError):
+                    max_td = 0.0
         if landed is None or weighted is None:
             return None, {}                      # silence is not success
+        # THE ANCHOR. A weight alone still lets the search trade PERFECTs for HARDs at some
+        # exchange rate, and D-047's leader arrived at max td_v 5.83 against a 6.0 crash
+        # threshold -- one gust from a crash it was counting as a win. So this is a gate, not a
+        # term: a candidate whose WORST arrival sits inside TD_ANCHOR of the threshold scores
+        # zero regardless of how many draws it landed. Rate bought at the edge of the envelope
+        # is not rate. (Set at 5.8 rather than lower because at n=60 a single marginal draw
+        # would otherwise kill an otherwise-sound candidate on noise alone.)
+        if max_td > TD_ANCHOR:
+            detail[s] = {"w": 0, "landed": landed, "max_td_v": max_td, "ANCHOR_FAIL": True}
+            return 0, detail
         total += weighted
-        detail[s] = {"w": weighted, "landed": landed,
+        detail[s] = {"w": weighted, "landed": landed, "max_td_v": max_td,
                      "P": split.get("PERFECT", 0), "G": split.get("GOOD", 0),
                      "H": split.get("HARD", 0)}
     return total, detail
