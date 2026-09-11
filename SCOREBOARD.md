@@ -19,8 +19,18 @@
 
 ## A · ENTRY engine-out — `--scenario entry --engine-out random ×60`, held-out seeds 42/7/99
 
-**Physical bound: in-frontier ≈ 1.000 ⇒ ~59/60 claimable (D-027).** Essentially every draw in
-this distribution is physically recoverable, measured with `runs/sandbox/ceiling_eo.c`.
+**Physical bound: in-frontier = 1.000 ⇒ ~59/60 claimable (D-027).** Essentially every draw in this
+distribution is physically recoverable, measured with `runs/sandbox/ceiling_eo.c` — and the oracle
+reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_frac` 0.60/0.40/0.20).
+
+> **A caveat the ledger's summary had dropped, and how it closed.** `ceiling_eo_out.txt` says in
+> its own words: *"this fraction is the **LATERAL-reach ceiling ONLY**. The TRUE ceiling on landed
+> rate is min(lateral-in-frontier, attitude-recoverable, terminal-null-achievable)."* So the ~59/60
+> quoted since D-027 was an upper bound on **one of three axes**, and every use of it as "the"
+> frontier — including mine, all through 2026-09-08/09 — was quoting a bound looser than the real
+> one. **D-046 closes it empirically:** GM_RFLY flew 180/180 on this exact draw distribution, which
+> demonstrates the other two axes are satisfiable too. The theoretical caveat is now retired by
+> measurement rather than by argument — the right way round.
 
 | controller | rate | notes | ADR |
 |---|---|---|---|
