@@ -64,6 +64,15 @@ POP, ELITE, ITERS = 28, 7, 8
 RNG = random.Random(20260911)
 
 
+# D-047's quality caveat, answered here. Raw LANDED counts HARD, and optimizing it drove the
+# D-047 leader to 35/60 with 0 PERFECT / 8 GOOD / 27 HARD, mean td_v 4.09 m/s against a 6.0 crash
+# threshold and 11.37 m off centre -- scrapes, not landings, parked on the verdict boundary.
+# So D-048 optimizes a WEIGHTED verdict instead: a PERFECT landing is worth three HARD ones, and
+# the search can no longer buy rate by degrading every arrival to the edge of the envelope.
+# Raw landed is still recorded on every eval, so the two objectives stay comparable.
+W_PERFECT, W_GOOD, W_HARD = 3, 2, 1
+
+
 def score(healthy, eo, seeds, runs=RUNS):
     total, detail = 0, {}
     for s in seeds:
@@ -76,13 +85,20 @@ def score(healthy, eo, seeds, runs=RUNS):
             p = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
         except subprocess.TimeoutExpired:
             return None, {}
-        landed = None
+        landed, weighted, split = None, None, None
         for line in p.stdout.splitlines():
             if line.startswith("LANDED:"):
-                landed = int(line.split()[1].split("/")[0]); break
-        if landed is None:
+                landed = int(line.split()[1].split("/")[0])
+            if "PERFECT" in line and "GOOD" in line and "HARD" in line:
+                t = line.split()
+                g = {t[i]: int(t[i + 1]) for i in range(0, len(t) - 1, 2)}
+                split = g
+                weighted = (W_PERFECT * g.get("PERFECT", 0) + W_GOOD * g.get("GOOD", 0)
+                            + W_HARD * g.get("HARD", 0))
+        if landed is None or weighted is None:
             return None, {}          # silence is not success
-        total += landed; detail[s] = landed
+        total += weighted
+        detail[s] = {"weighted": weighted, "landed": landed, **(split or {})}
     return total, detail
 
 
@@ -102,7 +118,7 @@ def main():
     mean = list(IDENT) + list(eo0)                      # 20-D: [healthy | eo]
     sd = [(RT_HI[i % 10] - RT_LO[i % 10]) * 0.25 for i in range(20)]
     gbest, gvec = -1, list(mean)
-    n_train = RUNS * len(TRAIN_SEEDS)
+    n_train = RUNS * len(TRAIN_SEEDS) * W_PERFECT   # weighted max: every draw PERFECT
 
     def log(rec):
         with open(LOG, "a", encoding="utf-8") as f:
