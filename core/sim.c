@@ -41,6 +41,17 @@ int g_shadow_reactive = 0;
 int g_shadow_rfly = 0;
 /* R2 (D-042): --rfly-theta-net routes GM_RFLY theta from the prior net, not the CEM. Default 0. */
 int g_rfly_theta_net = 0;
+
+/* D-047 ①d: the engine-out constant theta; defined in guidance_rfly.c, armed at the GM_RFLY
+ * gcmd.rt site below when the LEGAL sensed engine count drops. Default off => byte-identical. */
+extern int    g_rfly_fixed_eo_on;
+extern double g_rfly_fixed_eo[];
+extern int    g_rfly_fixed_ph_on;    /* D-047 ①e: phase-scheduled theta; defined in guidance_rfly.c */
+extern double g_rfly_fixed_ph[3][10];
+#define RFLY_POL_NF 6                /* D-050: the learned conditional policy; defined in guidance_rfly.c */
+extern int    g_rfly_policy_on;
+extern double g_rfly_policy[10][RFLY_POL_NF + 1];
+void rfly_clamp_theta(double th[10]);
 /* R2b (D-042): --rfly-warm-net SEEDS the CEM mean from θ̂ each replan (the AlphaZero move — the search
  * still runs, the prior just centres it), so a reduced --rfly-budget can still reach the basin.
  * Default 0 => the CEM cold-starts from the previous θ exactly as D-040. */
@@ -682,6 +693,44 @@ int sim_step(Sim* s){
             s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
         }
         memcpy(s->gcmd.rt, s->rfly.th, sizeof(s->gcmd.rt));
+        /* D-047 ①d: swap to the engine-out theta once an engine is actually gone. n_eng is the
+         * §4.3-LEGAL sensed firing count (the same quantity D-030 switches its bank cap on), not
+         * privileged information, so this is a reflex with search-settable parameters — not a
+         * prediction. Default off => byte-identical. */
+        if(g_rfly_fixed_eo_on && st->n_eng>0 && st->n_eng<3)
+            memcpy(s->gcmd.rt, g_rfly_fixed_eo, sizeof(s->gcmd.rt));
+        /* D-047 ①e: phase-scheduled theta — the divert wants aggression, the flare wants damping,
+         * and one constant cannot be both. Phase is the vehicle's own flight state, so this is a
+         * reflex, not a prediction. Precedence over ①d. Default off => byte-identical. */
+        if(g_rfly_fixed_ph_on){
+            int band = (st->phase==PH_AERO) ? 1 : (st->phase>=PH_LANDING_BURN ? 2 : 0);
+            memcpy(s->gcmd.rt, g_rfly_fixed_ph[band], sizeof(s->gcmd.rt));
+        }
+        /* D-050: the LEARNED CONDITIONAL POLICY, theta = clamp(b + W.phi(nav)). Features come from
+         * the NAV view, never truth — this is §4.3-legal and carries no privilege, unlike the CEM
+         * whose candidates fly the true realization. Highest precedence: it subsumes a constant
+         * (all weights zero => the bias IS a constant theta), so D-047 stays exactly representable
+         * and the policy can only match-or-beat it. Default off => byte-identical. */
+        if(g_rfly_policy_on){
+            const double* ny = nav.y;
+            double rxy = sqrt(ny[S_RX]*ny[S_RX] + ny[S_RY]*ny[S_RY]);
+            double vxy = sqrt(ny[S_VX]*ny[S_VX] + ny[S_VY]*ny[S_VY]);
+            double phi[RFLY_POL_NF];
+            phi[0] = ny[S_RZ]               / 62000.0;   /* altitude          */
+            phi[1] = rxy                    /  3000.0;   /* lateral offset    */
+            phi[2] = ny[S_VZ]               /  1500.0;   /* vertical speed    */
+            phi[3] = vxy                    /   300.0;   /* horizontal speed  */
+            phi[4] = (double)nav.n_eng      /     3.0;   /* engines firing    */
+            phi[5] = (ny[S_MLOX]+ny[S_MRP1])/ 30000.0;   /* propellant left   */
+            double th[10];
+            for(int o=0;o<10;o++){
+                double a = g_rfly_policy[o][0];
+                for(int f=0;f<RFLY_POL_NF;f++) a += g_rfly_policy[o][f+1]*phi[f];
+                th[o] = a;
+            }
+            rfly_clamp_theta(th);
+            memcpy(s->gcmd.rt, th, sizeof(s->gcmd.rt));
+        }
         s->gcmd.rt_on = 1;
         int entry_handled = entry_supervisor(s, &nav);   /* E3 above the law (reads the estimate) */
         if(!entry_handled){

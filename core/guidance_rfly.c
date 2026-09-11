@@ -62,6 +62,54 @@ static double rfly_cost(const Sim* s2, const RunResult* R){
  * Defined here, above its only use, so the candidate evaluator can read it. */
 int g_rfly_blind = 0;
 
+/* D-047 ①d: a SECOND constant theta, selected on the DIRECTLY OBSERVED engine count.
+ * A single constant must serve both regimes at once, and D-047's structure says those regimes
+ * want OPPOSITE things: the engine-out divert wants the divert family at its ceiling and the
+ * damping family on its floor, which is very likely wrong for undisturbed flight. Conditioning
+ * on n_eng costs no inference and no privilege — eng_health rides the legal socket as
+ * OBS_EH0/EH1/EH2 — and D-030 already proved n_eng<3 is the right switch. Default off =>
+ * g_rfly_fixed_eo_on==0 => the arming site is untouched => byte-identical. */
+int    g_rfly_fixed_eo_on = 0;
+double g_rfly_fixed_eo[RFLY_N_THETA];
+
+/* D-047 ①e: THREE constant thetas, selected on FLIGHT PHASE. This supersedes ①d as the primary
+ * conditioning on the engine-out battery, for a reason the ①c quality data made plain:
+ *   - the fault fires at t in [4,18] s of a ~130 s flight, so n_eng<3 for ~90% of every draw and
+ *     the ①d switch barely discriminates HERE (it still protects clean flight, so it stays);
+ *   - ①c's leader lands 35/60 with ZERO PERFECT — mean td_v 4.09 m/s, 11.37 m off centre —
+ *     because ONE constant must choose between the aggressive divert that buys lateral closure
+ *     and the gentle damping that buys a soft, centred arrival. It picks aggressive and pays at
+ *     touchdown. D-042 said the same thing from the other side: run-0's own converged theta held
+ *     constant CRASHES its own draw, so theta must vary BY PHASE.
+ * Phase is §4.3-legal (it is the vehicle's own flight state, not a prediction), so this is still
+ * a reflex with search-settable parameters: no inference, no privilege, no net, 30 numbers.
+ * Default off => byte-identical. Takes precedence over ①d when both are armed. */
+int    g_rfly_fixed_ph_on = 0;
+double g_rfly_fixed_ph[3][RFLY_N_THETA];   /* [0]=entry burn/pre  [1]=aero  [2]=landing burn on */
+
+/* D-050 — A LEARNED CONDITIONAL POLICY:  theta = clamp( b + W . phi(legal state) ).
+ *
+ * Why this shape and not the 39k-param theta-hat net: that net is trained by REGRESSION onto the
+ * CEM's labels, and D-047 measured why that is ill-posed here — eight IDENTICAL flights flip
+ * outcome from a 3.5% gain change, so the target surface is discontinuous and least-squares onto
+ * its conditional mean cannot represent it. This path is trained instead by OPTIMISING ACTUAL
+ * LANDING OUTCOME (no labels, no teacher, no privilege), which is indifferent to that
+ * discontinuity — and 70 parameters is a budget the estate can actually search at 0.39 s/flight,
+ * where 39,434 is not.
+ *
+ * phi is six §4.3-LEGAL observables read from the NAV view (never truth): normalised altitude,
+ * lateral offset, vertical speed, horizontal speed, engine count, propellant fraction. Nothing
+ * about the fault's future is consulted, so this is legal to deploy in a way the privileged
+ * search is not. Default off => byte-identical. */
+#define RFLY_POL_NF 6
+int    g_rfly_policy_on = 0;
+double g_rfly_policy[RFLY_N_THETA][RFLY_POL_NF + 1];   /* [out][0]=bias, [out][1..NF]=weights */
+
+/* exported so the arming site in sim.c can clamp into the same box the CEM uses */
+void rfly_clamp_theta(double th[RFLY_N_THETA]){
+    for(int i=0;i<RFLY_N_THETA;i++) th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
+}
+
 static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], double t_horizon){
     Sim c2 = *s;
     for(int i=0;i<RFLY_N_THETA;i++) c2.rfly.th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);

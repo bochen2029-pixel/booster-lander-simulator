@@ -40,6 +40,34 @@ extern int g_rfly_theta_net;     /* R2 (D-042): --rfly-theta-net flies GM_RFLY g
 extern int g_rfly_warm_net;      /* R2b (D-042): --rfly-warm-net seeds the CEM mean from θ̂; defined in sim.c */
 extern double g_rfly_budget;     /* R2b (D-042): --rfly-budget FRAC scales CEM POP×ITERS; defined in guidance_rfly.c */
 extern int g_rfly_blind;         /* D-046 ①b: --rfly-blind hides UNFIRED faults from candidate rollouts; defined in guidance_rfly.c */
+extern int    g_rfly_fixed_eo_on;   /* D-047 ①d: --rfly-fixed-eo, the engine-out constant theta; defined in guidance_rfly.c */
+extern double g_rfly_fixed_eo[];
+/* D-047 ①d: parse the SECOND constant theta, flown once the LEGAL sensed engine count drops. */
+static int parse_rfly_fixed_eo(const char* csv){
+    int n=0; const char* p=csv;
+    while(n<10 && *p){ char* end; double v=strtod(p,&end); if(end==p) return 0;
+        g_rfly_fixed_eo[n++]=v; p=end; while(*p==','||*p==' ') p++; }
+    return (n==10 && *p=='\0');
+}
+extern int    g_rfly_fixed_ph_on;   /* D-047 ①e: --rfly-fixed-phase, 30 values = 3 bands x 10; defined in guidance_rfly.c */
+extern double g_rfly_fixed_ph[3][10];
+/* D-047 ①e: 30 comma-separated values -- entry-burn band, then aero band, then landing-burn band. */
+static int parse_rfly_fixed_phase(const char* csv){
+    int n=0; const char* p=csv;
+    while(n<30 && *p){ char* end; double v=strtod(p,&end); if(end==p) return 0;
+        g_rfly_fixed_ph[n/10][n%10]=v; n++; p=end; while(*p==','||*p==' ') p++; }
+    return (n==30 && *p=='\0');
+}
+#define RFLY_POL_NF 6
+extern int    g_rfly_policy_on;   /* D-050: --rfly-policy, the learned conditional policy; defined in guidance_rfly.c */
+extern double g_rfly_policy[10][RFLY_POL_NF + 1];
+/* D-050: 70 values, row-major per output: out0 bias,w0..w5, out1 bias,w0..w5, ... out9. */
+static int parse_rfly_policy(const char* csv){
+    int n=0; const char* p=csv;
+    while(n<70 && *p){ char* end; double v=strtod(p,&end); if(end==p) return 0;
+        g_rfly_policy[n/(RFLY_POL_NF+1)][n%(RFLY_POL_NF+1)]=v; n++; p=end; while(*p==','||*p==' ') p++; }
+    return (n==70 && *p=='\0');
+}
 extern int g_shadow_rfly;        /* D-041 ORACLE DAGGER: --shadow-rfly logs GM_RFLY's command at the student's visited states; defined in sim.c */
 
 /* R2 (D-042 ablation): --rfly-fixed "v0,..,v9" flies GM_RFLY with a CONSTANT theta and NO CEM.
@@ -56,7 +84,15 @@ static int parse_rfly_fixed(const char* csv){   /* returns 1 on a clean 10-value
     return (n==10 && *p=='\0');
 }
 static void apply_rfly_fixed(Sim* s){
-    if(!g_rfly_fixed_on || s->guidance_mode!=GM_RFLY) return;
+    if(s->guidance_mode!=GM_RFLY) return;
+    /* D-047 ①e / D-050: the phase table and the learned policy are ALSO "fly these gains, do not
+     * search" modes. Without this they left noreplan=0, so the full CEM kept running underneath
+     * at ~76 s/flight while the table or policy overwrote its theta every tick — 195x the cost,
+     * a meaningless hybrid, and (since it still lands) a result that would have looked plausible.
+     * Caught by the functional gate, which exists because a mechanism can look right and be
+     * doing something else entirely (D-041). */
+    if(g_rfly_fixed_ph_on || g_rfly_policy_on) s->rfly.noreplan=1;
+    if(!g_rfly_fixed_on) return;
     for(int i=0;i<10;i++) s->rfly.th[i]=g_rfly_fixed_theta[i];
     s->rfly.noreplan=1;   /* fly the constant theta; the CEM never runs */
 }
@@ -447,6 +483,9 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-warm-net")) g_rfly_warm_net=1;   /* R2b D-042: theta-prior SEEDS the CEM */
         else if(!strcmp(argv[i],"--rfly-budget")&&i+1<argc) g_rfly_budget=strtod(argv[++i],0);   /* R2b D-042: scale CEM POPxITERS */
         else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
+        else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
+        else if(!strcmp(argv[i],"--rfly-fixed-phase")&&i+1<argc){ if(!parse_rfly_fixed_phase(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-phase needs 30 comma-separated values (3 bands x 10)\n"); return 2; } g_rfly_fixed_ph_on=1; }   /* D-047 1e: phase-scheduled theta */
+        else if(!strcmp(argv[i],"--rfly-policy")&&i+1<argc){ if(!parse_rfly_policy(argv[++i])){ fprintf(stderr,"error: --rfly-policy needs 70 comma-separated values (10 outputs x [bias + 6 weights])\n"); return 2; } g_rfly_policy_on=1; }   /* D-050: learned conditional policy */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -540,12 +579,25 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-warm-net")) g_rfly_warm_net=1;   /* R2b D-042: theta-prior SEEDS the CEM */
         else if(!strcmp(argv[i],"--rfly-budget")&&i+1<argc) g_rfly_budget=strtod(argv[++i],0);   /* R2b D-042: scale CEM POPxITERS */
         else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
+        else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
+        else if(!strcmp(argv[i],"--rfly-fixed-phase")&&i+1<argc){ if(!parse_rfly_fixed_phase(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-phase needs 30 comma-separated values (3 bands x 10)\n"); return 2; } g_rfly_fixed_ph_on=1; }   /* D-047 1e: phase-scheduled theta */
+        else if(!strcmp(argv[i],"--rfly-policy")&&i+1<argc){ if(!parse_rfly_policy(argv[++i])){ fprintf(stderr,"error: --rfly-policy needs 70 comma-separated values (10 outputs x [bias + 6 weights])\n"); return 2; } g_rfly_policy_on=1; }   /* D-050: learned conditional policy */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
         else if(!strcmp(argv[i],"--target")&&i+1<argc){ if(parse_target(argv[++i],&tm,&t_amp,&t_per,&t_brg)) modules|=MOD_TARGET; }
         else if(!strcmp(argv[i],"--sea")){ modules|=MOD_SEA; if(i+1<argc && argv[i+1][0]!='-') sea_hs=strtod(argv[++i],0); }  /* SEA §4.4: heaving deck, optional Hs [m] (default 3.0) */
         else if(!strcmp(argv[i],"--sea-wander")){ modules|=MOD_SEA; sea_wander=3.0; if(i+1<argc && argv[i+1][0]!='-') sea_wander=strtod(argv[++i],0); }  /* SEA §4.4 Stage-1c: ±wander [m] slow station-keeping (default 3.0) */
+        /* D-046 add.2 — STRICT ARGV. The root cause of false green #2, diagnosed properly:
+         * `--headless --scenario aero_offset --seed 42 --run 1 --mppi` was silently ACCEPTED.
+         * `--run` is a MODE (see the dispatch in main), so as a flag it matched nothing here
+         * and was skipped — leaving `runs` at its DEFAULT OF 1000, which launched a 1000-run
+         * MPPI batch that prints its summary only at the end. Read at ten minutes as
+         * "empty output, exit 0" it looked exactly like a passing gate on a finished run.
+         * An argument the tool does not understand must never be a no-op that silently
+         * changes the workload by 1000x. */
+        else { fprintf(stderr,"error: unknown or misplaced argument for --headless: %s\n"
+                              "       (--run is a MODE, not a flag; --headless takes --runs N)\n", argv[i]); return 2; }
     }
 #ifndef BL_HAVE_CUDA
     if(g_mppi_use_cuda){ fprintf(stderr,"error: --mppi-cuda: this build has no CUDA support "
