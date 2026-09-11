@@ -3358,3 +3358,58 @@ the ledger, and ①b is what measures it.
   landed count, +6 weighted. If that holds, the finding is about the **representation**, not about
   learning, and it argues for the generative/multi-sample architecture (Qwen-Drive's shape) rather
   than a larger linear map.
+
+## D-050 COMPLETE — CONDITIONING CAPTURES 16% OF THE AVAILABLE ADAPTATION (2026-09-11 08:10)
+
+14 iterations, 420 evaluations, CRN within generation and rotating seed pairs across. Because the
+seed pair rotates, `gbest` is **not** comparable across generations — so the winner was re-scored
+**paired, on the full six-seed training pool (360 identical flights per arm)**, as the script's own
+closing note requires.
+
+### THE LADDER — every row zero-privilege except the last
+
+| controller | landed | rate | privilege |
+|---|---|---|---|
+| `identity` — *"the reactive + D-030 baseline"* | **37/360** | **10.3%** | none |
+| **D-047 constant** — ten numbers | **248/360** | **68.9%** | none |
+| **D-050 conditional policy** — 70 params, 6 legal features | **259/360** | **71.9%** | none |
+| **GM_RFLY blind** (`--rfly-blind`) | **158/180** | **87.8%** | none |
+| GM_RFLY clairvoyant | 180/180 | 100.0% | **the fault's future** |
+
+**Decomposition of the whole gap, measured rather than argued:**
+
+- `identity → constant`: **+58.6 points**, from ten numbers and no inference. The shipped baseline
+  was not a baseline.
+- `constant → blind search`: **18.9 points.** This is the value of ADAPTING θ in flight, with no
+  privilege. It is real and it is the target any learned controller must aim at.
+- `blind → clairvoyant`: **12.2 points.** The value of foreknowledge, and the smallest term.
+- **D-050 captures 3.1 of the 18.9 — sixteen percent.**
+
+### THE VERDICT, against the pre-registration
+
+Declared before the run: *no better than the constant ⇒ null · better held-out ⇒ conditioning pays
+and scaling is justified · better in-sample only ⇒ overfit.* The outcome is the narrow middle:
+**better, but marginally and inconsistently** — +11 paired draws of 360, winning +8 / +2 / +10 on
+three seeds and losing −1 / −7 / −1 on the other three.
+
+**The honest reading is that this is a finding about the REPRESENTATION, not about learning.** The
+adaptation gap is real (18.9 points, independently measured by ①b). A linear map over six
+hand-picked features reaches a sixth of it. That is not a plateau of what learning can do; it is
+the ceiling of *this* policy class, and it is the first result in the estate that separates the two.
+
+**What it argues for next** is the architecture Qwen-Drive actually ships and this repo has never
+tried: **generative rather than point-estimate, multi-sample rather than argmax, externally scored
+rather than regressed.** D-047's knife-edge measurement says why a point regressor cannot work here
+(eight identical flights flip on a 3.5% gain change); D-050 now says a point *policy* with a poor
+basis cannot either. Those are two different walls and only the second is about capacity.
+
+### A CORRECTION TO THE WINNER'S-CURSE FIGURE I QUOTED ALL NIGHT
+
+I reported **−19%** from in-sample to fresh seeds, measured on one θ against two fresh seeds
+(n=120). The full-pool re-score is better powered (four fresh seeds, n=240) and gives:
+in-sample 85/120 = **42.5/60**, fresh 163/240 = **40.75/60** — a drop of **−4%, not −19%**.
+
+**So the "~34/60 honest" I used in several commits was itself pessimistic; the properly powered
+figure is ~41/60.** The original estimate was a two-seed measurement of exactly the kind of
+quantity two seeds cannot measure — the same error, in miniature, that the noise discussion was
+about. The ladder above uses the full-pool numbers throughout.
