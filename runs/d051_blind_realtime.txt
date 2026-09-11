@@ -1,0 +1,23 @@
+D-051 BLIND + REDUCED BUDGET — the deployable claim, measured end to end
+started 2026-09-11 10:11:23
+reference, same 180 faults: blind@1.0 = 158/180 (87.8%) | constant = 121/180 | clairvoyant = 180/180
+
+===== seed 42 (5 min) =====
+LANDED: 56/60 = 93.3%  (Wilson95: 84.1..97.4%)
+PERFECT 5  GOOD 44  HARD 7  TIPPED 0  CRASHED 4
+faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+landed means: td_v=2.84 m/s (max 4.41)  lat=2.90 m  tilt=3.25 deg  fuel=2703 kg
+
+===== seed 7 (5 min) =====
+LANDED: 56/60 = 93.3%  (Wilson95: 84.1..97.4%)
+PERFECT 8  GOOD 37  HARD 11  TIPPED 0  CRASHED 4
+faults: FUEL 2  STRUCT 0  THERMAL 0  LOC 1
+landed means: td_v=2.97 m/s (max 5.83)  lat=2.72 m  tilt=3.01 deg  fuel=2681 kg
+
+===== seed 99 (5 min) =====
+LANDED: 54/60 = 90.0%  (Wilson95: 79.9..95.3%)
+PERFECT 11  GOOD 40  HARD 3  TIPPED 0  CRASHED 6
+faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 2
+landed means: td_v=2.55 m/s (max 5.06)  lat=2.21 m  tilt=2.70 deg  fuel=2685 kg
+
+D051-DONE  2026-09-11 10:26:26

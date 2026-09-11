@@ -3491,3 +3491,62 @@ actually argues for flow matching. Until it is measured, the knife-edge on its o
 
 **The two-walls separation therefore stands only as a hypothesis, not as the measured result I
 presented it as.** Downgraded accordingly.
+
+## D-051 — THE DEPLOYABLE CLAIM, MEASURED END TO END (2026-09-11)
+
+**The claim was never flown.** On 09-11 I wrote that blind GM_RFLY (158/180) plus R2b's 8× budget
+cut (~0.4 s/replan) gives a legal real-time controller. But ①b ran at **full** budget, and R2b's
+cut was measured on the **clairvoyant** search, on the **compound** battery, months before
+`--rfly-blind` existed. **Multiplying two separately-measured factors and calling the product a
+result is the same error this repo keeps catching in other forms.** Flagged in outside review,
+correctly, and it was the load-bearing claim of the night — so it was measured.
+
+**`--rfly-blind --rfly-budget 0.125`, held-out 42/7/99, the identical 180 faults:**
+
+| blind arm | landed | quality | faults | s/flight |
+|---|---|---|---|---|
+| **full budget** | 158/180 (87.8%) | 119 P · 34 G · 5 H · lat 0.58 m | FUEL 5, **LOC 13** | 82.6 |
+| **1/8 budget** | **166/180 (92.2%)** | 24 P · 121 G · 21 H · lat ~2.6 m | FUEL 2, **LOC 3** | **5.0** |
+
+Per-seed 56 / 56 / 54, against full budget's 52 / 52 / 54. **The reduced-budget arm is better on
+every seed or equal, 16× faster, and the claim is stronger than the one I made.**
+
+### THE MECHANISM, and it is not a fluke
+
+**Less optimization against a misspecified model is more robust.** The blind search at full budget
+drives hard toward a θ optimized for the future it can see — *a future with no fault in it* — and
+having committed, it is caught out when the engine dies: **LOC 13 and FUEL 5**, neither of which
+the clairvoyant arm ever produced. Cutting the budget leaves it nearer the robust default, and the
+catastrophic failures fall by **4×** (LOC 13 → 3). That is textbook model misspecification, and it
+is measured cleanly here on three independent seeds.
+
+It also **replicates R2b's own finding** — *"precision degrades … a latency↔precision trade"* —
+which R2b measured on the compound under the clairvoyant search. The trade generalises to the
+blind engine-out battery, and at 1/8 budget the *rate* side of it is now positive as well.
+
+**The cost is precision, and it is real:** 119 PERFECT → 24, mean lateral 0.58 m → ~2.6 m. On a
+26 m pad that is comfortably inside, but it is not the bullseye the privileged search delivers.
+**A mission needing sub-metre placement should buy the budget back; a mission needing to survive
+should not.**
+
+### THE LADDER — one pool, the identical 180 faults, every row except the last with NO privilege
+
+| controller | landed | rate | s/flight | privilege |
+|---|---|---|---|---|
+| `identity` | 28/180 | 15.6% | 0.39 | none |
+| D-047 constant (10 numbers) | 121/180 | 67.2% | 0.39 | none |
+| D-050 conditional policy (70 params) | 123/180 | 68.3% | 0.39 | none |
+| GM_RFLY blind @ full budget | 158/180 | 87.8% | 82.6 | none |
+| **GM_RFLY blind @ 1/8 budget** | **166/180** | **92.2%** | **5.0** | **none** |
+| GM_RFLY clairvoyant | 180/180 | 100.0% | 82.6 | **the fault's future** |
+
+### THE STANDING ANSWER
+
+*"For every situation in which it is physically recoverable, it needs to recover itself."*
+
+**92.2% of a draw distribution whose in-frontier fraction is ~1.000, at ~0.38 s/replan against a
+0.1 Hz outer loop — real-time by ~25×, with no privileged information, no net, no teacher and no
+distillation.** Measured end to end on held-out seeds rather than composed from two experiments.
+
+The remaining 14 draws are **FUEL 2 and LOC 3** plus 9 other crashes — an **attitude and margin**
+problem, a different subsystem from anything this arc touched, and the honest next axis.
