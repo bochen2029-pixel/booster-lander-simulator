@@ -35,7 +35,7 @@ reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_fr
 | controller | rate | notes | ADR |
 |---|---|---|---|
 | **GM_RFLY** (CEM search) | **180/180 = 100%** | 147 PERFECT · 33 GOOD · 0 HARD/TIPPED/CRASHED · 0 faults · 0 crash causes. Mean lat 0.32/0.34/0.33 m. **Privileged: the search flies the true realization** | **D-046** |
-| **GM_RFLY BLIND** (`--rfly-blind`) | **52/60** (s42) | 40 PERFECT · 10 GOOD · 2 HARD · 8 crashed; lat **0.39 m**; FUEL 2, LOC 3. **Hiding the future fault costs 8 draws of 60, not 50 — and costs whole flights, not accuracy (40 PERFECT vs 41).** Carries NO privilege ⇒ **legal to deploy**; with R2b's 8× budget cut it is ~0.4 s/replan against a 0.1 Hz loop | **D-046 add.3** |
+| **GM_RFLY BLIND** (`--rfly-blind`) | **158/180 = 87.8%** | 52/52/54 per seed — **119 PERFECT · 34 GOOD · 5 HARD**; lat 0.58 m mean; FUEL 5, LOC 13. **Hiding the future fault costs 22 draws of 180 (12.2%), not 90%.** Costs whole flights, not accuracy: precision falls 0.33→0.58 m but stays sub-metre, while the clairvoyant arm-s ZERO faults become LOC 13 — the attitude loop is surprised by the torque step. Carries NO privilege ⇒ **legal to deploy**; with R2b's 8× budget cut it is ~0.4 s/replan against a 0.1 Hz loop | **D-046 add.3** |
 | GM_MPPI | **4/60** (s42) | 0P · 0G · 4 HARD · 56 CRASHED, **50 off-pad**. Same binary and byte-identical faults as the row above | D-046 control |
 | reactive + D-030 | 9–10 / 60 | the 2-engine entry-divert re-authorization | D-030 |
 | **constant θ = identity** (`--rfly-fixed 1,…,1,0,1`) | **9/60** (s42) | 1P·3G·5H·51C, off-pad 36. **Validates the rig**: constant-θ GM_RFLY ≡ the reactive stack with D-030. **0.39 s/run** vs the CEM's 76 s | D-047 probe |
@@ -46,10 +46,24 @@ reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_fr
 | *GM_MPPI, pre-D-030* | *1/60* | ⚠ **cross-version — do not quote as a control.** D-030 lifts EO mode-independently | E0 |
 | *GM_NEURAL v6, pre-D-030* | *1/0/0 of 60* | ⚠ same caveat | E0 |
 
-**Standing gap:** search reaches the bound; **everything deployable sits at 1–9/60.** The
-difference is not capability — it is **privilege and latency** (76 s/flight knowing the fault, vs
-10 µs not knowing it). ①b (the blind-teacher arm) is the pre-registered measurement of how much of
-the 100% is clairvoyance, and nothing downstream is interpretable until it lands.
+**THE GAP, AS OF 2026-09-11 — and it is not what it was thought to be.** The standing reading was
+that the search's 100% was bought with *privilege and latency*, and that everything deployable was
+stuck at 1–9/60. **①b measures both halves and both were wrong.**
+
+- **Privilege was worth 12.2%, not 90%.** Blind GM_RFLY — which never consults the fault's future —
+  lands **158/180**, with the cost falling on whole flights (LOC 13, FUEL 5) rather than on
+  accuracy (precision 0.33 → 0.58 m, still sub-metre).
+- **Latency was a framing error.** R2b measured the budget dropping 8× with no rate loss
+  (**~0.4 s/replan**) against an outer loop that replans at **0.1 Hz** — real-time by ~25×. The
+  10 µs bar three arcs of distillation chased belongs to the 500 Hz *inner* loop; a mission-layer
+  setpoint never had it.
+- **And "everything deployable sits at 1–9/60" rested on `identity`**, now known to be an
+  arbitrary unoptimized point (5/60 on training seeds, 9/60 on the lucky seed 42) rather than a
+  baseline. An optimized constant reaches ~34/60 honest.
+
+**So a legal, real-time controller that recovers 87.8% of an in-frontier draw distribution exists
+on this disk today, and needs no net, no teacher and no distillation.** What remains open is the
+22 draws — an attitude/margin problem, not a guidance one.
 
 ## B · AERO held-out — ×60 × 3 seeds = 180. The M4 gate (≥90%, open since D-018)
 

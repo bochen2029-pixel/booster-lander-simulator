@@ -3308,3 +3308,53 @@ but **①b performs no selection whatsoever** — it is a single pre-registered 
 mechanism, so the contamination that matters for D-047's held-out does not apply here. The
 comparison is paired: same binary, same seed, same sixty (seed, run)-derived faults, the only
 variable being what the search was allowed to see.
+
+### ①b COMPLETE — ALL THREE HELD-OUT SEEDS (2026-09-11 04:37)
+
+| seed | blind | clairvoyant | blind quality |
+|---|---|---|---|
+| 42 | **52/60** | 60/60 | 40 P · 10 G · 2 H · lat 0.39 m · FUEL 2 · LOC 3 |
+| 7 | **52/60** | 60/60 | 37 P · 14 G · 1 H · lat 0.72 m · FUEL 2 · LOC 5 |
+| 99 | **54/60** | 60/60 | 42 P · 10 G · 2 H · lat 0.64 m · FUEL 1 · LOC 5 |
+| **total** | **158/180 = 87.8%** | 180/180 | **119 P · 34 G · 5 H** · FUEL 5 · LOC 13 |
+
+**Blinding the search to the FUTURE fault costs 22 draws of 180 — 12.2%.** The pre-registered
+`~6/60 ⇒ made of clairvoyance` branch is dead by roughly a factor of nine; the `~45/60` branch is
+exceeded on every seed.
+
+**WHAT BLINDNESS ACTUALLY COSTS, itemised.** 22 flights and 28 PERFECTs. Mean lateral miss rises
+from 0.33 m to 0.58 m — a factor of ~1.8, still **sub-metre**. And the failure signature changes
+completely: the clairvoyant arm produced **zero faults of any kind** across 180 flights, while the
+blind arm produces **LOC 13 and FUEL 5**. **Loss of control is the dominant new failure**, which is
+the mechanism stated plainly — not knowing *when* the engine will die means the attitude loop is
+surprised by the torque step, and a defensive profile costs propellant besides. The search is not
+degrading gracefully in precision; it is losing whole flights to being caught out, and landing the
+rest almost as well as before.
+
+**Seed-to-seed consistency is the striking part:** 52 / 52 / 54, with 8 / 8 / 6 crashes and
+FUEL 2 / 2 / 1. The cost of blindness is structural, not a draw artifact.
+
+### THE STANDING ANSWER TO THE OPERATOR'S QUESTION
+
+*"For every situation in which it is physically recoverable, it needs to recover itself."*
+
+**A controller that does this, legally, exists on this disk as of tonight.** Blind GM_RFLY uses no
+privileged information — it never consults the fault's future — and recovers **87.8%** of a draw
+distribution whose in-frontier fraction is ~1.000. R2b already measured the budget lever: full
+budget → 1/8 holds the rate (1642 → 62 s, **~0.4 s/replan**), against an outer loop that replans at
+**0.1 Hz**. **So it is legal, real-time by ~25×, and needs no net, no distillation, and no teacher.**
+
+The three-arc distillation programme was chasing a **10 µs** bar inherited from the 500 Hz *inner*
+loop. A mission-layer setpoint never needed it. That is the single most expensive framing error in
+the ledger, and ①b is what measures it.
+
+### WHAT REMAINS GENUINELY OPEN
+
+- **22 draws.** The blind arm loses 12.2% to LOC and fuel. Closing that is the real remaining work
+  on this axis, and it is an *attitude//margin* problem, not a guidance one.
+- **Whether a learned policy can beat the search cheaply.** ①b puts adaptation's value at **+18
+  draws over the optimized constant** (52/60 vs ~34/60), so the target is real. D-050's interim
+  says a 70-parameter linear policy over six hand-picked features does **not** capture it — same
+  landed count, +6 weighted. If that holds, the finding is about the **representation**, not about
+  learning, and it argues for the generative/multi-sample architecture (Qwen-Drive's shape) rather
+  than a larger linear map.

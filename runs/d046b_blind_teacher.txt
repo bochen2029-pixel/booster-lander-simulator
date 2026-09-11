@@ -1,0 +1,28 @@
+D-046 1b BLIND TEACHER — GM_RFLY --rfly-blind, ENTRY --engine-out random x60, held-out seeds
+started 2026-09-11 00:52:32  (rewritten after the 09-09 false green)
+clairvoyant arm, same faults (D-046): 60/60 s42 | 60/60 s7 | 60/60 s99 = 180/180
+same-binary MPPI control on this batch: 4/60 (s42)   |   D-027 in-frontier bound ~59/60
+pre-registered: ~45/60 => transferable content is large | ~6/60 => 180/180 is made of clairvoyance
+
+===== seed 42  (82.6 min) =====
+LANDED: 52/60 = 86.7%  (Wilson95: 75.8..93.1%)
+PERFECT 40  GOOD 10  HARD 2  TIPPED 0  CRASHED 8
+faults: FUEL 2  STRUCT 0  THERMAL 0  LOC 3
+crash causes: off-pad 1  too-hard 2  fuel-out 2  other 3
+landed means: td_v=1.75 m/s (max 4.65)  lat=0.39 m  tilt=2.27 deg  fuel=2662 kg
+
+===== seed 7  (72 min) =====
+LANDED: 52/60 = 86.7%  (Wilson95: 75.8..93.1%)
+PERFECT 37  GOOD 14  HARD 1  TIPPED 0  CRASHED 8
+faults: FUEL 2  STRUCT 0  THERMAL 0  LOC 5
+crash causes: off-pad 1  too-hard 0  fuel-out 2  other 5
+landed means: td_v=1.81 m/s (max 5.80)  lat=0.72 m  tilt=2.40 deg  fuel=2621 kg
+
+===== seed 99  (70.4 min) =====
+LANDED: 54/60 = 90.0%  (Wilson95: 79.9..95.3%)
+PERFECT 42  GOOD 10  HARD 2  TIPPED 0  CRASHED 6
+faults: FUEL 1  STRUCT 0  THERMAL 0  LOC 5
+crash causes: off-pad 0  too-hard 0  fuel-out 1  other 5
+landed means: td_v=1.78 m/s (max 5.52)  lat=0.64 m  tilt=2.44 deg  fuel=2666 kg
+
+D046B-BLIND-DONE  2026-09-11 04:37:38
