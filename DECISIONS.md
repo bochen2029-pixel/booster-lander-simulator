@@ -3550,3 +3550,68 @@ distillation.** Measured end to end on held-out seeds rather than composed from 
 
 The remaining 14 draws are **FUEL 2 and LOC 3** plus 9 other crashes — an **attitude and margin**
 problem, a different subsystem from anything this arc touched, and the honest next axis.
+
+## D-053 — THE LABELS ARE NOT MULTIMODAL. MY OWN HYPOTHESIS, KILLED ON DATA ALREADY ON DISK (2026-09-11)
+
+I claimed D-047's knife-edge made regression "ill-posed by construction" and used it to explain
+π, θ̂ and the warm-start. Outside review found the gap and I downgraded it to a hypothesis:
+**the knife-edge is a property of OUTCOME as a function of θ, but π and θ̂ regressed onto TEACHER
+LABELS.** Label-regression is ill-posed only if the *labels* are multimodal — if at near-identical
+observations the CEM converged on several well-separated, roughly-equally-good θ, so the
+conditional mean least-squares targets lands between modes and represents none of them.
+
+**Measured on 2,353,808 teacher rows across 676 distinct runs (`data/s0rf*`, zero new flights).**
+For each query row, k nearest neighbours in standardised observation space drawn from **different
+(seed, run) pairs** — different disturbance realisations that nonetheless put the vehicle in
+nearly the same state. Requiring a different run is the whole design: within one run θ is
+piecewise constant between replans, so same-run neighbours would trivially share a label.
+
+**Dispersion ratio = θ spread among matched observations ÷ θ spread across the corpus:**
+
+| | EKR | EKV | EBANK | ADECEL | TLEAD | KDIV | KVNEAR | IGNM | TGTLEAD | KV |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ratio | 0.301 | 0.308 | 0.343 | 0.278 | 0.273 | **0.222** | 0.280 | 0.307 | 0.318 | 0.319 |
+
+**Mean 0.295**, and strikingly uniform — every component in a 0.22–0.34 band, no family more
+ambiguous than another. The observation explains roughly **91% of θ's variance**.
+
+**By the reading pre-registered in the script itself (<0.3 ⇒ labels well determined), the
+multimodality hypothesis is NOT supported.** Regression onto these labels was well posed.
+
+### THREE CONSEQUENCES, and the second is the expensive one
+
+1. **The knife-edge → regression argument is dead.** It is a statement about the outcome surface
+   and does not transfer to the label surface. Retired, not softened.
+2. **The Qwen-Drive generative / multi-sample direction loses its main technical support ON THIS
+   PROBLEM.** Flow matching answers *multimodal targets*. These targets are not multimodal. It
+   remains an interesting architecture; it is no longer an *indicated fix*, and I should stop
+   citing it as one. That conclusion cost one afternoon of reading data that had been sitting on
+   disk since July.
+3. **The three distillation nulls need another explanation, and the ledger already names a
+   candidate I have been under-weighting: the AUTHORITY GAP** (D-041 addendum 9) — *the student
+   cannot express EKR/EKV/EBANK, because the policy is never invoked during the entry burn
+   (`sim.c:308`)*. That is structural, was measured in July, and predicts exactly the observed
+   pattern: θ̂, which *does* reach those gains, cleared M4 at 171/180, while π, which does not,
+   went 0/12 at every round.
+
+### AND A SECOND FINDING FROM THE SAME PASS: 7 OF 39 OBSERVATION CHANNELS ARE CONSTANT
+
+Zero variance across all 2.35M rows:
+
+| index | channel | why it is dead |
+|---|---|---|
+| 15 | `OBS_FINS` | fins are deployed for the whole ENTRY scenario |
+| 18 | `OBS_EH0` | the fault only ever kills a **side** engine; the centre never fails |
+| 25,26,27 | `OBS_COVXX/YY/XY` | target covariance — **zero because the target is FED, not estimated** |
+| 28 | `OBS_TAGE` | staleness — the structural zero already found in D-046 |
+| 29 | `OBS_TVALID` | always 1 — the target is never invalid |
+
+**Five of the seven are one root cause: the target is an oracle.** The operator's observation of
+2026-09-08 — *"the rocket is still cheating, how does it know where the landing point is"* — is
+now quantified: **18% of every net's input width was constant, and 13% of it because of that
+single design choice.** Every net this arc trained had an effective input of 32 dimensions, not
+39, and nobody had checked.
+
+**This does not by itself explain the nulls** — a constant input is wasted capacity, not a wrong
+target — but it belongs beside the authority gap on the list of things that were true the whole
+time and never measured.

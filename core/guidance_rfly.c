@@ -105,6 +105,32 @@ double g_rfly_fixed_ph[3][RFLY_N_THETA];   /* [0]=entry burn/pre  [1]=aero  [2]=
 int    g_rfly_policy_on = 0;
 double g_rfly_policy[RFLY_N_THETA][RFLY_POL_NF + 1];   /* [out][0]=bias, [out][1..NF]=weights */
 
+/* D-052 — EVENT-TRIGGERED REPLAN. `--rfly-event-replan`. Default off => byte-identical.
+ *
+ * The cadence is PURELY PERIODIC (RFLY_REPLAN_DT = 10 s) and the fault fires at t in [4,18] s, so
+ * a fault at t=11 leaves the vehicle flying a plan computed for THREE engines while running on
+ * two, for up to nine seconds, during the entry burn. The blind arm's dominant failure is LOC
+ * (13 of 22 crashes at full budget, against ZERO for the clairvoyant arm) and this is the
+ * suspected mechanism: not that the search is blind, but that it does not RE-PLAN when the thing
+ * it was blind to actually happens.
+ *
+ * Reacting to n_eng is not privilege. n_eng is the §4.3-legal sensed firing count — the same
+ * quantity D-030 already switches its bank cap on, and eng_health rides the legal socket as
+ * OBS_EH0/EH1/EH2. What is illegal is knowing the fault BEFORE it fires; noticing it AFTER is
+ * what any flight computer does.
+ *
+ * Seeded lazily: last_n_eng==0 means "first gtick", which arms without firing. */
+int g_rfly_event_replan = 0;
+
+int rfly_event_due(struct Sim* s, int n_eng_now){
+    RflyState* rf = &((Sim*)s)->rfly;
+    int prev = rf->last_n_eng;
+    rf->last_n_eng = n_eng_now;
+    if(!g_rfly_event_replan) return 0;
+    if(prev == 0) return 0;                 /* first observation: arm, do not fire */
+    return (n_eng_now != prev);             /* the engine count changed => the plan is stale */
+}
+
 /* exported so the arming site in sim.c can clamp into the same box the CEM uses */
 void rfly_clamp_theta(double th[RFLY_N_THETA]){
     for(int i=0;i<RFLY_N_THETA;i++) th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
@@ -189,6 +215,7 @@ void rfly_init(Sim* s){
     for(int i=0;i<RFLY_N_THETA;i++) s->rfly.th[i]=RT_IDENTITY[i];
     s->rfly.next_replan_t=0.0;
     s->rfly.noreplan=0;
+    s->rfly.last_n_eng=0;   /* D-052: 0 = not yet observed; arms on the first gtick without firing */
 }
 
 /* ============================ ASYNC live replans (N3; see header) ============================ */

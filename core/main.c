@@ -39,6 +39,7 @@ extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the comp
 extern int g_rfly_theta_net;     /* R2 (D-042): --rfly-theta-net flies GM_RFLY gains from the prior net, not the CEM; defined in sim.c */
 extern int g_rfly_warm_net;      /* R2b (D-042): --rfly-warm-net seeds the CEM mean from θ̂; defined in sim.c */
 extern double g_rfly_budget;     /* R2b (D-042): --rfly-budget FRAC scales CEM POP×ITERS; defined in guidance_rfly.c */
+extern int g_rfly_event_replan;  /* D-052: --rfly-event-replan re-solves the moment n_eng changes; defined in guidance_rfly.c */
 extern int g_rfly_blind;         /* D-046 ①b: --rfly-blind hides UNFIRED faults from candidate rollouts; defined in guidance_rfly.c */
 extern int    g_rfly_fixed_eo_on;   /* D-047 ①d: --rfly-fixed-eo, the engine-out constant theta; defined in guidance_rfly.c */
 extern double g_rfly_fixed_eo[];
@@ -483,6 +484,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-warm-net")) g_rfly_warm_net=1;   /* R2b D-042: theta-prior SEEDS the CEM */
         else if(!strcmp(argv[i],"--rfly-budget")&&i+1<argc) g_rfly_budget=strtod(argv[++i],0);   /* R2b D-042: scale CEM POPxITERS */
         else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
+        else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
         else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
         else if(!strcmp(argv[i],"--rfly-fixed-phase")&&i+1<argc){ if(!parse_rfly_fixed_phase(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-phase needs 30 comma-separated values (3 bands x 10)\n"); return 2; } g_rfly_fixed_ph_on=1; }   /* D-047 1e: phase-scheduled theta */
         else if(!strcmp(argv[i],"--rfly-policy")&&i+1<argc){ if(!parse_rfly_policy(argv[++i])){ fprintf(stderr,"error: --rfly-policy needs 70 comma-separated values (10 outputs x [bias + 6 weights])\n"); return 2; } g_rfly_policy_on=1; }   /* D-050: learned conditional policy */
@@ -579,6 +581,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-warm-net")) g_rfly_warm_net=1;   /* R2b D-042: theta-prior SEEDS the CEM */
         else if(!strcmp(argv[i],"--rfly-budget")&&i+1<argc) g_rfly_budget=strtod(argv[++i],0);   /* R2b D-042: scale CEM POPxITERS */
         else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
+        else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
         else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
         else if(!strcmp(argv[i],"--rfly-fixed-phase")&&i+1<argc){ if(!parse_rfly_fixed_phase(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-phase needs 30 comma-separated values (3 bands x 10)\n"); return 2; } g_rfly_fixed_ph_on=1; }   /* D-047 1e: phase-scheduled theta */
         else if(!strcmp(argv[i],"--rfly-policy")&&i+1<argc){ if(!parse_rfly_policy(argv[++i])){ fprintf(stderr,"error: --rfly-policy needs 70 comma-separated values (10 outputs x [bias + 6 weights])\n"); return 2; } g_rfly_policy_on=1; }   /* D-050: learned conditional policy */

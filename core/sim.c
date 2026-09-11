@@ -682,7 +682,8 @@ int sim_step(Sim* s){
             /* N3 LIVE (serve --interactive, §M2 waived): worker-thread replans; the sim
              * never blocks — it flies the current theta until a solve swaps in. */
             rfly_async_poll(s);
-        } else if(!s->rfly.noreplan && st->t >= s->rfly.next_replan_t){
+        } else if(!s->rfly.noreplan &&
+                  (st->t >= s->rfly.next_replan_t || rfly_event_due(s, nav.n_eng))){
             int big = (s->rfly.next_replan_t<=0.0);
             /* R2b: seed the CEM mean from θ̂(obs) — rfly_replan starts mean at rf->th and keeps it as
              * the guaranteed elite, so the search centres on the prior yet can only match-or-beat it.

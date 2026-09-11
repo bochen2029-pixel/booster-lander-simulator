@@ -44,6 +44,13 @@ typedef struct {
     double th[RFLY_N_THETA];
     double next_replan_t;   /* 0 => the big t=0 solve fires on the first gtick */
     int    noreplan;        /* candidates never replan (no recursion) */
+    int    last_n_eng;      /* D-052: engine count at the previous gtick; 0 => not yet seeded.
+                             * The replan cadence is PURELY PERIODIC at RFLY_REPLAN_DT=10 s while
+                             * the fault fires at t in [4,18] s — so a fault at t=11 leaves the
+                             * vehicle flying a THREE-ENGINE plan on two engines for nine seconds,
+                             * mid-entry-burn. That is the suspected mechanism behind the blind
+                             * arm's LOC 13, and n_eng is §4.3-legal sensed state, so reacting to
+                             * it is not privilege. */
 } RflyState;
 
 #define RFLY_REPLAN_DT 10.0
@@ -64,5 +71,9 @@ void rfly_replan(struct Sim* s, int big);
 void rfly_set_async(int on);
 int  rfly_async_on(void);
 void rfly_async_poll(struct Sim* s);
+/* D-052: 1 when the LEGAL sensed engine count changed since the last gtick AND
+ * --rfly-event-replan is armed, so a stale plan is re-solved the moment the fault fires
+ * rather than up to RFLY_REPLAN_DT later. Always updates last_n_eng, even when disarmed. */
+int rfly_event_due(struct Sim* s, int n_eng_now);
 
 #endif
