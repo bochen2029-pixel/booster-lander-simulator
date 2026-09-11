@@ -27,6 +27,10 @@ this distribution is physically recoverable, measured with `runs/sandbox/ceiling
 | **GM_RFLY** (CEM search) | **180/180 = 100%** | 147 PERFECT · 33 GOOD · 0 HARD/TIPPED/CRASHED · 0 faults · 0 crash causes. Mean lat 0.32/0.34/0.33 m. **Privileged: the search flies the true realization** | **D-046** |
 | GM_MPPI | **4/60** (s42) | 0P · 0G · 4 HARD · 56 CRASHED, **50 off-pad**. Same binary and byte-identical faults as the row above | D-046 control |
 | reactive + D-030 | 9–10 / 60 | the 2-engine entry-divert re-authorization | D-030 |
+| **constant θ = identity** (`--rfly-fixed 1,…,1,0,1`) | **9/60** (s42) | 1P·3G·5H·51C, off-pad 36. **Validates the rig**: constant-θ GM_RFLY ≡ the reactive stack with D-030. **0.39 s/run** vs the CEM's 76 s | D-047 probe |
+| constant θ = D-046 run-0's own converged θ, frozen | 9/60 (s42) | reproduces D-042 — a converged θ held constant is no better than identity | D-047 probe |
+| constant θ = divert knobs at the box ceiling | **13/60** (s42) | hand-picked. Headroom exists; and the landscape is **non-monotone** (partway = 5/60, all the way = 13/60) | D-047 probe |
+| **constant θ, CEM-optimized** | **IN FLIGHT** | trained on seeds 5000/5001 only; held-out flown once. Deployable: zero inference, zero privilege, zero latency | D-047 |
 | GM_NEURAL v6 + D-030 | 8/4/2 of 60 = **14/180** | | D-030 |
 | *GM_MPPI, pre-D-030* | *1/60* | ⚠ **cross-version — do not quote as a control.** D-030 lifts EO mode-independently | E0 |
 | *GM_NEURAL v6, pre-D-030* | *1/0/0 of 60* | ⚠ same caveat | E0 |

@@ -58,11 +58,25 @@ static double rfly_cost(const Sim* s2, const RunResult* R){
 /* candidate continuation: copy the Sim, arm the candidate theta, fly the REAL plant to the
  * horizon under the native reactive stack (the GM_RFLY block in sim.c re-arms gcmd.rt from
  * c2.rfly.th every gtick; noreplan=1 skips the nested search). */
+/* D-046 ①b: --rfly-blind. 0 => the D-040 clairvoyant search exactly (byte-clean, leak GREEN).
+ * Defined here, above its only use, so the candidate evaluator can read it. */
+int g_rfly_blind = 0;
+
 static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], double t_horizon){
     Sim c2 = *s;
     for(int i=0;i<RFLY_N_THETA;i++) c2.rfly.th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
     c2.rfly.noreplan=1;
     c2.tap.f=NULL;                     /* never touch the shared tap file */
+    /* D-046 ①b — THE BLIND TEACHER (default OFF => byte-identical).
+     * GM_RFLY is a PRIVILEGED oracle: this copy carries eo_engine/eo_time, so a candidate is
+     * scored by flying the TRUE realization — the search knows which engine fails and when,
+     * before it happens. That makes its 180/180 an upper bound and its labels UNLEARNABLE by
+     * construction: they are conditioned on information the 39-D observation cannot contain.
+     * Blinding hides only UNFIRED faults. An already-fired one keeps propagating (eo_fired is
+     * latched at sim.c:392, n_eng is decremented and eng_health is set), because a vehicle that
+     * has lost an engine legitimately knows it — that is honest self-sensed state (the sf_z
+     * 52->37 signature, D-041), not foreknowledge. What is removed is only the future. */
+    if(g_rfly_blind && !c2.eo_fired) c2.eo_engine = -1;   /* sim.c:390 fires only when >=0 */
     /* A candidate must be scored by flying THE RFLY LAW — that is what theta parameterises. Under
      * the plain GM_RFLY path this is already the mode and the assignment is a no-op. It matters for
      * the ORACLE-DAGGER shadow (D-041), where the search runs while the SIM's mode is GM_NEURAL:

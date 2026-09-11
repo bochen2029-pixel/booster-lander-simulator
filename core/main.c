@@ -39,6 +39,7 @@ extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the comp
 extern int g_rfly_theta_net;     /* R2 (D-042): --rfly-theta-net flies GM_RFLY gains from the prior net, not the CEM; defined in sim.c */
 extern int g_rfly_warm_net;      /* R2b (D-042): --rfly-warm-net seeds the CEM mean from θ̂; defined in sim.c */
 extern double g_rfly_budget;     /* R2b (D-042): --rfly-budget FRAC scales CEM POP×ITERS; defined in guidance_rfly.c */
+extern int g_rfly_blind;         /* D-046 ①b: --rfly-blind hides UNFIRED faults from candidate rollouts; defined in guidance_rfly.c */
 extern int g_shadow_rfly;        /* D-041 ORACLE DAGGER: --shadow-rfly logs GM_RFLY's command at the student's visited states; defined in sim.c */
 
 /* R2 (D-042 ablation): --rfly-fixed "v0,..,v9" flies GM_RFLY with a CONSTANT theta and NO CEM.
@@ -445,6 +446,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-theta-net")) g_rfly_theta_net=1;   /* R2 D-042: theta-prior drives GM_RFLY gains */
         else if(!strcmp(argv[i],"--rfly-warm-net")) g_rfly_warm_net=1;   /* R2b D-042: theta-prior SEEDS the CEM */
         else if(!strcmp(argv[i],"--rfly-budget")&&i+1<argc) g_rfly_budget=strtod(argv[++i],0);   /* R2b D-042: scale CEM POPxITERS */
+        else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }
@@ -537,6 +539,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-theta-net")) g_rfly_theta_net=1;   /* R2 D-042: theta-prior drives GM_RFLY gains */
         else if(!strcmp(argv[i],"--rfly-warm-net")) g_rfly_warm_net=1;   /* R2b D-042: theta-prior SEEDS the CEM */
         else if(!strcmp(argv[i],"--rfly-budget")&&i+1<argc) g_rfly_budget=strtod(argv[++i],0);   /* R2b D-042: scale CEM POPxITERS */
+        else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);
         else if(!strcmp(argv[i],"--engine-out")&&i+1<argc){ if(parse_engine_out(argv[++i],&eo_eng,&eo_t,&eo_rnd)) modules|=MOD_ENGINE_OUT; }

@@ -6,6 +6,37 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-11 ~01:00 [opus5] — THE 09-09 RUN DIED AND THE HARNESS LIED; DIAGNOSED, FIXED, RE-LAUNCHED;
+  AND D-047 OPENED — THE QUESTION SEVEN WEEKS NEVER ASKED.**
+  **(1) WHY IT DIED:** `System` event **109 at 09-09 04:44:04**, kernel power manager initiated a
+  shutdown transition; box down until 09-10 10:26. ①b was killed ~31 min into seed 42 (~24 of 60).
+  Binary intact (selftest PASS, `--rfly-blind` works). **(2) THE PART THAT WAS MINE:** the script
+  wrote `D046B-BLIND-DONE` *unconditionally*, so a batch with ZERO data reported success and the
+  monitor believed it. **A gate that can only say yes is not a gate.** And it then happened twice
+  more inside an hour: the **MPPI anchor** invoked as `--headless … --run 1` produced **empty output,
+  exit 0** (`--run` is a MODE, `main.c:1291` — the flag form silently runs nothing), and the
+  *rewritten* script **died silently on its own wake-lock line** (PowerShell parses `0x80000000` as
+  signed Int32 ⇒ `-bor` = −2147483647 ⇒ P/Invoke refuses) into a hidden window with no stderr.
+  **Three false greens, one class: a command that did nothing, reporting success.** The estate owns
+  the law (everywhy exit 3, engram typed exits) and had never applied it to its own FARM SCRIPTS —
+  exactly where unattended overnight work lives. New **FARM-SCRIPT LAW** in ROADMAP hard laws:
+  verify-never-assume · hold the box awake · be resumable · keep stderr · **the monitor checks the
+  DATA, not the marker.** Full write-up: D-046 addendum 1. **(3) GATE BATTERY NOW ACTUALLY COMPLETE**
+  for the ①b build (the anchor had never passed — it was false green #2): selftest PASS · RFLY leak
+  byte-identical · TERMINAL ×200 byte-identical · **MPPI anchor `RESULT: HARD td_v=2.63 lat=10.48`
+  exact** · functional two-sided (flag ON: lat 0.27→0.04, fuel 2113→1922, i.e. 191 kg more burned —
+  what a robust-to-any-fault-time profile should cost). **(4) ①b RE-LAUNCHED** 01:52, verified live
+  (`--rfly-blind` in the running cmdline, stderr clean), ~3.8 h.
+  **(5) D-047 OPENED AND FLYING — the cheap question nobody asked.** `--rfly-fixed` has existed since
+  D-042 but only as an *ablation*; **nobody ever optimized the constant.** A constant θ is deployable:
+  zero inference, zero privilege, **0.39 s/run vs 76 s (195×)**, and it IS the reactive stack with
+  D-030's own knobs re-gained. Probes on s42 ×60: identity **9/60** (matches the known reactive+D-030
+  baseline — rig validated) · run-0's converged θ frozen **9/60** (reproduces D-042) · aggressive
+  divert **5/60 WORSE** · **box-ceiling divert 13/60 BETTER**. Headroom exists and the landscape is
+  **non-monotone**, which is why four ADRs of hand-tuning plateaued. CEM on **training seeds 5000/5001
+  only**, winner flown on 42/7/99 once. Warm start already at 24/120 train. Single-threaded on purpose
+  (costs ①b ~6%, not half). Also queued **①d: phase-scheduled θ** (3×10 numbers) if the constant
+  plateaus — D-042 proved θ must vary by phase, so a single constant has a structural ceiling.
 - **2026-09-09 ~03:30 [opus5] — D-046 IS IN: GM_RFLY SWEEPS THE ENGINE-OUT FRONTIER 180/180. THE
   BOUND OPEN SINCE D-027 IS ACHIEVED.** All three held-out seeds 60/60 (42: 41P/19G · 7: 53P/7G ·
   99: 53P/7G) = **147 PERFECT, 33 GOOD, 0 HARD, 0 TIPPED, 0 CRASHED, 0 faults, 0 crash causes of

@@ -3163,3 +3163,50 @@ re-attacking; ~6/60 ⇒ the 180/180 is MADE of clairvoyance and Phase 3's null w
 This number, not the 180/180, is the subject of the arc — and organ ② must be built blind from the
 start, because a survivable-fraction computed from clairvoyant rollouts launders foreknowledge into
 a scalar and hands it to a controller that cannot legitimately have it.
+
+## D-046 ADDENDUM 1 — THE HARNESS LIED THREE TIMES IN ONE NIGHT, ALL THE SAME WAY (2026-09-11)
+
+**The ①b run of 2026-09-09 produced no data and reported success.** Diagnosed here before
+re-running, because re-running without the diagnosis would have reproduced it.
+
+**The machine half.** `System` event **109 at 2026-09-09 04:44:04 — "the kernel power manager has
+initiated a shutdown transition"**; last boot **2026-09-10 10:26**. The batch was killed ~31 min
+into seed 42 (~24 of 60 draws) and seeds 7/99 then failed in ~6 s each as the transition tore
+things down. Not a bug in the C: the binary is intact, selftest PASS, `--rfly-blind` still works,
+and the MPPI anchor now passes exactly (below).
+
+**The harness half, which is mine and is worse.** The script wrote `D046B-BLIND-DONE`
+**unconditionally**, so a batch holding zero data announced completion — and the monitor watching
+that marker faithfully reported COMPLETE. *A gate that can only say yes is not a gate.*
+
+**And then it happened twice more, within the hour, in different disguises:**
+
+| # | what did nothing | how it reported | how it was caught |
+|---|---|---|---|
+| 1 | batch killed by the power transition | `DONE` marker, monitor said COMPLETE | reading the file, not the marker |
+| 2 | MPPI anchor invoked as `--headless … --run 1` — but **`--run` is a MODE, not a flag** (`main.c:1291`), so it was silently ignored and no MC ran | **empty output, exit 0** | noticing 0-byte stdout AND 0-byte stderr |
+| 3 | the rewritten script died on its own wake-lock line — PowerShell parses `0x80000000` as signed Int32, so `0x80000000 -bor 0x1` = **−2147483647** and the P/Invoke refused it | silent death into a hidden window; directory created, nothing else | relaunching with `-RedirectStandardError` |
+
+**One class, three costumes: a command that did nothing, reporting success.** The estate already
+owns the law — everywhy's exit 3, engram's typed exit codes, *"found nothing" and "broke" must
+never be indistinguishable* — and had simply never applied it to its own **batch scripts**, which
+are exactly where unattended overnight work lives and therefore where a false green costs a day.
+This one cost two.
+
+**The standing fix, now in `runs/d046b_blind_teacher.ps1` and binding on every future farm script:**
+(1) **verify, never assume** — each seed must yield a `LANDED` line or it is marked `FAILED` and
+the run stops; `DONE` is written only when every seed verified. (2) **hold the box awake** —
+`SetThreadExecutionState(ES_CONTINUOUS|ES_SYSTEM_REQUIRED)` for the life of the script. (3) **be
+resumable** — per-seed result files, so a killed run resumes instead of re-flying 3.8 h.
+(4) **keep stderr** — per-seed `.err` files; a silent death with no captured stderr is
+undiagnosable, which is how defect 3 hid. And the monitor must check the *data*, not the marker.
+
+**THE FULL GATE BATTERY FOR THE ①b BUILD, now actually complete** (the anchor had never passed —
+it was false green #2): selftest **PASS** (NP6/TP2) · RFLY **leak byte-identical** with the flag
+off (td_v 1.52 / lat 0.27 / tilt 1.04 / fuel 2113, exact) · TERMINAL ×200 **byte-identical** to
+`runs/n0main_terminal.txt` · **MPPI anchor `RESULT: HARD td_v=2.63 lat=10.48` exact** ·
+**functional two-sided check** — flag ON demonstrably changes the flight (same draw: lat
+0.27→0.04 m, fuel 2113→1922 kg, i.e. 191 kg more burned, which is what a search flying a profile
+robust to a fault arriving anywhere in [4,18] s should cost). That last row exists because of
+D-041's hardest lesson: *a mechanism can be byte-clean and do nothing.* Off must be identical
+**and** on must differ; either alone is not a check.
