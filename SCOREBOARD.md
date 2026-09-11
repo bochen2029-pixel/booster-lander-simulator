@@ -60,7 +60,10 @@ stuck at 1–9/60. **①b measures both halves and both were wrong.**
   setpoint never had it.
 - **And "everything deployable sits at 1–9/60" rested on `identity`**, now known to be an
   arbitrary unoptimized point (5/60 on training seeds, 9/60 on the lucky seed 42) rather than a
-  baseline. An optimized constant reaches ~34/60 honest.
+  baseline — **37/360 = 10.3% on the full training pool.** An optimized constant reaches
+  **248/360 = 68.9%** on that same pool, paired. *(The "~34/60 honest" quoted earlier on 09-11 was
+  a two-seed estimate and was pessimistic; the four-fresh-seed figure puts the winner's curse at
+  −4%, not −19%.)*
 
 **So a legal, real-time controller that recovers 87.8% of an in-frontier draw distribution exists
 on this disk today, and needs no net, no teacher and no distillation.** What remains open is the
