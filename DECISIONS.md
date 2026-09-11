@@ -3184,7 +3184,7 @@ that marker faithfully reported COMPLETE. *A gate that can only say yes is not a
 | # | what did nothing | how it reported | how it was caught |
 |---|---|---|---|
 | 1 | batch killed by the power transition | `DONE` marker, monitor said COMPLETE | reading the file, not the marker |
-| 2 | MPPI anchor invoked as `--headless … --run 1` — but **`--run` is a MODE, not a flag** (`main.c:1291`), so it was silently ignored and no MC ran | **empty output, exit 0** | noticing 0-byte stdout AND 0-byte stderr |
+| 2 | MPPI anchor invoked as `--headless … --run 1` — **`--run` is a MODE, not a flag** (`main.c:1291`), so as a flag it matched nothing and was silently skipped | **0-byte output; the wrapper exited 0** | noticing 0-byte stdout AND 0-byte stderr |
 | 3 | the rewritten script died on its own wake-lock line — PowerShell parses `0x80000000` as signed Int32, so `0x80000000 -bor 0x1` = **−2147483647** and the P/Invoke refused it | silent death into a hidden window; directory created, nothing else | relaunching with `-RedirectStandardError` |
 
 **One class, three costumes: a command that did nothing, reporting success.** The estate already
@@ -3210,3 +3210,31 @@ off (td_v 1.52 / lat 0.27 / tilt 1.04 / fuel 2113, exact) · TERMINAL ×200 **by
 robust to a fault arriving anywhere in [4,18] s should cost). That last row exists because of
 D-041's hardest lesson: *a mechanism can be byte-clean and do nothing.* Off must be identical
 **and** on must differ; either alone is not a check.
+
+## D-046 ADDENDUM 2 — I GOT FALSE GREEN #2's MECHANISM WRONG, AND THE REAL ONE IS WORSE (2026-09-11)
+
+Addendum 1 said the misplaced `--run 1` meant **"no MC ran."** That is wrong, and the correction
+matters because it changes the fix from a documentation note into a code change.
+
+**`runs` defaults to 1000** (`main.c:534`). So `--headless --scenario aero_offset --seed 42
+--run 1 --mppi` did not run nothing — the unknown `--run` was silently skipped, `runs` kept its
+default, and the command **launched a 1000-run MPPI batch** whose summary prints only at the end.
+I read its 0-byte stdout at the ten-minute mark as "empty output, exit 0" and nearly recorded a
+passing gate; the exit 0 I saw was the **`nohup` wrapper's**, not the exe's. The process was still
+running. I killed it as a stray forty minutes later without realising it was the same command.
+
+**So the defect was never "a command that did nothing."** It was **a typo silently multiplying the
+workload by 1000×** while presenting as a finished, empty, successful run. That is strictly worse
+than the version I published: a no-op wastes nothing and eventually returns, whereas this one
+would have occupied the box for hours and, on a shared 16-core machine already running two farms,
+would have quietly corrupted the timing of everything beside it.
+
+**THE ROOT-CAUSE FIX, now in the code (`main.c`, end of `cmd_headless`'s argument loop):
+STRICT ARGV.** An argument `--headless` does not understand is now a hard error with a nonzero
+exit and a message naming the mode/flag confusion, instead of a skipped iteration. `cmd_run`'s
+loop is deliberately untouched — it takes a different argument set, and widening the change
+without gating it would be its own unforced error.
+
+*An argument the tool does not understand must never be a silent no-op — least of all one that
+leaves a 1000× default in place.* Addendum 1's harness-level law stands; this is the layer beneath
+it, and it is the layer that should have caught it first.
