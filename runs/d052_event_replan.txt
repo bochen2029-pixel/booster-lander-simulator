@@ -1,0 +1,28 @@
+D-052 EVENT-TRIGGERED REPLAN at FULL budget, blind — is the stale plan the LOC mechanism?
+started 2026-09-11 10:51:07
+reference, same 180 faults: blind@full+periodic = 158/180 (119P/34G/5H, FUEL 5 LOC 13)
+                            blind@1/8 +periodic = 166/180 ( 24P/121G/21H, FUEL 2 LOC 3)
+pre-registered: LOC->~3 with PERFECT~119 => stale plan was the mechanism | LOC~13 => it was not
+
+===== seed 42 (73.8 min) =====
+LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%)
+PERFECT 50  GOOD 10  HARD 0  TIPPED 0  CRASHED 0
+faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+crash causes: off-pad 0  too-hard 0  fuel-out 0  other 0
+landed means: td_v=1.62 m/s (max 3.73)  lat=0.41 m  tilt=2.40 deg  fuel=2660 kg
+
+===== seed 7 (77.7 min) =====
+LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%)
+PERFECT 47  GOOD 13  HARD 0  TIPPED 0  CRASHED 0
+faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+crash causes: off-pad 0  too-hard 0  fuel-out 0  other 0
+landed means: td_v=1.57 m/s (max 3.57)  lat=0.32 m  tilt=2.18 deg  fuel=2602 kg
+
+===== seed 99 (76 min) =====
+LANDED: 57/60 = 95.0%  (Wilson95: 86.3..98.3%)
+PERFECT 47  GOOD 10  HARD 0  TIPPED 0  CRASHED 3
+faults: FUEL 1  STRUCT 0  THERMAL 0  LOC 1
+crash causes: off-pad 0  too-hard 1  fuel-out 1  other 1
+landed means: td_v=1.64 m/s (max 3.28)  lat=0.51 m  tilt=2.01 deg  fuel=2666 kg
+
+D052-DONE  2026-09-11 14:38:31

@@ -6,6 +6,25 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-11 ~17:35 [opus5] — D-052/D-054: THE STALE PLAN WAS THE MECHANISM, AND THE ARC'S HEADLINE
+  REVERSES.** `RFLY_REPLAN_DT` is 10 s and purely periodic; the fault fires at t ∈ [4,18] s — so a
+  fault at t=11 left the vehicle flying a THREE-ENGINE plan on two engines for nine seconds,
+  mid-entry-burn. `--rfly-event-replan` re-solves when the §4.3-legal sensed `n_eng` changes.
+  **Blind + event, full budget: 177/180 (98.3%), LOC 13 → 1, PERFECT 119 → 144, lat 0.41 m** —
+  seeds 42 and 7 both 60/60 with zero faults. **Blind + event + 1/8 budget: 175/180 (97.2%) at
+  6.3 s/flight ≈ 0.5 s/replan against a 0.1 Hz loop — real-time by ~20×, zero privilege.**
+  **Privilege is worth 1.7%, not 12.2%**; the other nineteen draws were a stale plan. **My own
+  "less search is better" finding is retired as a symptom** — the cheap search won only because it
+  could not over-commit; fix the staleness and full budget wins 177 vs 166. **Residual is a tail,
+  not a lever** (1-2 each of off-pad/too-hard/LOC/fuel), so the open question moves to the
+  DENOMINATOR. **D-053 separately killed my multimodality hypothesis** on 2.35M rows already on
+  disk (dispersion ratio 0.295 ⇒ labels well determined ⇒ the Qwen-Drive generative direction
+  loses its justification), and found **7 of 39 observation channels constant — 5 of them because
+  the target is FED, not sensed.** Two operator assets unpacked to `assets/`: a near-drop-in
+  TLM-driven Kestrel-9 renderer (every field matches `BlTlmFixed` by name; the protocol was
+  extended FOR it) and a working Apollo Block II IMU (the instrument for `ceiling_eo.c`'s
+  never-computed attitude axis — but NOT a model of our LOC: theirs is reference-loss, ours is
+  control-authority). **Full program spec now in [PLAN.md](PLAN.md); read it first after a trim.**
 - **2026-09-11 ~01:00 [opus5] — THE 09-09 RUN DIED AND THE HARNESS LIED; DIAGNOSED, FIXED, RE-LAUNCHED;
   AND D-047 OPENED — THE QUESTION SEVEN WEEKS NEVER ASKED.**
   **(1) WHY IT DIED:** `System` event **109 at 09-09 04:44:04**, kernel power manager initiated a

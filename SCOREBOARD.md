@@ -36,7 +36,9 @@ reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_fr
 |---|---|---|---|
 | **GM_RFLY** (CEM search) | **180/180 = 100%** | 147 PERFECT · 33 GOOD · 0 HARD/TIPPED/CRASHED · 0 faults · 0 crash causes. Mean lat 0.32/0.34/0.33 m. **Privileged: the search flies the true realization** | **D-046** |
 | **GM_RFLY BLIND** (`--rfly-blind`) | **158/180 = 87.8%** | 52/52/54 per seed — **119 PERFECT · 34 GOOD · 5 HARD**; lat 0.58 m mean; FUEL 5, LOC 13. **Hiding the future fault costs 22 draws of 180 (12.2%), not 90%.** Costs whole flights, not accuracy: precision falls 0.33→0.58 m but stays sub-metre, while the clairvoyant arm-s ZERO faults become LOC 13 — the attitude loop is surprised by the torque step. Carries NO privilege ⇒ **legal to deploy**; with R2b's 8× budget cut it is ~0.4 s/replan against a 0.1 Hz loop | **D-046 add.3** |
-| **GM_RFLY BLIND @ 1/8 BUDGET** | **166/180 = 92.2%** | **THE DEPLOYABLE ROW.** 56/56/54; 24 P · 121 G · 21 H; FUEL 2, **LOC 3**. **Beats blind at FULL budget (158/180) while running 16× faster — 5.0 s/flight, ~0.38 s/replan against a 0.1 Hz loop.** Less optimization against a misspecified future is more robust: LOC 13 → 3. Cost is precision (119 P → 24, lat 0.58 → ~2.6 m). No privilege, no net, no teacher | **D-051** |
+| **GM_RFLY BLIND @ 1/8 BUDGET** | **166/180 = 92.2%** | *(superseded as the deployable row by D-054.)* 56/56/54; 24 P · 121 G · 21 H; FUEL 2, **LOC 3**. **Beats blind at FULL budget (158/180) while running 16× faster — 5.0 s/flight, ~0.38 s/replan against a 0.1 Hz loop.** Less optimization against a misspecified future is more robust: LOC 13 → 3. Cost is precision (119 P → 24, lat 0.58 → ~2.6 m). No privilege, no net, no teacher | **D-051** |
+| **GM_RFLY BLIND + EVENT REPLAN, full budget** | **177/180 = 98.3%** | **144 PERFECT** · lat **0.41 m** · LOC **1** · FUEL 1. Seeds 42 and 7 both 60/60 with ZERO faults. `--rfly-event-replan` re-solves the moment the legal sensed `n_eng` changes. **The stale plan — not blindness — was the mechanism: LOC 13 → 1.** Privilege is worth only 3 draws (1.7%), not 22 | **D-052** |
+| **GM_RFLY BLIND + EVENT + 1/8 BUDGET** | **175/180 = 97.2%** | **THE DEPLOYABLE ROW.** 6.3 s/flight ≈ 0.5 s/replan vs a 0.1 Hz loop — **real-time by ~20×, zero privilege, no net/teacher/distillation.** Budget now buys only PRECISION (27 PERFECT vs 144; 2.4 m vs 0.41 m), not survival | **D-054** |
 | GM_MPPI | **4/60** (s42) | 0P · 0G · 4 HARD · 56 CRASHED, **50 off-pad**. Same binary and byte-identical faults as the row above | D-046 control |
 | reactive + D-030 | 9–10 / 60 | the 2-engine entry-divert re-authorization | D-030 |
 | **constant θ = identity** (`--rfly-fixed 1,…,1,0,1`) | **9/60** (s42) | 1P·3G·5H·51C, off-pad 36. **Validates the rig**: constant-θ GM_RFLY ≡ the reactive stack with D-030. **0.39 s/run** vs the CEM's 76 s | D-047 probe |
@@ -48,27 +50,31 @@ reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_fr
 | *GM_MPPI, pre-D-030* | *1/60* | ⚠ **cross-version — do not quote as a control.** D-030 lifts EO mode-independently | E0 |
 | *GM_NEURAL v6, pre-D-030* | *1/0/0 of 60* | ⚠ same caveat | E0 |
 
-**THE GAP, AS OF 2026-09-11 — and it is not what it was thought to be.** The standing reading was
-that the search's 100% was bought with *privilege and latency*, and that everything deployable was
-stuck at 1–9/60. **①b measures both halves and both were wrong.**
+**THE GAP, FINAL FORM (2026-09-11, after D-052/D-054).** Three readings were held during this
+arc and **two of them were mine and wrong**. The record, in order:
 
-- **Privilege was worth 12.2%, not 90%.** Blind GM_RFLY — which never consults the fault's future —
-  lands **158/180**, with the cost falling on whole flights (LOC 13, FUEL 5) rather than on
-  accuracy (precision 0.33 → 0.58 m, still sub-metre).
-- **Latency was a framing error.** R2b measured the budget dropping 8× with no rate loss
-  (**~0.4 s/replan**) against an outer loop that replans at **0.1 Hz** — real-time by ~25×. The
-  10 µs bar three arcs of distillation chased belongs to the 500 Hz *inner* loop; a mission-layer
-  setpoint never had it.
-- **And "everything deployable sits at 1–9/60" rested on `identity`**, now known to be an
-  arbitrary unoptimized point (5/60 on training seeds, 9/60 on the lucky seed 42) rather than a
-  baseline — **37/360 = 10.3% on the full training pool.** An optimized constant reaches
-  **248/360 = 68.9%** on that same pool, paired. *(The "~34/60 honest" quoted earlier on 09-11 was
-  a two-seed estimate and was pessimistic; the four-fresh-seed figure puts the winner's curse at
-  −4%, not −19%.)*
+- *"The search's 100% is bought with privilege."* → **Privilege is worth 3 draws, 1.7%** (D-052).
+  ①b first measured 12.2%, and even that was mostly something else.
+- *"Latency requires distillation."* → **A framing error.** The 10 µs bar belongs to the 500 Hz
+  *inner* loop; the mission layer replans at **0.1 Hz**, and the deployable arm runs at
+  **0.5 s/replan — real-time by ~20×** (D-054).
+- *"Everything deployable sits at 1–9/60."* → That rested on **`identity`, which is 28/180 on this
+  pool** and was never a baseline at all — an arbitrary unoptimised point quoted for seven weeks.
+- *"Less search is better."* → **A symptom, now retired.** The cheap search won only because it
+  could not commit hard to a plan about to go stale; fix the staleness and full budget wins
+  177 vs 166 (D-052).
+- **What it actually was: a STALE PLAN.** `RFLY_REPLAN_DT` is 10 s and purely periodic while the
+  fault fires at t ∈ [4,18] s. **LOC 13 → 1** once the vehicle re-solves when `n_eng` changes.
 
-**So a legal, real-time controller that recovers 87.8% of an in-frontier draw distribution exists
-on this disk today, and needs no net, no teacher and no distillation.** What remains open is the
-22 draws — an attitude/margin problem, not a guidance one.
+**So a legal, real-time controller recovering 97.2% of an in-frontier draw distribution exists on
+this disk today, with no net, no teacher and no distillation** (D-054; 98.3% if you spend the
+budget for precision).
+
+**What remains open is the DENOMINATOR, not the controller.** The residual 3–5 draws are a tail —
+one or two each of off-pad / too-hard / LOC / fuel, no dominant mechanism. And the bound above is
+the **lateral axis only**; `ceiling_eo.c` says the true ceiling is
+`min(lateral, attitude-recoverable, terminal-null)` and **the attitude axis has never been
+computed**. 177/180 may already be AT the bound. See [PLAN.md](PLAN.md) §2.
 
 ## B · AERO held-out — ×60 × 3 seeds = 180. The M4 gate (≥90%, open since D-018)
 
