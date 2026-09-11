@@ -3413,3 +3413,81 @@ in-sample 85/120 = **42.5/60**, fresh 163/240 = **40.75/60** — a drop of **−
 figure is ~41/60.** The original estimate was a two-seed measurement of exactly the kind of
 quantity two seeds cannot measure — the same error, in miniature, that the noise discussion was
 about. The ladder above uses the full-pool numbers throughout.
+
+## D-050 ADDENDUM 1 — THE LADDER WAS CROSS-POOL; ON ONE POOL D-050 IS A NULL (2026-09-11)
+
+Three corrections, all from outside review, all confirmed by re-measurement.
+
+### (a) THE LADDER MIXED POOLS, so its central subtraction was invalid
+
+`identity`, the constant and D-050 were scored on the **training pool** (seeds 5000-5005);
+blind and clairvoyant on **held-out** 42/7/99. Pool difficulty swings hard — the constant alone
+scores 68 to 87 per 120 across seed pairs — so `constant → blind = 18.9 pts` subtracted two
+different instruments. Re-flown on **one pool, the identical 180 faults of seeds 42/7/99**:
+
+| controller | landed | rate | privilege |
+|---|---|---|---|
+| `identity` | **28/180** | **15.6%** | none |
+| **D-047 constant** (10 numbers) | **121/180** | **67.2%** | none |
+| **D-050 conditional policy** (70 params) | **123/180** | **68.3%** | none |
+| **GM_RFLY blind** | **158/180** | **87.8%** | none |
+| GM_RFLY clairvoyant | 180/180 | 100.0% | the fault's future |
+
+**Corrected decomposition, one instrument throughout:**
+`identity → constant` **+51.6 pts** · `constant → blind` **+20.6 pts** ·
+`blind → clairvoyant` **+12.2 pts**.
+
+The qualitative headline survives intact — **foreknowledge is still the smallest term**, and ten
+hand-searched numbers are still worth more than everything else combined — but the numbers move
+and the earlier ones should not be quoted.
+
+### (b) D-050 IS A NULL, not a marginal win
+
+**+2 draws of 180.** Per-seed paired differences **−1 / +3 / 0**, mean **+0.67 ± 1.2 SE**. That is
+a tie by any reading.
+
+My earlier "+3.1 points, 16% of the gap" was inflated **twice over**: by the cross-pool
+subtraction above, and because the "full pool" I called a fair re-score — seeds 5000-5005 — **is
+exactly D-050's own rotating training set**. I labelled an in-sample number as the honest one. On
+held-out, the capture fraction is **~5%**, and it is not distinguishable from zero.
+
+**The pre-registered `no better than the constant ⇒ null` branch is the outcome.** Recorded as
+such.
+
+### (c) THE CONCLUSION I DREW FROM IT IS NOW UNDER-SUPPORTED, TWO WAYS
+
+I wrote that this is "a finding about the representation, not about learning." Two defects in that:
+
+1. **D-050 never received the fix it was designed around.** The plan promised a **continuous
+   margin** reward precisely because the knife-edge makes binary outcomes a bad signal. What
+   shipped is the weighted verdict — an *ordinal, four-level step function*. Softer than binary,
+   but still a step function, and not what the design argued for.
+2. **The parameterization was crippled at initialization.** Six of ten outputs start at a box
+   bound (the warm start is D-047's winner, which lives on the boundary), so **positive weight
+   directions on those outputs clamp to no-ops** — measured directly in the functional gate, where
+   a +0.8 weight on EKR was byte-identical to zero. The policy class is materially smaller than
+   70 parameters *in the region the warm start put it*.
+
+So "linear over six features is too poor a basis" is **confounded** with "the warm start placed it
+where half its directions were dead." **The cheap discriminator, and it should run before anyone
+repeats the representation claim: re-run D-050 from a bias pulled into the box INTERIOR** (say
+0.9× on the pinned outputs), with a continuous margin objective. If the capture fraction moves,
+the representation conclusion is premature. If it does not, the Qwen-Drive argument finally has a
+receipt instead of an analogy.
+
+### (d) AND THE KNIFE-EDGE ARGUMENT HAS A LOGICAL GAP I DID NOT SEE
+
+I claimed D-047's knife-edge — eight identical flights flipping on a 3.5% gain change — makes
+regression *ill-posed by construction*, and used it to explain π and θ̂. **That does not follow.**
+The knife-edge is a property of **outcome as a function of θ**. But π and θ̂ regressed onto
+**teacher labels**, not onto outcome. Label-regression becomes ill-posed only if the **labels
+themselves are multimodal** — i.e. the CEM picks arbitrarily among several equally-good θ, so the
+conditional mean lands between modes and represents none of them.
+
+That is a *different* claim, it is **testable directly on the 388-run oracle corpus already on
+disk** (measure the spread of converged θ at matched observations), and it is the version that
+actually argues for flow matching. Until it is measured, the knife-edge on its own points at
+**compounding error**, which is what DAgger addresses and what a legal blind teacher makes cheap.
+
+**The two-walls separation therefore stands only as a hypothesis, not as the measured result I
+presented it as.** Downgraded accordingly.

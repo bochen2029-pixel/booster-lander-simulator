@@ -41,8 +41,8 @@ reports 1.000 at *every* gimbal-debit level it models (40/60/80%, i.e. `steer_fr
 | **constant θ = identity** (`--rfly-fixed 1,…,1,0,1`) | **9/60** (s42) | 1P·3G·5H·51C, off-pad 36. **Validates the rig**: constant-θ GM_RFLY ≡ the reactive stack with D-030. **0.39 s/run** vs the CEM's 76 s | D-047 probe |
 | constant θ = D-046 run-0's own converged θ, frozen | 9/60 (s42) | reproduces D-042 — a converged θ held constant is no better than identity | D-047 probe |
 | constant θ = divert knobs at the box ceiling | **13/60** (s42) | hand-picked. Headroom exists; and the landscape is **non-monotone** (partway = 5/60, all the way = 13/60) | D-047 probe |
-| **constant θ, CEM-optimized** (10 numbers) | **248/360 = 68.9%** | full training pool, paired. **identity on the same pool is 37/360 = 10.3%** — the shipped baseline was never a baseline. Zero inference, zero privilege, 0.39 s/run | D-047 |
-| **conditional policy** (70 params, 6 legal features) | **259/360 = 71.9%** | paired, same pool. **+3.1 pts over the constant = 16% of the 18.9-pt adaptation gap.** A finding about the REPRESENTATION, not about learning | D-050 |
+| **constant θ, CEM-optimized** (10 numbers) | **121/180 = 67.2%** | **held-out 42/7/99, the SAME 180 faults as the blind/clairvoyant rows.** identity on this pool = **28/180 = 15.6%** — the shipped baseline was never a baseline. Zero inference, zero privilege, 0.39 s/run | D-047 |
+| **conditional policy** (70 params, 6 legal features) | **123/180 = 68.3%** | held-out, same 180 faults. **+2 draws over the constant; per-seed −1/+3/0, mean +0.67 ± 1.2 SE — a NULL.** The earlier +3.1/16% was cross-pool AND in-sample (5000-5005 IS its training set) | D-050 add.1 |
 | GM_NEURAL v6 + D-030 | 8/4/2 of 60 = **14/180** | | D-030 |
 | *GM_MPPI, pre-D-030* | *1/60* | ⚠ **cross-version — do not quote as a control.** D-030 lifts EO mode-independently | E0 |
 | *GM_NEURAL v6, pre-D-030* | *1/0/0 of 60* | ⚠ same caveat | E0 |
