@@ -6,6 +6,32 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-12 ~19:30 [fable5.1→opus5] — D-055 + D-056: THE SEALED POOL CONFIRMS 97.5%, AND THE VISUAL
+  LAYER LANDS WITH A POSE BUG THE WHOLE ARC CARRIED.** Session resumed from the 09-11 hand-off with
+  three operator archives at `C:\` (Graphics, Apollo Gimbal, FluidX3D) and the repo 24 commits
+  ahead of GitHub — pushed first (origin/main 8c4b128 → b649523, 2026-07-27 → 09-11 caught up).
+  **D-055:** the sealed-pool farm had died at 04:13 (kernel shutdown, `System` 109, mid-seed 9204);
+  relaunched 14:42, resumed at 9204 by the `LANDED:`-line rule, finished 16:32. **identity 68/600 ·
+  constant 382/600 · blind+event+1/8 = 585/600 = 97.5%**, per seed 58/60/58/60/58/59/58/59/59/56,
+  LOC 4 · FUEL 1, crashes off-pad 7 · too-hard 3 · fuel-out 1 · LOC 4. Read as pre-registered:
+  CONFIRMED and *not* an improvement (both baselines −4 pp on the harder pool, the deployable row
+  unchanged = ceiling compression). Quote 97.5%. Pool spent. **D-056:** while dropping in the
+  Kestrel-9 renderer I found `r` is the **CoM** (`main.c:150`, `contact.c`, `com_z` @88 decoded and
+  unread) and the renderer had posed the base-origin model AT it since July — every capture ~12–20 m
+  too high, HUD ALT 13 m for a landed booster. Fixed with a `BaseOrigin` child dropped `−com_z`;
+  ALT = base height. Kestrel-9 vendored verbatim (sha-pinned) + adapters, default model; the
+  CanvasTexture finding of 908bc53 **does not reproduce** (real class vs DataTexture pixel-identical
+  on posed captures — the old hull was a NodeMaterial whose colorNode overrides `map`). FDAI + IMU
+  kernel (`ui/src/hud/{fdai,imu}.ts`, 20 tests, Block II order, MGA margin, ALIGN/PAD REF) placed
+  below the camera bar. Gates: typecheck · vitest 200/200 · build · selftest. **Verification loop
+  this session:** the Browser pane's dev server dies with its last tab, so the page is driven by
+  `C:\peek` (kept headless Chrome, `--attach PORT --js`) + `__shotPoseHDR`/`__shotHDR` + `/__cap`
+  → `runs/shots/{k9data,k9canvas,legacy}_*.jpg`; posed shots need `lead: 0` (landed) or the live
+  director camera (in flight — a 1.2 s velocity lead missed at 140 m/s). A wrangler `workerd` sat on
+  8787 → `?port=` override added (`shell/mount.ts`). **Left as measured, not tuned:** env-map balance
+  (hull/ground blow toward white at close range under this IBL) and the LDR plume; both are one-line
+  knobs listed in ROADMAP for an eyes-on pass. **Next:** Phase 0.3 budget sweep · Phase 2.2 attitude-
+  reference failure in `nav.c` · then 2.3/3.x the honest denominator.
 - **2026-09-11 ~17:35 [opus5] — D-052/D-054: THE STALE PLAN WAS THE MECHANISM, AND THE ARC'S HEADLINE
   REVERSES.** `RFLY_REPLAN_DT` is 10 s and purely periodic; the fault fires at t ∈ [4,18] s — so a
   fault at t=11 left the vehicle flying a THREE-ENGINE plan on two engines for nine seconds,

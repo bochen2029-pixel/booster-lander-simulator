@@ -49,7 +49,12 @@ both times it inflated a number that was then published.
 
 | date | what was flown | result | ADR |
 |---|---|---|---|
-| 2026-09-11 | D-055 — the deployable headline verification | *pending* | D-055 |
+| 2026-09-11/12 | D-055 — the deployable headline verification (three arms, 600 draws) | identity **68/600 = 11.3%** · constant θ **382/600 = 63.7%** · **blind + event + 1/8 budget 585/600 = 97.5%** — CONFIRMED, read as ceiling compression per the adjusted expectation, not as an improvement | D-055 |
+
+**The pool is SPENT for the deployable-headline claim.** The 09-12 kernel-initiated shutdown
+interrupted seed 9204 mid-batch; the farm script discarded the partial and re-flew that seed from
+the start on resume — a re-fly of an *unfinished* seed, not a repeat evaluation, and it is recorded
+here so that it can never be mistaken for one. Any further claim on these seeds needs a new band.
 
 ## The expectation, adjusted BEFORE the deployable arm returned
 

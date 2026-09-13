@@ -1,4 +1,4 @@
-# PLAN — the integrated program as of 2026-09-11
+# PLAN — the integrated program as of 2026-09-12
 
 > **What this file is.** A resume-from-cold spec. If the session context is trimmed, read this
 > first, then `SCOREBOARD.md` (every controller × every battery on one page), then the tail of
@@ -26,6 +26,11 @@ the last.**
 
 **THE DEPLOYABLE ROW IS D-054**: 97.2% at **6.3 s/flight ≈ 0.5 s/replan** against a **0.1 Hz**
 outer loop — real-time by ~20×, **no privilege, no net, no teacher, no distillation.**
+
+**SEALED-POOL VERIFICATION (D-055, 2026-09-12) — the number to quote: 585/600 = 97.5%** on virgin
+seeds 9200–9209, flown once. Same pool: identity 68/600 (11.3%), constant θ 382/600 (63.7%) — both
+~4 pp under their dev figures while the deployable row held, which the pre-registration named as
+ceiling compression, not improvement. The pool is spent for this claim (`SEALED_POOL.md`).
 
 **Residual failures are a tail, not a lever.** Full+event: too-hard 1 · fuel-out 1 · LOC 1.
 1/8+event: off-pad 2 · too-hard 2 · LOC 1. One or two of each category, no dominant mechanism.
@@ -116,7 +121,8 @@ is a reference-*loss* failure. The resemblance is superficial and inviting.
 - **0.2 SEAL A FRESH HELD-OUT POOL.** Seeds 42/7/99 have informed a dozen decisions and **seed 42
   was contaminated by my own hand probes** (D-047's warm start was chosen because a box-ceiling θ
   scored 13/60 there). Mint ~10 untouched seeds, record that they are sealed, re-verify the
-  headline **once**. **Until that runs, 97.2% is a development number.**
+  headline **once**. *(DONE 2026-09-12, D-055: 585/600 = 97.5% — confirmed; quote the sealed
+  figure.)*
 - **0.3 The budget sweep.** Two points exist (1/8 and full) with a surprising result between them.
   Run 1/32 · 1/16 · 1/8 · 1/4 · 1/2 · full on one pool **with event replan on**. Note
   `--rfly-budget` scales POP *and* ITERS together and ITERS floors at 2, so below ~1/5 only POP
@@ -124,15 +130,19 @@ is a reference-*loss* failure. The resemblance is superficial and inviting.
 
 ### Phase 1 — the drop-in (a day, zero physics risk)
 - **1.1** `assets/kestrel9_gfx/booster/{kestrel9,plume}.js` → `ui/src/scene/`, feed
-  `setTelemetry(tlm)` from the decoded frame. Nothing to design.
+  `setTelemetry(tlm)` from the decoded frame. Nothing to design. *(DONE 2026-09-12, D-056:
+  `ui/src/scene/kestrel9/`, verbatim + adapters, default model; `?legacy` for A/B. Found and fixed
+  on the way: the vehicle had been posed at its CoM instead of its base for the whole arc — `com_z`
+  was on the wire and unread. Left as measured: env-map balance and an LDR plume — a tuning pass
+  with eyes on.)*
 - **1.2 FDAI overlay** from `quat[4]` (offset 56) + `w[3]` (offset 72). Apollo's *look*, not
   Apollo's mechanics. Pure additive UI — **and immediately the best instrument for watching a LOC
-  draw depart**, which is currently invisible.
+  draw depart**, which is currently invisible. *(DONE 2026-09-12, D-056: `ui/src/hud/fdai.ts`.)*
 
 ### Phase 2 — the instruments (where the value is)
 - **2.1 The ~60-line kernel, display-only first**: quaternion → OGA/MGA/IGA (a specific rotation
   order), `MGA margin = 90° − |MGA|`, lock predicate. **Not a port** — `gimbal-scene.js` is 53 KB
-  of Three.js and stays in JS forever.
+  of Three.js and stays in JS forever. *(DONE 2026-09-12, D-056: `ui/src/hud/imu.ts`, 11 tests.)*
 - **2.2 Attitude-reference failure in `nav.c`** — **a deliberate decision, because it will LOWER
   97.2%.** That is correct and desirable, but it must not be a surprise.
 - **2.3 Extend `ceiling_eo.c` to the attitude-recoverable axis.** The one that changes what every
@@ -191,6 +201,8 @@ is a reference-*loss* failure. The resemblance is superficial and inviting.
 
 ## 7 · FIRST MOVE
 
-**Phase 0.2 — seal a fresh pool and re-verify once.** Everything downstream is uninterpretable
-while the headline sits on a burned pool; that is the same discipline that caught the cross-pool
-ladder error. Phase 1 can run in parallel — it touches no physics.
+~~**Phase 0.2 — seal a fresh pool and re-verify once.**~~ *Done (D-055).* ~~Phase 1~~ *Done
+(D-056).* **Next: Phase 0.3 (the budget sweep, POP and ITERS separately, event replan on) and
+Phase 2.2 (attitude-reference failure in `nav.c` — the deliberate decision that lowers 97.5%).**
+2.2 before 2.3: the attitude axis of the ceiling cannot be computed until the plant can lose its
+reference.

@@ -3615,3 +3615,143 @@ single design choice.** Every net this arc trained had an effective input of 32 
 **This does not by itself explain the nulls** — a constant input is wasted capacity, not a wrong
 target — but it belongs beside the authority gap on the list of things that were true the whole
 time and never measured.
+
+## D-055 — THE HEADLINE ON A SEALED POOL, FLOWN ONCE: 585/600 = 97.5% (2026-09-12)
+
+**The publication event.** `SEALED_POOL.md` minted seeds 9200–9209 on 09-11 (verified absent from
+every seed ever flown), pre-registered the reads, then **adjusted them downward before the
+deployable arm returned** because both control arms came in 3.5–4.3 pp lower on the sealed pool
+than on the burned dev pool. `runs/d055_sealed_verify.ps1`, three arms, the identical 600 draws
+(10 seeds × 60 ENTRY `--engine-out random`), all zero-privilege:
+
+| arm | dev 42/7/99 | **sealed 9200–9209** | shift | quality (sealed) |
+|---|---|---|---|---|
+| `identity` | 28/180 = 15.6% | **68/600 = 11.3%** | −4.3 pp | 0 P · 2 G · 66 H |
+| constant θ (D-047) | 121/180 = 67.2% | **382/600 = 63.7%** | −3.5 pp | 0 P · 243 G · 139 H |
+| **blind + event replan + 1/8 budget (D-054)** | 175/180 = 97.2% | **585/600 = 97.5%** | **+0.3 pp** | **95 P · 406 G · 84 H** |
+
+Per seed: 58 · 60 · 58 · 60 · 58 · 59 · 58 · 59 · 59 · 56. Mean lateral **2.53 m** (dev 2.4 m),
+mean td_v 2.71 m/s, mean residual propellant 2700 kg. Faults: **LOC 4, FUEL 1**. Crash causes:
+off-pad 7 · too-hard 3 · fuel-out 1 · LOC 4 = 15.
+
+### THE READ, exactly as pre-registered
+
+The adjusted expectation named three bands. This lands in the third — *"at or above 97%: report
+it plainly, but do **not** treat it as an improvement; on a pool that is harder for both baselines,
+a held-up rate at the top of the range most likely means the ceiling compresses the shift."* So:
+
+- **The headline is CONFIRMED on virgin seeds and is quoted as 97.5% (585/600) from here on.** The
+  dev-pool 97.2% loses its "development number" qualifier; SCOREBOARD and PLAN now carry the
+  sealed figure.
+- **It is not an improvement.** +0.3 pp sits inside one standard error of either pool (sealed SE
+  0.64 pp, dev SE 1.22 pp). The pool cost the two weak controllers ~4 points and the deployable
+  controller nothing, which is what a controller near the physical bound looks like: the harder
+  draws that sink a constant-θ flight are already inside its recovery envelope.
+- **The residual is still a tail.** 15 crashes in 600 spread across four mechanisms with no majority
+  (off-pad 7 is the largest at 47%; LOC 4 next). D-052's conclusion stands: the controller arc is at
+  diminishing returns, and the open question is the DENOMINATOR (PLAN.md §2) — of those 15, how
+  many were physically recoverable on all three axes?
+
+### WHAT THE RUN ALSO SHOWED
+
+- **The FARM-SCRIPT LAW paid for itself the first night it was on.** The box took a kernel-initiated
+  shutdown at 09-12 04:13 (`System` 109 again, reason "Kernel API"), 31 minutes into seed 9204 of the
+  deployable arm. The script trusts a `LANDED:` line, never a marker: relaunched at 14:42 it skipped
+  the six finished seeds, discarded the partial 9204, and finished 9204–9209 cleanly. Nothing was
+  re-flown, nothing was reported on silence.
+- **The sealed run is NOT a timing measurement.** Seeds 9200–9203 ran ~8 s/flight on a quiet box
+  (09-11 evening); 9204–9209 ran ~18 s/flight sharing the machine with the UI gates, a vitest run
+  and three unrelated servers. The 6.3 s/flight of D-054 stands as the timing figure; the rate is
+  deterministic given the seed and unaffected.
+- **Both baselines are consistent across pools** in the direction pre-registration predicted — the
+  sealed pool is uniformly harder — which is the evidence that "97.5% ≈ 97.2%" is compression and
+  not luck.
+
+### THE STANDING ANSWER, revised once
+
+*"For every situation in which it is physically recoverable, it needs to recover itself."*
+
+**97.5% of 600 virgin engine-out draws, zero privilege, no net, no teacher, no distillation, at
+~0.5 s/replan against a 0.1 Hz outer loop** (D-054's timing). The number is closed; the pool is
+spent for this claim (one flight per claim, per the rule). Further controller work on this battery
+needs a new claim and a new band.
+
+## D-056 — THE VISUAL LAYER LANDS: KESTREL-9, THE FDAI, AND A POSE BUG THE WHOLE ARC CARRIED (2026-09-12)
+
+PLAN.md Phase 1.1, 1.2 and 2.1 in one pass, plus one finding that was not on the plan.
+
+### 1 · THE VEHICLE WAS RENDERED AT ITS CENTRE OF MASS, NOT ITS BASE — for the entire 2026-07 arc
+
+The streamed `r` is the **CoM**: `main.c:150` integrates `S_RZ = h + mp.com`, `contact.c` puts the
+feet at `−1 − com` below it, the sim's own summaries print `S_RZ − mp.com` as altitude, and
+`com_z` rides the packet at offset 88 (`protocol.h:137`, "CoM height above base"). The renderer
+(`documentaryScene.ts`) built the legacy booster "base-at-y=0" and posed that base **at r** —
+`comZ` was decoded (`decode.ts:156`) and read by nothing. So every frame of every cockpit capture,
+including the N3 live demo, drew the vehicle **com_z ≈ 12–20 m too high** (it varies with
+propellant), and the HUD "ALT" showed a landed booster at 13 m. Nobody noticed because nothing in
+the scene sat at true base height to compare against, and the pad is seen from 2 km.
+
+Fix: a `BaseOrigin` group under `boosterPivot` that both models hang from, dropped `−com_z` down
+the vehicle axis every frame; HUD ALT and `__telem().altM` now report base-plane height (a landed
+booster reads 1 m — the feet dip). Measured: `runs/d056/k9data_hero.jpg` / `legacy_hero.jpg` —
+both models stand on the circle-X with feet on the pad. **The director still frames `r + halfH`**
+(vehicle "centre" ≈ com_z above the true centre); harmless, noted, not changed.
+
+### 2 · KESTREL-9 (Phase 1.1) — vendored verbatim, adapted beside, measured
+
+`ui/src/scene/kestrel9/{kestrel9,plume}.js` are byte-identical to the operator's archive
+(`PROVENANCE.sha256`, `c1545944…` / `06d80d7e…`). Everything else is adapters: hand-written
+`.d.ts`, `threeShim.ts` (the injected `THREE`), `kestrelTlm.ts` (camelCase → the packet's own
+names + `bell_alt`), `kestrelVehicle.ts` (wholesale rebuild on HELLO — never a geometry swap). It is
+the default model; `?legacy` keeps the 07-21 hull + TSL raymarched plume for A/B.
+
+**Consumed for the first time:** `gimbal_act[2]` (the centre bell and the 3-engine pair now
+vector), `stroke[4]` (leg crush), `Q_heat` (soot), `p_amb`/`mach`/`qbar` (shock-cell spacing, SRP
+envelope) and `com_z`. **Measured on one `--scenario terminal` run, posed HDR captures:**
+`runs/d056/k9data_final1.jpg` (alt 82 m, throttle 0.69: legs deployed, nine bells, the soot band, a plume
+column with visible cells), `k9data_hero.jpg` / `k9data_octaweb.jpg` (landed: joint rings, grid-fin
+lattice, telescoping legs, the octaweb).
+
+**The CanvasTexture finding of commit 908bc53 does not reproduce.** Same camera, same frame, the
+real `CanvasTexture` and a `DataTexture` built from the identical canvas pixels render
+**pixel-identically** (`runs/d056/k9canvas_hero.jpg` vs `k9data_hero.jpg`). The 07-21 hull was a
+`MeshStandardNodeMaterial` whose `colorNode` overrides `map` by design — the likeliest reading of
+the old "does not sample". The shim stays (`?k9tex=data`), the default is the class the asset
+ships with. Two things are worse than the legacy scene and are **left as measured, not tuned**:
+(a) the asset's `envMapIntensity` 0.72–2.0 were set for its own viewer; under this scene's
+physical-sky IBL the white hull and the ground blow toward white at close range (probe: hull linear
+0.93/1.14/1.40 at d = 40 m — bluish sky-mirror, the same mechanism 908bc53 tuned out with 0.3);
+(b) its plume is LDR (`MeshBasicMaterial` ≤ 1.0) so it never crosses the bloom threshold and reads
+faint next to the legacy HDR torch (`legacy_final1.jpg`). Both are one-line knobs on the vehicle
+handle (`setEnvMap(null, k)`; a colour multiplier on the plume units) and belong to a tuning pass
+with the operator's eyes on it, not to a drop-in commit.
+
+### 3 · THE FDAI + THE IMU KERNEL (Phase 1.2 / 2.1) — display-only, tested
+
+`ui/src/hud/imu.ts` is the ~60-line kernel the plan asked for, not a port: quaternion → OGA/MGA/IGA
+in the Apollo Block II order `Rx(OGA)·Rz(MGA)·Ry(IGA)`, `margin = 90° − |MGA|`, WARN ≤ 20°, LOCK
+≤ 5°, body rates on the case axes. The mount is stated once: outer axis = vehicle long axis (case X
+= body Z, case Y = body X, case Z = body Y, a proper rotation); the default REFSMMAT is the
+landing-site frame (SM X up, Y east, Z north) so upright-at-heading-zero reads 0/0/0 with 90° of
+margin, a tilt about east is IGA, about north is MGA (the lock axis), a roll is OGA; ALIGN
+re-references to the current attitude. 11 vitest cases pin it (round trips of arbitrary triples,
+the lock bands, ALIGN, rate mapping, NO ATT on a non-unit quaternion). `ui/src/hud/fdai.ts` paints
+the 8-ball on a canvas from the same factorization (9 cases pin where the split line, the zero
+marker and the lock caps land), with the margin bar, rate needles, annunciator (NO ATT · LOC ·
+GMBL LOCK · LOCK CAUTION), ALIGN / PAD REF. `__telem()` now returns `quat`, `w` and the kernel
+output; `__fdai` exposes align/pad.
+
+**The trap, restated where the code lives:** this is a platform-*reference* instrument. `F_LOC`
+(`sim.c:565`) is a control-*authority* failure. Margin → 0 here does not model our LOC; it makes an
+attitude departure legible while it happens, which until today it was not.
+
+### GATES
+
+`pnpm -C ui typecheck` clean · vitest **200/200** (174 prior + 26 new) · `pnpm -C ui build` clean ·
+`booster-core --selftest` PASS (untouched). No `core/` change; the renderer remains a pure observer.
+
+### FOLLOW-UPS (ROADMAP)
+
+Exposure/IBL balance for the Kestrel-9 materials and an HDR boost for its plume (with eyes on) ·
+director framing at the true centre · the phase ladder has no SETTLING rung (phase 6 lights
+nothing) · `?port=` override documented for the wrangler-on-8787 collision.
