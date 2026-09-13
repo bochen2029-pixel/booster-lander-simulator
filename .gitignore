@@ -99,6 +99,9 @@ android/
 /*.zip
 User_a_CHUNKER_*
 build2/
+build3/
+build4/
+build[0-9]*/
 *.pid
 dist/*.zip
 dist/*.exe

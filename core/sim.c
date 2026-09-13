@@ -227,6 +227,7 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
     /* D-058 (PLAN 2.2): the gimbaled platform, ALIGNED to the landing-site REFSMMAT at the initial
      * attitude. Off (no MOD_IMU) => imu.on==0 => every consumer below keeps its truth pointer. */
     imu_init(&s->imu, (modules & MOD_IMU)!=0, g_imu_rate_deg, &s->st.y[S_QX]);
+    s->imu.run = run_idx;   /* the journal names its run (D-058 add.1: losses must pair with verdicts) */
 }
 
 static void set_verdict(Sim* s){
