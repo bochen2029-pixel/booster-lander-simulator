@@ -3898,3 +3898,48 @@ emits TLM); the goldens are the gate for the wire.
 
 **Sign convention (from D-058) still stands:** the plant's MGA is the SM→case angle; the display
 kernel's is case→SM; the margin the FDAI shows is now the plant's own.
+
+## D-060 — THE FROZEN AERO TABLE MEETS A CFD BODY — OPENED, PRE-REGISTERED, RUNNING ON THE GPU (2026-09-12 22:16)
+
+PLAN.md Phase 2.4. Every frontier number in this repo rests on `dynamics.c`'s aero model:
+`AERO_CA[M]` = {0.85 @0, 0.88 @0.6, 1.10 @0.9, 1.40 @1.1, …} and `AERO_CN[M]` = {2.0, 2.1, 2.4, 2.5,
+…} per rad on `VEH_AREF` 10.52 m², tagged *[community]/[chosen]* in `constants.h` — never measured
+against anything. The operator's FluidX3D drop and the Kestrel-9 exporter make a measurement
+possible tonight: the LBM is weakly compressible, so it checks the **M → 0 end** of both tables.
+
+**The body.** `assets/kestrel9_gfx/exports/kestrel9_cfd_stowed_1-1_m.stl` — exported through the
+cockpit (`__exportStowedSTL`, D-060) with the legs STOWED, the aero-descent configuration the
+table models (the shipped export has the legs deployed, which only exists in the last seconds).
+98,876 triangles, ±3.22 m lateral (body + grid fins), −1.66 … 47.7 m along the axis, nozzles
+hollow to the throat plane.
+
+**The run** (`tools/cfd/kestrel9_setup.cpp`, FluidX3D FP16S + EQUILIBRIUM_BOUNDARIES + FORCE_FIELD +
+SUBGRID, RTX 4070 Ti SUPER, ~5 GLUPS): 933 × 259 × 259 cells, dx = 0.156 m, **D = 23.5 cells**,
+free stream 30 m/s (M 0.09) on every face, Re_D = 7.4 × 10⁶ with Smagorinsky-Lilly LES, the vehicle
+**base first** (octaweb upstream), 4 flow-throughs (49,760 steps), force on the body every 500
+steps, coefficient = mean of the last third. Two points: α = 0 (CA) and α = 8° (CA, CN).
+
+**What the model predicts at these points, computed from the code, not from memory:**
+- CA(M→0) = **0.85**, *body only* — the fin model (`dynamics.c` "grid fins (Agent A model)") has
+  radial lift and a tangential cant term and **no axial drag at all**. The CFD sees four 1.2 × 2.0 m
+  titanium lattices in a 30 m/s stream.
+- CN at 8°: body 2.0 × 0.1396 = 0.279, plus the four passive fins — each fin's radial lift
+  `q·FIN_AREA·FIN_CNA·α_i` with α_i = α cos(φ_i − φ_cross) projects onto the crossflow as
+  cos²(φ_i − φ_cross); Σ over φ = 45/135/225/315° is 2 for any φ_cross — so
+  2 × 2.4 × 3.0 / 10.52 = 1.369 per rad ⇒ 0.191. **Model total CN(8°) = 0.470 (3.37 per rad).**
+
+**Pre-registered reads (a coarse LES at 23 cells per diameter is a ±20 % instrument; pressure drag
+on a blunt base is what it captures well, skin friction it does not):**
+- **CA_cfd ∈ [0.75, 1.0]** ⇒ the table's low-Mach anchor is CONFIRMED; the fins' drag is either small
+  or already folded into the "community" 0.85.
+- **CA_cfd > 1.1** ⇒ the model UNDER-predicts axial drag with the fins deployed — for the entire aero
+  descent. A plant-change candidate (a fin drag term), byte-changing, re-golden — and it moves
+  ignition altitudes and fuel margins, so it is a deliberate decision, not a patch.
+- **CA_cfd < 0.7** ⇒ the base-first bluff body is less draggy than assumed; same consequence in the
+  other direction.
+- **CN_cfd(8°) ∈ [0.35, 0.60]** (2.5–4.3 per rad) ⇒ consistent with body + passive fins.
+  Outside ⇒ the fin normal-force model or the body slope is off; which one needs a fins-off run.
+- α = 0 must give |CN| < 0.05 (symmetry check on the voxelised body — a bigger value is a grid
+  or orientation error, not physics).
+
+**Result: D-060 addendum** (`runs/d060/`: `cfd_alpha{0,8}.log`, `force_alpha*.csv`, frames).

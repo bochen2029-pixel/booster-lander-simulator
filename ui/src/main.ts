@@ -237,6 +237,17 @@ async function boot() {
       };
     };
     G.__fdai = fdai; // __fdai.align() / __fdai.pad() / __fdai.readout
+    // CFD body export (D-060): the Kestrel-9 in the AERO-DESCENT pose (legs stowed) as binary STL,
+    // posted to the vite capture sink (runs/shots/<name>.jpg — rename to .stl). Lazy import keeps the
+    // exporter out of the cockpit bundle path until asked.
+    G.__exportStowedSTL = async (name = "k9_cfd_stowed") => {
+      if (!doc.kestrel) throw new Error("kestrel model not mounted (?legacy)");
+      const [{ postStowedSTL }, { makeKestrelThree }] = await Promise.all([
+        import("./scene/kestrel9/exportStowed"),
+        import("./scene/kestrel9/threeShim"),
+      ]);
+      return postStowedSTL(makeKestrelThree(), doc.kestrel.booster, name);
+    };
   }
 
   // camera preset hotkeys (renderer-side only; never crosses the boundary)

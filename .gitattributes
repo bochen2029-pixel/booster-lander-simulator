@@ -10,3 +10,4 @@ assets/apollo_imu/*.js              text eol=lf
 *.stl binary
 *.jpg binary
 *.png binary
+ui/src/scene/kestrel9/export-stl.js text eol=lf
