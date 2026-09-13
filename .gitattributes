@@ -1,0 +1,12 @@
+# The vendored Kestrel-9 renderer is sha-pinned (ui/src/scene/kestrel9/PROVENANCE.sha256). Keep it
+# byte-for-byte LF in every working copy so `sha256sum -c` holds on any clone regardless of
+# core.autocrlf. Same for the sha file itself and the operator archive sources it was copied from.
+ui/src/scene/kestrel9/kestrel9.js   text eol=lf
+ui/src/scene/kestrel9/plume.js      text eol=lf
+ui/src/scene/kestrel9/PROVENANCE.sha256 text eol=lf
+assets/kestrel9_gfx/booster/*.js    text eol=lf
+assets/apollo_imu/*.js              text eol=lf
+# binary assets
+*.stl binary
+*.jpg binary
+*.png binary

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #07090d; }
+    body { font-family: "IBM Plex Sans", ui-sans-serif, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #f0742a; text-decoration: none; }
+    a:hover { color: #ff9455; text-decoration: underline; }
+  </style>
+  <script type="module" src="booster-stage.js"></script>
+</helmet>
+
+<div style="position:relative;width:100%;height:100vh;min-height:520px;background:#07090d;overflow:hidden">
+
+  <x-import component-from-global-scope="booster-stage" hide-rail="{{ hideRail }}" preset="{{ startPhase }}" cam="{{ startCam }}" hint-size="100%,100%" style="position:absolute;inset:0"></x-import>
+
+  <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;left:14px;bottom:40px;width:296px;padding:15px 16px 14px;border-radius:12px;background:rgba(9,12,17,0.78);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.09);box-shadow:0 18px 50px rgba(0,0,0,0.5);color:#c9d2de">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <span style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.18em;color:#7f8b9e;text-transform:uppercase">Modelled from canon §5</span>
+        <span style="font:600 9px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;color:#f0742a">PROCEDURAL</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:6px;font:400 10.5px/1.45 'IBM Plex Mono',monospace;color:#9aa6b6">
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">BARREL</span><span>41.2 m tank, 1.53 m section joints, dorsal raceway</span></div>
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">INTERSTAGE</span><span>6.5 m open composite cylinder + fin root ring</span></div>
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">GRID FINS</span><span>4 × titanium lattice, radial hinge, ±20°</span></div>
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">OCTAWEB</span><span>9 bells, cooling-tube relief, centre gimbal ±5°</span></div>
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">LEGS</span><span>4 × telescoping, Ø18 m span, crush stroke</span></div>
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">SURFACE</span><span>soot from Q_heat w/ leg-shadow stripes, LOX frost</span></div>
+        <div style="display:flex;gap:8px"><span style="color:#5d6878;min-width:74px">PLUME</span><span>cells ∝ √(p₀/p_amb), SRP wrap, TEA-TEB flash</span></div>
+      </div>
+      <div style="margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,0.08);font:400 9.5px/1.5 'IBM Plex Mono',monospace;color:#6b7688">
+        Drop <b style="color:#c9d2de;font-weight:500">booster/kestrel9.js</b> + <b style="color:#c9d2de;font-weight:500">booster/plume.js</b> into <b style="color:#c9d2de;font-weight:500">ui/src/scene/</b>, feed <b style="color:#c9d2de;font-weight:500">setTelemetry(tlm)</b>. Zero binary assets.
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;showRail&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Chrome&quot; },
+  &quot;showNotes&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Chrome&quot; },
+  &quot;startPhase&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;entry&quot;, &quot;aero&quot;, &quot;burn&quot;, &quot;touchdown&quot;, &quot;landed&quot;, &quot;factory&quot;, &quot;static&quot;], &quot;default&quot;: &quot;touchdown&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Shot&quot; },
+  &quot;startCam&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;hero&quot;, &quot;engines&quot;, &quot;fins&quot;, &quot;legs&quot;, &quot;wide&quot;], &quot;default&quot;: &quot;hero&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Shot&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      hideRail: this.props.showRail === false ? '1' : '0',
+      showNotes: this.props.showNotes ?? true,
+      startPhase: this.props.startPhase ?? 'touchdown',
+      startCam: this.props.startCam ?? 'hero',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

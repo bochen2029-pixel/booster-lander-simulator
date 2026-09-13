@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#07080a;-webkit-font-smoothing:antialiased}
+a{color:#43c7bf;text-decoration:none}a:hover{color:#e3a33f}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes agsBlink{0%,100%{opacity:1}50%{opacity:.28}}
+@keyframes agsSweep{0%{transform:translateY(-100%)}100%{transform:translateY(400%)}}
+</style>
+<script type="module" src="./gimbal-scene.js?v=19"></script>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px 16px;background:radial-gradient(120% 90% at 50% 0%,#191d21 0%,#0b0d0f 55%,#07080a 100%);font-family:'Barlow Condensed',sans-serif">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ yes }}" hint-size="402px,874px">
+
+<div style="position:relative;height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0a0b0c;color:#e8e6e1;font-family:'Barlow Condensed',sans-serif">
+
+<!-- ══════════ HEADER ══════════ -->
+<div style="margin-top:52px;height:44px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;background:linear-gradient(180deg,#1c2024 0%,#141719 100%);border-bottom:1px solid #2b3136">
+  <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+    <div style="font-size:13px;font-weight:700;letter-spacing:1.4px;line-height:1;color:#e8e6e1">APOLLO IMU</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.8px;color:#6b747a;line-height:1">BLOCK II · ISS</div>
+  </div>
+  <div style="display:flex;gap:4px;margin-left:auto">
+    <div style="min-width:42px;padding:4px 5px;border-radius:2px;text-align:center;font-size:8px;font-weight:700;letter-spacing:.6px;line-height:1.15;border:1px solid #2b3136;background:#151a1d;color:#3f474c;background:#151a1d;background:{{ lamp.att.bg }};color:{{ lamp.att.fg }};border-color:{{ lamp.att.bd }}">NO<br>ATT</div>
+    <div style="min-width:42px;padding:4px 5px;border-radius:2px;text-align:center;font-size:8px;font-weight:700;letter-spacing:.6px;line-height:1.15;border:1px solid #2b3136;background:#151a1d;color:#3f474c;background:{{ lamp.lock.bg }};color:{{ lamp.lock.fg }};border-color:{{ lamp.lock.bd }}">GMBL<br>LOCK</div>
+    <div style="min-width:42px;padding:4px 5px;border-radius:2px;text-align:center;font-size:8px;font-weight:700;letter-spacing:.6px;line-height:1.15;border:1px solid #2b3136;background:#151a1d;color:#3f474c;background:{{ lamp.cage.bg }};color:{{ lamp.cage.fg }};border-color:{{ lamp.cage.bd }}">IMU<br>CAGE</div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-left:4px;border-left:1px solid #2b3136">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#43c7bf;line-height:1">{{ v.srcChip }}</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#6b747a;line-height:1;white-space:nowrap">{{ v.hz }} Hz</div>
+  </div>
+</div>
+
+<!-- ══════════ SCREENS ══════════ -->
+<div style="position:relative;flex:1;min-height:0">
+
+  <!-- ───── GIMBAL ───── -->
+  <div style="position:absolute;inset:0;transition:opacity .2s ease;opacity:1;opacity:{{ sc.gimbal }};pointer-events:{{ pe.gimbal }};z-index:{{ zi.gimbal }}">
+    <div style="position:absolute;inset:0;background:radial-gradient(120% 100% at 50% 42%,#171b1f 0%,#0c0e10 60%,#08090a 100%)"></div>
+    <div id="ags-imu-host" style="position:absolute;inset:0;touch-action:none"></div>
+
+    <!-- angle stack -->
+    <div style="position:absolute;top:10px;left:12px;display:flex;flex-direction:column;gap:5px;pointer-events:none">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:6px;height:6px;border-radius:50%;background:#ff5a4a"></div>
+        <div style="width:30px;font-size:10px;font-weight:600;letter-spacing:1px;color:#8a9298">OGA</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#e8e6e1;text-shadow:0 0 12px rgba(227,163,63,.25)">{{ v.oga }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:6px;height:6px;border-radius:50%;background:#64a8ff"></div>
+        <div style="width:30px;font-size:10px;font-weight:600;letter-spacing:1px;color:#8a9298">MGA</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#e8e6e1;color:{{ v.mgaCol }};text-shadow:0 0 12px rgba(227,163,63,.25)">{{ v.mga }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:6px;height:6px;border-radius:50%;background:#67e08a"></div>
+        <div style="width:30px;font-size:10px;font-weight:600;letter-spacing:1px;color:#8a9298">IGA</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:#e8e6e1;text-shadow:0 0 12px rgba(227,163,63,.25)">{{ v.iga }}</div>
+      </div>
+      <div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:36px;font-size:10px;font-weight:600;letter-spacing:1px;color:#e3a33f">ROLL</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#e8e6e1">{{ v.roll }}°</div></div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:36px;font-size:10px;font-weight:600;letter-spacing:1px;color:#e3a33f">PITCH</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#e8e6e1">{{ v.pitch }}°</div></div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:36px;font-size:10px;font-weight:600;letter-spacing:1px;color:#e3a33f">HDG</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#43c7bf">{{ v.hdg }}°</div></div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:36px;font-size:10px;font-weight:600;letter-spacing:1px;color:#8a9298;white-space:nowrap">°/s</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a9298;white-space:nowrap">{{ v.rates }}</div></div>
+      </div>
+    </div>
+
+    <!-- lock margin column -->
+    <div style="position:absolute;top:10px;right:12px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none">
+      <div style="font-size:9px;font-weight:600;letter-spacing:1.1px;color:#6b747a">MGA MARGIN</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1;color:#43c7bf;color:{{ v.marginCol }}">{{ v.margin }}°</div>
+      <div style="position:relative;width:10px;height:112px;border:1px solid #2b3136;border-radius:2px;background:linear-gradient(180deg,#d9453a 0%,#d9453a 6%,#e3a33f 6%,#e3a33f 23%,#1b1f23 23%,#1b1f23 100%);overflow:hidden">
+        <div style="position:absolute;left:0;right:0;height:3px;background:#e8e6e1;box-shadow:0 0 8px rgba(255,255,255,.7);top:50%;top:{{ v.marginTop }}"></div>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#6b747a">PLTF ERR {{ v.err }}°</div>
+    </div>
+
+    <!-- toast -->
+    <div style="position:absolute;left:50%;top:150px;transform:translateX(-50%);padding:5px 12px;border-radius:2px;background:rgba(227,163,63,.14);border:1px solid rgba(227,163,63,.5);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;color:#e3a33f;pointer-events:none;opacity:0;opacity:{{ v.toastOp }}">{{ v.toast }}</div>
+
+    <!-- RCS hand controllers (FLY source) -->
+    <div style="position:absolute;left:0;right:0;bottom:174px;padding:0 12px;display:none;display:{{ fly.disp }};align-items:flex-end;justify-content:space-between;pointer-events:none">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
+        <div onPointerDown="{{ on.stickL }}" style="position:relative;width:108px;height:108px;border-radius:50%;background:radial-gradient(circle at 50% 45%,#1d2226 0%,#0f1214 70%);border:1px solid #3a4145;box-shadow:inset 0 2px 10px rgba(0,0,0,.8),0 0 0 4px rgba(20,23,26,.7);touch-action:none;cursor:pointer">
+          <div style="position:absolute;left:50%;top:8px;bottom:8px;width:1px;background:rgba(255,255,255,.08)"></div>
+          <div style="position:absolute;top:50%;left:8px;right:8px;height:1px;background:rgba(255,255,255,.08)"></div>
+          <div style="position:absolute;inset:26px;border-radius:50%;border:1px dashed rgba(255,255,255,.1)"></div>
+          <div style="position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#eceae5,#9aa0a5 70%,#6c7378);box-shadow:0 3px 8px rgba(0,0,0,.7);left:54px;top:54px;left:{{ stk.l.x }};top:{{ stk.l.y }}"></div>
+        </div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:1.2px;color:#8a9298">PITCH · YAW</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding-bottom:18px;pointer-events:auto">
+        <div style="display:flex;gap:3px" onClick="{{ on.flyMode }}">
+          <div data-fm="rate" style="height:30px;padding:0 9px;display:flex;align-items:center;border-radius:2px;border:1px solid #2b3136;font-size:9px;font-weight:700;letter-spacing:1px;background:#151a1d;color:#8a9298;background:{{ fm.rate.bg }};color:{{ fm.rate.fg }};border-color:{{ fm.rate.bd }}">RATE</div>
+          <div data-fm="accel" style="height:30px;padding:0 9px;display:flex;align-items:center;border-radius:2px;border:1px solid #2b3136;font-size:9px;font-weight:700;letter-spacing:1px;background:#151a1d;color:#8a9298;background:{{ fm.accel.bg }};color:{{ fm.accel.fg }};border-color:{{ fm.accel.bd }}">ACCEL</div>
+        </div>
+        <div onClick="{{ on.kill }}" style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:2px;border:1px solid rgba(217,69,58,.55);background:rgba(217,69,58,.13);font-size:9px;font-weight:700;letter-spacing:1px;color:#d9453a">KILL RATES</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.5px;color:#43c7bf;white-space:nowrap">{{ v.jets }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
+        <div onPointerDown="{{ on.stickR }}" style="position:relative;width:108px;height:108px;border-radius:50%;background:radial-gradient(circle at 50% 45%,#1d2226 0%,#0f1214 70%);border:1px solid #3a4145;box-shadow:inset 0 2px 10px rgba(0,0,0,.8),0 0 0 4px rgba(20,23,26,.7);touch-action:none;cursor:pointer">
+          <div style="position:absolute;left:50%;top:8px;bottom:8px;width:1px;background:rgba(255,255,255,.08)"></div>
+          <div style="position:absolute;top:50%;left:8px;right:8px;height:1px;background:rgba(255,255,255,.08)"></div>
+          <div style="position:absolute;inset:26px;border-radius:50%;border:1px dashed rgba(255,255,255,.1)"></div>
+          <div style="position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#eceae5,#9aa0a5 70%,#6c7378);box-shadow:0 3px 8px rgba(0,0,0,.7);left:54px;top:54px;left:{{ stk.r.x }};top:{{ stk.r.y }}"></div>
+        </div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:1.2px;color:#8a9298">ROLL · PITCH</div>
+      </div>
+    </div>
+
+    <!-- console -->
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 12px 12px;display:flex;flex-direction:column;gap:9px;background:linear-gradient(180deg,rgba(8,9,10,0) 0%,rgba(8,9,10,.82) 26%,rgba(10,12,13,.97) 100%)">
+      <div style="display:flex;gap:6px" onClick="{{ on.mode }}">
+        <div data-mode="solid" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:1.2px;border:1px solid #2b3136;background:#151a1d;color:#8a9298;background:{{ m.solid.bg }};color:{{ m.solid.fg }};border-color:{{ m.solid.bd }}">FDAI</div>
+        <div data-mode="ghost" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:1.2px;border:1px solid #2b3136;background:#151a1d;color:#8a9298;background:{{ m.ghost.bg }};color:{{ m.ghost.fg }};border-color:{{ m.ghost.bd }}">X-RAY</div>
+        <div data-mode="cut" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:1.2px;border:1px solid #2b3136;background:#151a1d;color:#8a9298;background:{{ m.cut.bg }};color:{{ m.cut.fg }};border-color:{{ m.cut.bd }}">CUTAWAY</div>
+        <div data-snap="next" style="width:42px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #2b3136;background:#151a1d;font-size:10px;font-weight:600;letter-spacing:.6px;color:#8a9298">{{ v.snap }}</div>
+      </div>
+
+      <div style="display:flex;gap:20px">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a;margin-bottom:3px"><span>COVER</span><span style="font-family:'IBM Plex Mono',monospace;color:#8a9298">{{ v.reveal }}</span></div>
+          <div onPointerDown="{{ on.slideReveal }}" style="position:relative;height:26px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+            <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+            <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#e3a33f;width:0%;width:{{ pct.reveal }}"></div>
+            <div style="position:absolute;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.reveal }}"></div>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a;margin-bottom:3px"><span>SECTION</span><span style="font-family:'IBM Plex Mono',monospace;color:#8a9298">{{ v.section }}</span></div>
+          <div onPointerDown="{{ on.slideSection }}" style="position:relative;height:26px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+            <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+            <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#43c7bf;width:0%;width:{{ pct.section }}"></div>
+            <div style="position:absolute;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.section }}"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="display:flex;gap:4px;flex:1" onClick="{{ on.src }}">
+          <div data-src="imu" style="flex:1;height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ s.imu.bg }};border-color:{{ s.imu.bd }}">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#8a9298;color:{{ s.imu.fg }}">IMU</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:#5d666c">{{ v.sensorShort }}</div>
+          </div>
+          <div data-src="manual" style="flex:1;height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ s.manual.bg }};border-color:{{ s.manual.bd }}">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#8a9298;color:{{ s.manual.fg }}">MAN</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:#5d666c">DRAG</div>
+          </div>
+          <div data-src="demo" style="flex:1;height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ s.demo.bg }};border-color:{{ s.demo.bd }}">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#8a9298;color:{{ s.demo.fg }}">DEMO</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:#5d666c">{{ v.demoShort }}</div>
+          </div>
+          <div data-src="fly" style="flex:1;height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ s.fly.bg }};border-color:{{ s.fly.bd }}">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#8a9298;color:{{ s.fly.fg }}">FLY</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:#5d666c">RCS</div>
+          </div>
+        </div>
+        <div onClick="{{ on.align }}" style="width:54px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #3a4145;background:linear-gradient(180deg,#2a3034,#1b1f22);font-size:10px;font-weight:700;letter-spacing:.8px;color:#e3a33f">ALIGN</div>
+        <div onClick="{{ on.cage }}" style="width:46px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #3a4145;background:linear-gradient(180deg,#2a3034,#1b1f22);font-size:10px;font-weight:700;letter-spacing:.8px;color:#8a9298">CAGE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── FDAI ───── -->
+  <div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;transition:opacity .2s ease;opacity:0;opacity:{{ sc.fdai }};pointer-events:{{ pe.fdai }};z-index:{{ zi.fdai }};background:radial-gradient(100% 80% at 50% 10%,#161a1d,#0a0b0c 70%)">
+    <div style="padding:14px 14px 22px;display:flex;flex-direction:column;gap:12px;align-items:center">
+      <div style="width:100%;display:flex;justify-content:space-between;align-items:baseline">
+        <div style="font-size:12px;font-weight:700;letter-spacing:1.6px;color:#e8e6e1;white-space:nowrap">FDAI · 8-BALL</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#6b747a;white-space:nowrap">STABLE MEMBER ATT</div>
+      </div>
+
+      <div style="position:relative;width:318px;height:318px;border-radius:50%;background:linear-gradient(150deg,#d5d8da 0%,#9aa0a4 38%,#c3c7ca 55%,#7e858a 100%);box-shadow:0 14px 30px rgba(0,0,0,.6),inset 0 1px 2px rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:16px;border-radius:50%;background:#0e1012;box-shadow:inset 0 4px 14px rgba(0,0,0,.9)"></div>
+        <div style="position:absolute;inset:26px;border-radius:50%;overflow:hidden;background:#15181a">
+          <div id="ags-fdai-host" style="position:absolute;inset:0"></div>
+          <div style="position:absolute;inset:0;border-radius:50%;background:linear-gradient(150deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 42%)"></div>
+        </div>
+        <!-- fixed vehicle symbol -->
+        <div style="position:absolute;width:78px;height:2px;background:#e3a33f;box-shadow:0 0 6px rgba(227,163,63,.8)"></div>
+        <div style="position:absolute;width:2px;height:20px;background:#e3a33f;box-shadow:0 0 6px rgba(227,163,63,.8)"></div>
+        <div style="position:absolute;width:10px;height:10px;border:2px solid #e3a33f;border-radius:50%;background:rgba(10,11,12,.4)"></div>
+        <!-- roll index -->
+        <div style="position:absolute;top:18px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:11px solid #e8e6e1"></div>
+        <!-- rate needles (case body rates) -->
+        <div style="position:absolute;left:34px;right:34px;top:40px;height:0">
+          <div style="position:absolute;top:0;margin-left:-4px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:7px solid #e8e6e1;left:50%;left:{{ nr.roll }}"></div>
+        </div>
+        <div style="position:absolute;top:34px;bottom:34px;right:40px;width:0">
+          <div style="position:absolute;right:0;margin-top:-4px;width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-right:7px solid #e8e6e1;top:50%;top:{{ nr.pitch }}"></div>
+        </div>
+        <div style="position:absolute;left:34px;right:34px;bottom:40px;height:0">
+          <div style="position:absolute;bottom:0;margin-left:-4px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid #e8e6e1;left:50%;left:{{ nr.yaw }}"></div>
+        </div>
+        <!-- error needles (IRIG float angles) -->
+        <div style="position:absolute;left:34px;right:34px;top:30px;height:2px;background:rgba(255,255,255,.12)">
+          <div style="position:absolute;top:-3px;width:2px;height:8px;background:#e3a33f;left:50%;left:{{ nd.roll }}"></div>
+        </div>
+        <div style="position:absolute;top:34px;bottom:34px;right:30px;width:2px;background:rgba(255,255,255,.12)">
+          <div style="position:absolute;left:-3px;width:8px;height:2px;background:#e3a33f;top:50%;top:{{ nd.pitch }}"></div>
+        </div>
+        <div style="position:absolute;left:34px;right:34px;bottom:30px;height:2px;background:rgba(255,255,255,.12)">
+          <div style="position:absolute;top:-3px;width:2px;height:8px;background:#e3a33f;left:50%;left:{{ nd.yaw }}"></div>
+        </div>
+      </div>
+
+      <div style="width:100%;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <div style="padding:8px 9px;border:1px solid #2b3136;border-radius:2px;background:#131618">
+          <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a">ROLL</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:#e8e6e1">{{ v.roll }}</div>
+        </div>
+        <div style="padding:8px 9px;border:1px solid #2b3136;border-radius:2px;background:#131618">
+          <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a">PITCH</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:#e8e6e1">{{ v.pitch }}</div>
+        </div>
+        <div style="padding:8px 9px;border:1px solid #2b3136;border-radius:2px;background:#131618">
+          <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a">HDG</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:#e8e6e1">{{ v.yaw }}</div>
+        </div>
+      </div>
+
+      <div style="width:100%;display:flex;gap:6px;align-items:stretch">
+        <div style="flex:1;padding:9px 10px;border:1px solid #2b3136;border-radius:2px;background:#131618;display:flex;flex-direction:column;gap:3px">
+          <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a">MAG HEADING</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;color:#43c7bf;line-height:1">{{ v.heading }}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">SOURCE {{ v.headingSrc }}</div>
+        </div>
+        <div style="flex:1;padding:9px 10px;border:1px solid #2b3136;border-radius:2px;background:#131618;display:flex;flex-direction:column;gap:3px">
+          <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#6b747a">PLATFORM ERR</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;line-height:1;color:#e3a33f">{{ v.err }}°</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">SM vs INERTIAL REF</div>
+        </div>
+      </div>
+      <div style="width:100%;font-size:11px;line-height:1.45;color:#8a9298;text-wrap:pretty">The ball is the stable member itself, seen along the roll axis: fixed in inertial space while the case turns around it. Amber needles are the IRIG float angles (±3° full scale) — the raw error the servos are nulling; white pointers are case body rates (±60°/s). Red caps mark the middle-gimbal ±90° lock zones.</div>
+    </div>
+  </div>
+
+  <!-- ───── DATA ───── -->
+  <div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;transition:opacity .2s ease;opacity:0;opacity:{{ sc.data }};pointer-events:{{ pe.data }};z-index:{{ zi.data }};background:#0a0b0c">
+    <div style="padding:12px 14px 24px;display:flex;flex-direction:column;gap:12px">
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#0d0f10;padding:11px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.4px;color:#6b747a;white-space:nowrap">AGC MONITOR</div>
+          <div style="display:flex;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#7dff9e;white-space:nowrap">
+            <span>VERB <b style="letter-spacing:2px">16</b></span><span>NOUN <b style="letter-spacing:2px">20</b></span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:500;letter-spacing:3px;color:#7dff9e;text-shadow:0 0 10px rgba(125,255,158,.35)">
+          <div style="display:flex;gap:9px;align-items:center"><span style="font-size:9px;letter-spacing:1px;color:#4d7a5c;width:16px">R1</span>{{ v.r1 }}</div>
+          <div style="display:flex;gap:9px;align-items:center"><span style="font-size:9px;letter-spacing:1px;color:#4d7a5c;width:16px">R2</span>{{ v.r2 }}</div>
+          <div style="display:flex;gap:9px;align-items:center"><span style="font-size:9px;letter-spacing:1px;color:#4d7a5c;width:16px">R3</span>{{ v.r3 }}</div>
+        </div>
+        <div style="margin-top:7px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">ICDU ANGLES · OG / IG / MG · DEG XXX.XX</div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;overflow:hidden">
+        <div style="padding:7px 10px;background:#171b1e;border-bottom:1px solid #2b3136;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;white-space:nowrap">CDU GIMBAL ANGLES</div>
+        <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;padding:6px 10px;gap:4px;font-size:8px;font-weight:600;letter-spacing:.8px;color:#5d666c;border-bottom:1px solid #1e2225">
+          <div>AXIS</div><div style="text-align:right">IDEAL°</div><div style="text-align:right">ACT°</div><div style="text-align:right">ERR′</div><div style="text-align:right">RATE°/s</div>
+        </div>
+        <sc-for list="{{ rows.cdu }}" as="r" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;padding:7px 10px;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c9c7c2;border-bottom:1px solid #171a1c">
+            <div style="font-weight:600;color:{{ r.c }}">{{ r.k }}</div>
+            <div style="text-align:right;color:#8a9298">{{ r.cmd }}</div>
+            <div style="text-align:right">{{ r.act }}</div>
+            <div style="text-align:right;color:#e3a33f">{{ r.err }}</div>
+            <div style="text-align:right;color:#43c7bf">{{ r.rate }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;white-space:nowrap">MIDDLE GIMBAL TRACE</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">30 s · ±90°</div>
+        </div>
+        <svg viewBox="0 0 320 84" preserveAspectRatio="none" style="width:100%;height:84px;display:block">
+          <rect x="0" y="0" width="320" height="84" fill="#0c0e0f"></rect>
+          <rect x="0" y="0" width="320" height="3.7" fill="rgba(217,69,58,.30)"></rect>
+          <rect x="0" y="80.3" width="320" height="3.7" fill="rgba(217,69,58,.30)"></rect>
+          <rect x="0" y="3.7" width="320" height="9.3" fill="rgba(227,163,63,.16)"></rect>
+          <rect x="0" y="71" width="320" height="9.3" fill="rgba(227,163,63,.16)"></rect>
+          <line x1="0" y1="42" x2="320" y2="42" stroke="#2b3136" stroke-width="1"></line>
+          <polyline fill="none" stroke="#e3a33f" stroke-width="1.6" points="{{ chart.mga }}"></polyline>
+          <polyline fill="none" stroke="#43c7bf" stroke-width="1.2" stroke-opacity=".8" points="{{ chart.err }}"></polyline>
+        </svg>
+        <div style="display:flex;gap:14px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">
+          <span style="color:#e3a33f">— MGA</span><span style="color:#43c7bf">— PLATFORM ERR (×10)</span>
+        </div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;overflow:hidden">
+        <div style="padding:7px 10px;background:#171b1e;border-bottom:1px solid #2b3136;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;white-space:nowrap">PLATFORM &amp; VEHICLE</div>
+        <sc-for list="{{ rows.state }}" as="r" hint-placeholder-count="8">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid #171a1c">
+            <div style="font-size:10px;font-weight:500;letter-spacing:.7px;color:#7d868c">{{ r.k }}</div>
+            <div style="display:flex;align-items:baseline;gap:4px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#e8e6e1;color:{{ r.c }}">{{ r.v }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c;width:26px">{{ r.u }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;overflow:hidden">
+        <div style="padding:7px 10px;background:#171b1e;border-bottom:1px solid #2b3136;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;white-space:nowrap">STRAPDOWN SENSORS · PIPA</div>
+        <sc-for list="{{ rows.sensor }}" as="r" hint-placeholder-count="8">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid #171a1c">
+            <div style="font-size:10px;font-weight:500;letter-spacing:.7px;color:#7d868c">{{ r.k }}</div>
+            <div style="display:flex;align-items:baseline;gap:4px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#e8e6e1;color:{{ r.c }}">{{ r.v }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c;width:26px">{{ r.u }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-size:10px;line-height:1.5;color:#5d666c;font-family:'IBM Plex Mono',monospace">IDEAL = inverse-kinematic angles for the reference · ACT = CDU readout · loop runs gyro floats → resolvers → torque motors at 2 ms</div>
+    </div>
+  </div>
+
+  <!-- ───── LEARN ───── -->
+  <div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;transition:opacity .2s ease;opacity:0;opacity:{{ sc.learn }};pointer-events:{{ pe.learn }};z-index:{{ zi.learn }};background:#0a0b0c">
+    <div style="padding:12px 14px 24px;display:flex;flex-direction:column;gap:10px">
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;padding:12px">
+        <div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#43c7bf">01</div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:.6px;line-height:1.12;color:#e8e6e1">THREE RINGS, ONE JOB</div>
+        </div>
+        <div style="font-size:12px;line-height:1.5;color:#9aa2a8;text-wrap:pretty">The stable member must not move. Three gimbals — the outer drum about the vehicle X axis, the middle frame about Z, the inner (the platform itself) about Y — absorb every rotation the vehicle makes. The IRIG gyros feel any motion of the platform and the servos drive the gimbals until it stops.</div>
+        <div style="display:flex;gap:6px;margin-top:9px">
+          <div onClick="{{ on.lesson }}" data-lesson="step" style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:2px;border:1px solid #3a4145;background:linear-gradient(180deg,#2a3034,#1b1f22);font-size:10px;font-weight:700;letter-spacing:1px;color:#e3a33f">RUN STEP TEST</div>
+          <div onClick="{{ on.lesson }}" data-lesson="ptc" style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:2px;border:1px solid #2b3136;background:#151a1d;font-size:10px;font-weight:700;letter-spacing:1px;color:#8a9298">PTC ROLL</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;padding:12px">
+        <div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#d9453a">02</div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:.6px;line-height:1.12;color:#e8e6e1">GIMBAL LOCK</div>
+        </div>
+        <div style="font-size:12px;line-height:1.5;color:#9aa2a8;text-wrap:pretty">Take the middle gimbal to ±90° and the inner and outer axes become the same axis. The platform loses a degree of freedom and the required ring rates go to infinity — the servos cannot follow and the reference is lost. The IRIG floats hit their stops, the reference is physically lost and NO ATT stays lit until you re-align. In FLY, yaw the vehicle until the red cap reaches the reticle — then try to fly around it instead. Apollo lit a caution lamp at 70° and the computer forced coarse align at 85°.</div>
+        <div style="display:flex;gap:6px;margin-top:9px">
+          <div onClick="{{ on.lesson }}" data-lesson="lock" style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:2px;border:1px solid rgba(217,69,58,.55);background:rgba(217,69,58,.13);font-size:10px;font-weight:700;letter-spacing:1px;color:#d9453a">DRIVE TO LOCK</div>
+          <div onClick="{{ on.flyLesson }}" style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:2px;border:1px solid rgba(67,199,191,.5);background:rgba(67,199,191,.12);font-size:10px;font-weight:700;letter-spacing:1px;color:#43c7bf">FLY IT YOURSELF</div>
+          <div onClick="{{ on.align }}" style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:2px;border:1px solid #2b3136;background:#151a1d;font-size:10px;font-weight:700;letter-spacing:1px;color:#8a9298">RE-ALIGN</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;padding:12px">
+        <div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#e3a33f">03</div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:.6px;line-height:1.12;color:#e8e6e1">THE SERVO LOOP</div>
+        </div>
+        <div style="font-size:12px;line-height:1.5;color:#9aa2a8;text-wrap:pretty">Gyro float angles are resolved through the IGA and MGA resolvers into torque-motor commands; each motor loop is the second-order, accel-limited servo straight out of <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#43c7bf">p1_gimbal.c</span>:</div>
+        <div style="margin-top:8px;padding:9px 10px;border-radius:2px;background:#0b0d0e;border:1px solid #1e2225;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.7;color:#a8b0b6">Δo = −(θx·cos i + θz·sin i) / cos m<br>Δm = −(θz·cos i − θx·sin i)<br>Δi = −θy + sin m · Δo<br>gacc = ωn²·Δ − 2ζωn·ġ ; g += dt·ġ ; ġ += dt·gacc<br><span style="color:#5d666c">ωn={{ v.wn }} rad/s ζ={{ v.zeta }} lim={{ v.acc }}°/s² · sec m → ∞ at lock</span></div>
+        <div style="font-size:12px;line-height:1.5;color:#9aa2a8;margin-top:8px">Detune ωn in SETUP and watch the float angles and platform error grow: the gimbals lag the vehicle and the stable member is dragged off its reference.</div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;padding:12px">
+        <div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#e3a33f">04</div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:.6px;line-height:1.12;color:#e8e6e1">RATE WINDUP AT THE STOPS</div>
+        </div>
+        <div style="font-size:12px;line-height:1.5;color:#9aa2a8;text-wrap:pretty">Clamp the gimbal position at a mechanical stop but leave the rate state alone and the servo keeps integrating a phantom rate. On reversal that rate must unwind first — the ring sits still, then lurches. Run the A/B and read the lash.</div>
+        <div onClick="{{ on.ab }}" style="height:40px;margin-top:9px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #3a4145;background:linear-gradient(180deg,#2a3034,#1b1f22);font-size:10px;font-weight:700;letter-spacing:1.2px;color:#e3a33f">RUN A/B · ±5° STOP</div>
+        <sc-if value="{{ ab.shown }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:9px;padding:10px;border-radius:2px;background:#07080a;border:1px solid #1e2225;font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.65;color:#8fd9a8;white-space:pre-wrap">{{ ab.text }}</div>
+        </sc-if>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;padding:12px">
+        <div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#43c7bf">05</div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:.6px;line-height:1.12;color:#e8e6e1">WHAT THE PIPAs COUNT</div>
+        </div>
+        <div style="font-size:12px;line-height:1.5;color:#9aa2a8;text-wrap:pretty">Three accelerometers on the platform integrate specific force into velocity, one pulse per 5.85 cm/s. Sitting on a desk they still count — that is gravity. Your phone's accelerometer is standing in for them; DATA shows the pulse totals in stable-member axes.</div>
+        <div onClick="{{ on.zeroDv }}" style="height:38px;margin-top:9px;padding:0 13px;display:inline-flex;align-items:center;border-radius:2px;border:1px solid #2b3136;background:#151a1d;font-size:10px;font-weight:700;letter-spacing:1px;color:#8a9298">ZERO ΔV</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── SETUP ───── -->
+  <div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;transition:opacity .2s ease;opacity:0;opacity:{{ sc.setup }};pointer-events:{{ pe.setup }};z-index:{{ zi.setup }};background:#0a0b0c">
+    <div style="padding:12px 14px 24px;display:flex;flex-direction:column;gap:12px">
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;overflow:hidden">
+        <div style="padding:7px 10px;background:#171b1e;border-bottom:1px solid #2b3136;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;white-space:nowrap">ATTITUDE SOURCE</div>
+        <div style="padding:11px 12px;display:flex;flex-direction:column;gap:10px">
+          <div onClick="{{ on.enable }}" style="height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:2px;border:1px solid rgba(67,199,191,.5);background:rgba(67,199,191,.12);font-size:11px;font-weight:700;letter-spacing:1.2px;color:#43c7bf">ENABLE DEVICE IMU</div>
+          <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a9298"><span style="color:#6b747a">SENSOR</span><span>{{ v.sensor }}</span></div>
+          <div style="font-size:11px;line-height:1.45;color:#6b747a">On a phone this reads the gyro, accelerometer and magnetometer at up to 60 Hz. In a desktop preview there is nothing to read, so DEMO or MAN drives the case instead.</div>
+          <div style="display:flex;gap:5px" onClick="{{ on.demo }}">
+            <div data-demo="ptc" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #2b3136;font-size:10px;font-weight:600;letter-spacing:.8px;background:#151a1d;color:#8a9298;background:{{ d.ptc.bg }};color:{{ d.ptc.fg }}">PTC</div>
+            <div data-demo="step" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #2b3136;font-size:10px;font-weight:600;letter-spacing:.8px;background:#151a1d;color:#8a9298;background:{{ d.step.bg }};color:{{ d.step.fg }}">STEP</div>
+            <div data-demo="tumble" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #2b3136;font-size:10px;font-weight:600;letter-spacing:.8px;background:#151a1d;color:#8a9298;background:{{ d.tumble.bg }};color:{{ d.tumble.fg }}">TUMBLE</div>
+            <div data-demo="lock" style="flex:1;height:34px;display:flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid #2b3136;font-size:10px;font-weight:600;letter-spacing:.8px;background:#151a1d;color:#8a9298;background:{{ d.lock.bg }};color:{{ d.lock.fg }}">LOCK</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.9px;color:#6b747a;white-space:nowrap"><span>SMOOTHING</span><span style="font-family:'IBM Plex Mono',monospace;color:#8a9298">{{ v.smooth }}</span></div>
+            <div onPointerDown="{{ on.slideSmooth }}" style="position:relative;height:34px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+              <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+              <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#43c7bf;width:0%;width:{{ pct.smooth }}"></div>
+              <div style="position:absolute;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.smooth }}"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;overflow:hidden">
+        <div style="padding:7px 10px;background:#171b1e;border-bottom:1px solid #2b3136;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298">GIMBAL SERVO MODEL</div>
+          <div onClick="{{ on.reset }}" style="font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1.85;color:#43c7bf">RESET</div>
+        </div>
+        <div style="padding:11px 12px;display:flex;flex-direction:column;gap:11px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.9px;color:#6b747a;white-space:nowrap"><span>ωn · NAT FREQ</span><span style="font-family:'IBM Plex Mono',monospace;color:#e3a33f">{{ v.wn }} rad/s</span></div>
+            <div onPointerDown="{{ on.slideWn }}" style="position:relative;height:34px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+              <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+              <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#e3a33f;width:0%;width:{{ pct.wn }}"></div>
+              <div style="position:absolute;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.wn }}"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.9px;color:#6b747a;white-space:nowrap"><span>ζ · DAMPING</span><span style="font-family:'IBM Plex Mono',monospace;color:#e3a33f">{{ v.zeta }}</span></div>
+            <div onPointerDown="{{ on.slideZeta }}" style="position:relative;height:34px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+              <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+              <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#e3a33f;width:0%;width:{{ pct.zeta }}"></div>
+              <div style="position:absolute;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.zeta }}"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.9px;color:#6b747a;white-space:nowrap"><span>ACCEL LIMIT</span><span style="font-family:'IBM Plex Mono',monospace;color:#e3a33f">{{ v.acc }} °/s²</span></div>
+            <div onPointerDown="{{ on.slideAcc }}" style="position:relative;height:34px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+              <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+              <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#e3a33f;width:0%;width:{{ pct.acc }}"></div>
+              <div style="position:absolute;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.acc }}"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.9px;color:#6b747a;white-space:nowrap"><span>MOTOR RATE LIMIT</span><span style="font-family:'IBM Plex Mono',monospace;color:#e3a33f">{{ v.rate }} °/s</span></div>
+            <div onPointerDown="{{ on.slideRate }}" style="position:relative;height:34px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+              <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+              <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#e3a33f;width:0%;width:{{ pct.rate }}"></div>
+              <div style="position:absolute;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.rate }}"></div>
+            </div>
+          </div>
+          <div onClick="{{ on.stops }}" style="display:flex;align-items:center;justify-content:space-between;height:40px;cursor:pointer">
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.9px;line-height:1.2;color:#c9c7c2">MECH STOPS ±85°</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">clamp gimbal position at the stop</div>
+            </div>
+            <div style="position:relative;width:46px;height:24px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ tg.stops.bg }};border-color:{{ tg.stops.bd }};flex:none">
+              <div style="position:absolute;top:2px;width:19px;height:18px;border-radius:1px;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 3px rgba(0,0,0,.6);left:2px;left:{{ tg.stops.x }}"></div>
+            </div>
+          </div>
+          <div onClick="{{ on.aw }}" style="display:flex;align-items:center;justify-content:space-between;height:40px;cursor:pointer">
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.9px;line-height:1.2;color:#c9c7c2">RATE ANTI-WINDUP</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">zero ġ when it drives into the stop</div>
+            </div>
+            <div style="position:relative;width:46px;height:24px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ tg.aw.bg }};border-color:{{ tg.aw.bd }};flex:none">
+              <div style="position:absolute;top:2px;width:19px;height:18px;border-radius:1px;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 3px rgba(0,0,0,.6);left:2px;left:{{ tg.aw.x }}"></div>
+            </div>
+          </div>
+          <div onClick="{{ on.ki }}" style="display:flex;align-items:center;justify-content:space-between;height:40px;cursor:pointer">
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.9px;line-height:1.2;color:#c9c7c2">LOOP INTEGRATOR</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">nulls steady-state lag under constant rate</div>
+            </div>
+            <div style="position:relative;width:46px;height:24px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ tg.ki.bg }};border-color:{{ tg.ki.bd }};flex:none">
+              <div style="position:absolute;top:2px;width:19px;height:18px;border-radius:1px;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 3px rgba(0,0,0,.6);left:2px;left:{{ tg.ki.x }}"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.9px;color:#6b747a;white-space:nowrap"><span>GYRO DRIFT · DEMO</span><span style="font-family:'IBM Plex Mono',monospace;color:#8a9298">{{ v.drift }} °/s</span></div>
+            <div onPointerDown="{{ on.slideDrift }}" style="position:relative;height:34px;display:flex;align-items:center;touch-action:none;cursor:pointer">
+              <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#23282c"></div>
+              <div style="position:absolute;left:0;height:3px;border-radius:2px;background:#d9453a;width:0%;width:{{ pct.drift }}"></div>
+              <div style="position:absolute;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 4px rgba(0,0,0,.6);left:0%;left:{{ pct.drift }}"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#101315;overflow:hidden">
+        <div style="padding:7px 10px;background:#171b1e;border-bottom:1px solid #2b3136;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;white-space:nowrap">DISPLAY</div>
+        <div style="padding:11px 12px;display:flex;flex-direction:column;gap:2px">
+          <div onClick="{{ on.stars }}" style="display:flex;align-items:center;justify-content:space-between;height:42px;cursor:pointer">
+            <div style="font-size:11px;font-weight:600;letter-spacing:.9px;line-height:1.2;color:#c9c7c2">INERTIAL STAR FIELD</div>
+            <div style="position:relative;width:46px;height:24px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ tg.stars.bg }};border-color:{{ tg.stars.bd }};flex:none">
+              <div style="position:absolute;top:2px;width:19px;height:18px;border-radius:1px;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 3px rgba(0,0,0,.6);left:2px;left:{{ tg.stars.x }}"></div>
+            </div>
+          </div>
+          <div onClick="{{ on.triad }}" style="display:flex;align-items:center;justify-content:space-between;height:42px;cursor:pointer">
+            <div style="font-size:11px;font-weight:600;letter-spacing:.9px;line-height:1.2;color:#c9c7c2">STABLE MEMBER AXES</div>
+            <div style="position:relative;width:46px;height:24px;border-radius:2px;border:1px solid #2b3136;background:#151a1d;background:{{ tg.triad.bg }};border-color:{{ tg.triad.bd }};flex:none">
+              <div style="position:absolute;top:2px;width:19px;height:18px;border-radius:1px;background:linear-gradient(180deg,#e9e7e2,#9aa0a5);box-shadow:0 1px 3px rgba(0,0,0,.6);left:2px;left:{{ tg.triad.x }}"></div>
+            </div>
+          </div>
+          <div onClick="{{ on.dragMode }}" style="display:flex;align-items:center;justify-content:space-between;height:42px;cursor:pointer">
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.9px;line-height:1.2;color:#c9c7c2">DRAG ON 3D VIEW</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#5d666c">MAN source only</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#43c7bf">{{ v.dragMode }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #2b3136;border-radius:3px;background:#0d0f10;padding:11px 12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8a9298;margin-bottom:7px">PROVENANCE</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.7;color:#6b747a">stabilisation: IRIG floats → IGA/MGA resolvers → torque motors<br>servo &amp; anti-windup form — p1_gimbal.c · 2 ms step<br>gimbal order Rx(OGA)·Rz(MGA)·Ry(IGA) · case X = phone long axis<br>float stops ±3° · lock caution 70° · coarse align 85°<br>PIPA quantum 5.85 cm/s (CM) · world frame ENU</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ TAB BAR ══════════ -->
+<div onClick="{{ on.tab }}" style="flex:none;height:82px;padding:0 6px 22px;display:flex;align-items:flex-start;gap:2px;background:linear-gradient(180deg,#14171a 0%,#0d0f10 100%);border-top:1px solid #2b3136">
+  <div data-tab="gimbal" style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="{{ tb.gimbal }}" stroke-width="1.4"></circle><ellipse cx="9" cy="9" rx="8" ry="3.4" stroke="{{ tb.gimbal }}" stroke-width="1.4"></ellipse><circle cx="9" cy="9" r="2.2" fill="{{ tb.gimbal }}"></circle></svg>
+    <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#5d666c;color:{{ tb.gimbal }}">GIMBAL</div>
+  </div>
+  <div data-tab="fdai" style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="{{ tb.fdai }}" stroke-width="1.4"></circle><path d="M1 9h16" stroke="{{ tb.fdai }}" stroke-width="1.4"></path><ellipse cx="9" cy="9" rx="3.4" ry="8" stroke="{{ tb.fdai }}" stroke-width="1.4"></ellipse></svg>
+    <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#5d666c;color:{{ tb.fdai }}">FDAI</div>
+  </div>
+  <div data-tab="data" style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="2.2" fill="{{ tb.data }}"></rect><rect x="1" y="7.9" width="11" height="2.2" fill="{{ tb.data }}"></rect><rect x="1" y="12.8" width="14" height="2.2" fill="{{ tb.data }}"></rect></svg>
+    <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#5d666c;color:{{ tb.data }}">DATA</div>
+  </div>
+  <div data-tab="learn" style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="4.5" y="4.5" width="9" height="9" transform="rotate(45 9 9)" stroke="{{ tb.learn }}" stroke-width="1.4"></rect><circle cx="9" cy="9" r="1.6" fill="{{ tb.learn }}"></circle></svg>
+    <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#5d666c;color:{{ tb.learn }}">LEARN</div>
+  </div>
+  <div data-tab="setup" style="flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="4" stroke="{{ tb.setup }}" stroke-width="1.4"></circle><rect x="8.2" y="0.5" width="1.6" height="3.4" fill="{{ tb.setup }}"></rect><rect x="8.2" y="14.1" width="1.6" height="3.4" fill="{{ tb.setup }}"></rect><rect x="0.5" y="8.2" width="3.4" height="1.6" fill="{{ tb.setup }}"></rect><rect x="14.1" y="8.2" width="3.4" height="1.6" fill="{{ tb.setup }}"></rect></svg>
+    <div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#5d666c;color:{{ tb.setup }}">SETUP</div>
+  </div>
+</div>
+
+</div>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:930},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;gimbal&quot;,&quot;fdai&quot;,&quot;data&quot;,&quot;learn&quot;,&quot;setup&quot;],&quot;default&quot;:&quot;gimbal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;App&quot;},&quot;viewMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;solid&quot;,&quot;ghost&quot;,&quot;cut&quot;],&quot;default&quot;:&quot;solid&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;3D view&quot;},&quot;starField&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;3D view&quot;},&quot;demoProgram&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ptc&quot;,&quot;step&quot;,&quot;tumble&quot;,&quot;lock&quot;],&quot;default&quot;:&quot;ptc&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;App&quot;}}">
+const AM = '#e3a33f', TL = '#43c7bf', RD = '#d9453a', DIM = '#8a9298', OFF = '#151a1d', LINE = '#2b3136';
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+class Component extends DCLogic {
+  state = {
+    screen: this.props.startScreen || 'gimbal',
+    mode: this.props.viewMode || 'solid',
+    reveal: (this.props.viewMode || 'solid') === 'cut' ? 1 : 0, section: 0,
+    stars: this.props.starField !== false, triad: true,
+    src: 'demo', demo: this.props.demoProgram || 'ptc',
+    dragMode: 'orbit',
+    wn: 120, zeta: 0.75, acc: 6000, rateMax: 180, ki: true, stops: false, aw: true, drift: 0, smooth: 0.18,
+    snapI: 0, ab: null, tick: 0, ready: false,
+    flyMode: 'rate', stkL: { x: 0, y: 0 }, stkR: { x: 0, y: 0 },
+  };
+  stick(side) {
+    return (e) => {
+      const pad = e.currentTarget, r = pad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, RAD = 34;
+      const send = () => {
+        const L = this.state.stkL, Rr = this.state.stkR;
+        if (this.core) this.core.setStick(Rr.x / RAD, (L.y + Rr.y) / RAD, L.x / RAD);
+      };
+      const set = (ev) => {
+        let dx = ev.clientX - cx, dy = ev.clientY - cy; const m = Math.hypot(dx, dy);
+        if (m > RAD) { dx *= RAD / m; dy *= RAD / m; }
+        const o = {}; o[side === 'l' ? 'stkL' : 'stkR'] = { x: dx, y: dy }; this.setState(o, send);
+      };
+      const id = e.pointerId;
+      const mv = (ev) => { if (ev.pointerId === id) set(ev); };
+      const release = (ev) => {
+        if (ev && ev.pointerId !== undefined && ev.pointerId !== id) return;
+        pad.removeEventListener('pointermove', mv); pad.removeEventListener('pointerup', release); pad.removeEventListener('pointercancel', release);
+        window.removeEventListener('pointerup', release); window.removeEventListener('blur', release);
+        const o = {}; o[side === 'l' ? 'stkL' : 'stkR'] = { x: 0, y: 0 }; this.setState(o, send);
+      };
+      pad.addEventListener('pointermove', mv); pad.addEventListener('pointerup', release); pad.addEventListener('pointercancel', release);
+      window.addEventListener('pointerup', release); window.addEventListener('blur', release);
+      set(e);
+      try { if (pad.setPointerCapture) pad.setPointerCapture(id); } catch (err) {}
+      if (e.preventDefault) e.preventDefault();
+    };
+  }
+  snaps = ['ISO', 'FRONT', 'TOP', 'SIDE'];
+
+  componentDidMount() {
+    const boot = () => {
+      const A = window.AGS;
+      if (!A) return false;
+      this.core = A.core;
+      const h1 = document.getElementById('ags-imu-host');
+      const h2 = document.getElementById('ags-fdai-host');
+      if (!h1 || !h2) return false;
+      const mk = (host, id) => {
+        let c = host.firstElementChild;
+        if (!c) {
+          c = document.createElement('canvas');
+          c.id = id;
+          c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none';
+          host.appendChild(c);
+        }
+        return c;
+      };
+      const c1 = mk(h1, 'ags-imu'), c2 = mk(h2, 'ags-fdai');
+      if (!this.view) this.view = A.createIMUView(c1);
+      if (!this.fdai) this.fdai = A.createFDAIView(c2);
+      this.view.setMode(this.state.mode === 'ghost' ? 'xray' : this.state.mode);
+      this.view.setReveal(this.state.reveal);
+      this.view.setStars(this.state.stars);
+      this.view.setTriad(this.state.triad);
+      this.core.setDemo(this.state.demo);
+      this.core.setSource('demo');
+      this.setState({ ready: true });
+      return true;
+    };
+    this._onReady = () => {
+      if (!boot()) return;
+      clearInterval(this._bootT);
+      if (this._mo) { this._mo.disconnect(); this._mo = null; }
+    };
+    window.addEventListener('ags-ready', this._onReady);
+    if (!boot()) {
+      // the device frame mounts asynchronously: watch the DOM as well as poll
+      this._mo = new MutationObserver(this._onReady);
+      this._mo.observe(document.body, { childList: true, subtree: true });
+      this._bootT = setInterval(this._onReady, 120);
+    }
+    this._ui = setInterval(() => this.setState((s) => ({ tick: s.tick + 1 })), 80);
+  }
+  componentWillUnmount() {
+    clearInterval(this._ui); clearInterval(this._bootT);
+    if (this._onReady) window.removeEventListener('ags-ready', this._onReady);
+    if (this._mo) this._mo.disconnect();
+    if (this.view) this.view.dispose();
+    if (this.fdai) this.fdai.dispose();
+  }
+  componentDidUpdate(pp, ps) {
+    if (this.fdai) this.fdai.setPaused(this.state.screen !== 'fdai');
+    if (this.view) this.view.setPaused(false);
+  }
+
+  /* ---------- helpers ---------- */
+  f(v, d) {
+    const n = Number.isFinite(v) ? v : 0;
+    const a = Math.abs(n).toFixed(d);
+    const pad = d > 0 ? d + 4 : 3;
+    return (n < 0 ? '-' : '+') + a.padStart(pad, '0');
+  }
+  slider(key, min, max, apply, step) {
+    return (e) => {
+      const el = e.currentTarget, r = el.getBoundingClientRect();
+      const set = (cx) => {
+        let t = clamp((cx - r.left) / Math.max(r.width, 1), 0, 1);
+        let val = min + t * (max - min);
+        if (step) val = Math.round(val / step) * step;
+        const o = {}; o[key] = val; this.setState(o);
+        apply(val);
+      };
+      set(e.clientX);
+      const mv = (ev) => set(ev.clientX);
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+      if (e.preventDefault) e.preventDefault();
+    };
+  }
+  applyServo(o) {
+    if (!this.core) return;
+    const s = Object.assign({ wn: this.state.wn, zeta: this.state.zeta, acc: this.state.acc, rateMax: this.state.rateMax, stops: this.state.stops, aw: this.state.aw, ki: this.state.ki }, o || {});
+    this.core.p.wn = s.wn; this.core.p.zeta = s.zeta;
+    this.core.p.accMax = s.acc * Math.PI / 180; this.core.p.rateMax = s.rateMax * Math.PI / 180;
+    this.core.p.stops = s.stops; this.core.p.aw = s.aw; this.core.p.ki = s.ki;
+  }
+  /* p1_gimbal.c, run in JS: rate windup at a ±5° stop, with and without anti-windup */
+  runAB() {
+    const D = Math.PI / 180, R = 180 / Math.PI, DT = 0.002, LIM = 5 * D, ACC = 60 * D;
+    const step = (s, cmd, aw) => {
+      let gacc = 64 * (cmd - s.g) - 2 * 0.9 * 8 * s.gr;
+      gacc = clamp(gacc, -ACC, ACC);
+      s.g += DT * s.gr; s.gr += DT * gacc;
+      s.g = clamp(s.g, -LIM, LIM);
+      if (aw) { if (s.g >= LIM && s.gr > 0) s.gr = 0; if (s.g <= -LIM && s.gr < 0) s.gr = 0; }
+    };
+    const out = [];
+    for (const aw of [false, true]) {
+      const s = { g: 0, gr: 0 }; let t = 0, peak = 0;
+      for (; t < 1.5; t += DT) { step(s, 10 * D, aw); if (Math.abs(s.g) >= LIM - 1e-9) peak = Math.max(peak, Math.abs(s.gr)); }
+      let leave = -1; const t0 = t;
+      for (; t < t0 + 2.0; t += DT) { step(s, -5 * D, aw); if (leave < 0 && s.g < 4 * D) leave = t - t0; }
+      out.push((aw ? 'WITH' : 'WITHOUT') + ' anti-windup\n  pinned at ' + (s.g * R).toFixed(2) + '\u00b0, phantom rate ' + (peak * R).toFixed(1) +
+        '\u00b0/s\n  reversal lag to leave +4\u00b0 : ' + leave.toFixed(3) + ' s');
+    }
+    return '$ ./p1_gimbal   cmd +10\u00b0 \u2192 stop \u00b15\u00b0 \u2192 cmd -5\u00b0\n\n' + out.join('\n\n') +
+      '\n\nposition clamp alone leaves the rate state wound up;\nthe ring lurches on reversal.';
+  }
+
+  renderVals() {
+    const st = this.state;
+    const t = (this.core && this.core.tele) || { oga: 0, mga: 0, iga: 0, ogaC: 0, mgaC: 0, igaC: 0, ro: 0, rm: 0, ri: 0, eo: 0, em: 0, ei: 0, thx: 0, thy: 0, thz: 0, err: 0, lockMargin: 90, lock: 'OK', roll: 0, pitch: 0, yaw: 0, heading: null, headingSrc: '-', hz: 0, src: 'DEMO', sensor: 'idle', dv: 0, pip: { x: 0, y: 0, z: 0 }, gyro: { p: 0, q: 0, r: 0 }, wCase: { x: 0, y: 0, z: 0 }, w: { x: 0, y: 0, z: 0 }, jets: { x: 0, y: 0, z: 0 }, flyMode: 'rate', gmag: 0, caged: false, event: null, pinnedM: 0, tumbled: false, satO: false, secGain: 1 };
+    const lockOn = t.lock === 'LOCK', warnOn = t.lock === 'WARN';
+    const srcNow = (t.src || 'DEMO').toLowerCase();
+    const noAtt = lockOn || t.tumbled || t.caged;
+    const lamp = (on, col) => on
+      ? { bg: col === RD ? 'rgba(217,69,58,.22)' : 'rgba(227,163,63,.2)', fg: col, bd: col }
+      : { bg: OFF, fg: '#3f474c', bd: LINE };
+
+    const pill = (active, col) => active
+      ? { bg: 'rgba(227,163,63,.16)', fg: col || AM, bd: 'rgba(227,163,63,.55)' }
+      : { bg: OFF, fg: DIM, bd: LINE };
+    const tgl = (on) => ({ bg: on ? 'rgba(67,199,191,.22)' : OFF, bd: on ? 'rgba(67,199,191,.6)' : LINE, x: on ? '25px' : '2px' });
+
+    const H = (this.core && this.core.history) || [];
+    const pts = (idx, scale) => {
+      if (H.length < 2) return '';
+      const t1 = H[H.length - 1][0], t0 = t1 - 30;
+      return H.filter((h) => h[0] >= t0).map((h) => {
+        const x = ((h[0] - t0) / 30) * 320;
+        const y = 42 - clamp(h[idx] * scale, -90, 90) / 90 * 38.3;
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+    };
+
+    const row = (k, v, u, c) => ({ k: k, v: v, u: u || '', c: c || '#e8e6e1' });
+    const jet = (j) => (j > 0 ? '+' : j < 0 ? '−' : '·');
+    const hdg = t.heading == null ? '---.-' : t.heading.toFixed(1).padStart(5, '0');
+
+    return {
+      yes: true, no: false,
+      sc: { gimbal: st.screen === 'gimbal' ? 1 : 0, fdai: st.screen === 'fdai' ? 1 : 0, data: st.screen === 'data' ? 1 : 0, learn: st.screen === 'learn' ? 1 : 0, setup: st.screen === 'setup' ? 1 : 0 },
+      pe: { gimbal: st.screen === 'gimbal' ? 'auto' : 'none', fdai: st.screen === 'fdai' ? 'auto' : 'none', data: st.screen === 'data' ? 'auto' : 'none', learn: st.screen === 'learn' ? 'auto' : 'none', setup: st.screen === 'setup' ? 'auto' : 'none' },
+      zi: { gimbal: st.screen === 'gimbal' ? 4 : 1, fdai: st.screen === 'fdai' ? 4 : 1, data: st.screen === 'data' ? 4 : 1, learn: st.screen === 'learn' ? 4 : 1, setup: st.screen === 'setup' ? 4 : 1 },
+      tb: { gimbal: st.screen === 'gimbal' ? AM : '#5d666c', fdai: st.screen === 'fdai' ? AM : '#5d666c', data: st.screen === 'data' ? AM : '#5d666c', learn: st.screen === 'learn' ? AM : '#5d666c', setup: st.screen === 'setup' ? AM : '#5d666c' },
+      lamp: { att: lamp(noAtt, AM), lock: lamp(lockOn || warnOn, lockOn ? RD : AM), cage: lamp(t.caged, AM) },
+      m: { solid: pill(st.mode === 'solid'), ghost: pill(st.mode === 'ghost'), cut: pill(st.mode === 'cut') },
+      s: { imu: pill(srcNow === 'imu', TL), manual: pill(srcNow === 'manual', TL), demo: pill(srcNow === 'demo', TL), fly: pill(srcNow === 'fly', TL) },
+      fly: { disp: srcNow === 'fly' ? 'flex' : 'none' },
+      fm: { rate: pill(st.flyMode === 'rate'), accel: pill(st.flyMode === 'accel') },
+      stk: { l: { x: (54 + st.stkL.x) + 'px', y: (54 + st.stkL.y) + 'px' }, r: { x: (54 + st.stkR.x) + 'px', y: (54 + st.stkR.y) + 'px' } },
+      d: { ptc: pill(st.demo === 'ptc'), step: pill(st.demo === 'step'), tumble: pill(st.demo === 'tumble'), lock: pill(st.demo === 'lock') },
+      tg: { stops: tgl(st.stops), aw: tgl(st.aw), ki: tgl(st.ki), stars: tgl(st.stars), triad: tgl(st.triad) },
+      pct: {
+        reveal: (st.reveal * 100).toFixed(1) + '%', section: (st.section * 100).toFixed(1) + '%',
+        wn: ((st.wn - 4) / 196 * 100).toFixed(1) + '%', zeta: ((st.zeta - 0.2) / 1.3 * 100).toFixed(1) + '%',
+        acc: ((st.acc - 60) / 39940 * 100).toFixed(1) + '%', rate: ((st.rateMax - 20) / 580 * 100).toFixed(1) + '%', drift: (st.drift / 12 * 100).toFixed(1) + '%',
+        smooth: (st.smooth / 0.22 * 100).toFixed(1) + '%',
+      },
+      v: {
+        oga: this.f(t.oga, 2), mga: this.f(t.mga, 2), iga: this.f(t.iga, 2),
+        mgaCol: lockOn ? RD : warnOn ? AM : '#e8e6e1',
+        margin: t.lockMargin.toFixed(1), marginCol: lockOn ? RD : warnOn ? AM : TL,
+        marginTop: (clamp(1 - t.lockMargin / 90, 0, 1) * 100).toFixed(1) + '%',
+        err: t.err.toFixed(2),
+        r1: this.f(t.oga, 2), r2: this.f(t.iga, 2), r3: this.f(t.mga, 2),
+        roll: this.f(t.roll, 1), pitch: this.f(t.pitch, 1), yaw: this.f(t.yaw, 1), hdg: t.yaw.toFixed(1).padStart(5, '0'),
+        rates: this.f(t.wCase.x, 0) + ' ' + this.f(t.wCase.y, 0) + ' ' + this.f(t.wCase.z, 0),
+        heading: hdg, headingSrc: t.headingSrc || '-',
+        hz: t.hz, srcChip: srcNow === 'imu' ? (t.sensor === 'live' ? 'IMU LIVE' : 'IMU WAIT') : srcNow === 'manual' ? 'MANUAL' : srcNow === 'fly' ? 'RCS ' + (st.flyMode === 'rate' ? 'RATE' : 'ACCEL') : 'DEMO',
+        sensor: (t.sensor || 'idle').toUpperCase(), sensorShort: t.sensor === 'live' ? 'LIVE' : 'OFF',
+        demoShort: st.demo.toUpperCase(),
+        reveal: (st.reveal * 100).toFixed(0) + '%', section: (st.section * 100).toFixed(0) + '%',
+        wn: st.wn.toFixed(0), zeta: st.zeta.toFixed(2), acc: Math.round(st.acc), rate: Math.round(st.rateMax), drift: st.drift.toFixed(2),
+        smooth: st.smooth.toFixed(2), dragMode: st.dragMode === 'orbit' ? 'ORBIT CAMERA' : 'FLY VEHICLE',
+        snap: this.snaps[st.snapI],
+        toast: t.event || '', toastOp: t.event ? 1 : 0,
+        jets: 'JETS R' + jet(t.jets && t.jets.x) + ' P' + jet(t.jets && -t.jets.y) + ' Y' + jet(t.jets && -t.jets.z),
+      },
+      nd: {
+        roll: (50 + clamp(t.thx / 180, -1, 1) * 42).toFixed(1) + '%',
+        pitch: (50 - clamp(t.thy / 180, -1, 1) * 42).toFixed(1) + '%',
+        yaw: (50 + clamp(t.thz / 180, -1, 1) * 42).toFixed(1) + '%',
+      },
+      nr: {
+        roll: (50 + clamp(t.wCase.x / 60, -1, 1) * 42).toFixed(1) + '%',
+        pitch: (50 - clamp(t.wCase.y / 60, -1, 1) * 42).toFixed(1) + '%',
+        yaw: (50 + clamp(t.wCase.z / 60, -1, 1) * 42).toFixed(1) + '%',
+      },
+      chart: { mga: pts(1, 1), err: pts(2, 10) },
+      rows: {
+        cdu: [
+          { k: 'OGA', c: '#ff5a4a', cmd: this.f(t.ogaC, 2), act: this.f(t.oga, 2), err: this.f(t.eo, 1), rate: this.f(t.ro, 1) },
+          { k: 'MGA', c: '#64a8ff', cmd: this.f(t.mgaC, 2), act: this.f(t.mga, 2), err: this.f(t.em, 1), rate: this.f(t.rm, 1) },
+          { k: 'IGA', c: '#67e08a', cmd: this.f(t.igaC, 2), act: this.f(t.iga, 2), err: this.f(t.ei, 1), rate: this.f(t.ri, 1) },
+        ],
+        state: [
+          row('PLATFORM ERROR', t.err.toFixed(3), 'deg', t.err > 1 ? AM : '#e8e6e1'),
+          row('GIMBAL LOCK MARGIN', t.lockMargin.toFixed(2), 'deg', lockOn ? RD : warnOn ? AM : '#e8e6e1'),
+          row('ISS STATUS', lockOn ? 'GIMBAL LOCK' : t.caged ? 'CAGED' : warnOn ? 'LOCK WARN' : 'INERTIAL', '', lockOn ? RD : warnOn ? AM : TL),
+          row('IRIG X FLOAT', this.f(t.thx, 1), 'arcm', Math.abs(t.thx) > 170 ? RD : '#e8e6e1'),
+          row('IRIG Y FLOAT', this.f(t.thy, 1), 'arcm', Math.abs(t.thy) > 170 ? RD : '#e8e6e1'),
+          row('IRIG Z FLOAT', this.f(t.thz, 1), 'arcm', Math.abs(t.thz) > 170 ? RD : '#e8e6e1'),
+          row('FLOAT SATURATED', t.tumbled ? 'YES · REF LOST' : 'NO', '', t.tumbled ? RD : '#e8e6e1'),
+          row('OGA SEC(MGA) GAIN', t.secGain.toFixed(2), 'x', t.secGain > 3 ? AM : '#e8e6e1'),
+          row('OGA MOTOR AT LIMIT', t.satO ? 'YES' : 'NO', '', t.satO ? AM : '#e8e6e1'),
+          row('MIDDLE GIMBAL PINNED', t.pinnedM ? 'YES' : 'NO', '', t.pinnedM ? AM : '#e8e6e1'),
+          row('VEHICLE ROLL', this.f(t.roll, 2), 'deg'),
+          row('VEHICLE PITCH', this.f(t.pitch, 2), 'deg'),
+          row('VEHICLE HEADING', this.f(t.yaw, 2), 'deg'),
+          row('MAG HEADING', hdg + ' ' + (t.headingSrc || ''), 'deg', TL),
+        ],
+        sensor: [
+          row('CASE ROLL RATE p', this.f(t.wCase.x, 1), 'd/s'),
+          row('CASE PITCH RATE q', this.f(t.wCase.y, 1), 'd/s'),
+          row('CASE YAW RATE r', this.f(t.wCase.z, 1), 'd/s'),
+          row('DEVICE GYRO β/γ/α', this.f(t.gyro.p, 0) + ' ' + this.f(t.gyro.q, 0) + ' ' + this.f(t.gyro.r, 0), 'd/s', DIM),
+          row('SPECIFIC FORCE', t.gmag.toFixed(3), 'm/s2'),
+          row('DELTA-V TOTAL', t.dv.toFixed(3), 'm/s', AM),
+          row('PIPA X PULSES', String(t.pip.x), '', TL),
+          row('PIPA Y PULSES', String(t.pip.y), '', TL),
+          row('PIPA Z PULSES', String(t.pip.z), '', TL),
+          row('UPDATE RATE', String(t.hz), 'Hz'),
+          row('SENSOR STATE', (t.sensor || 'idle').toUpperCase(), '', t.sensor === 'live' ? TL : DIM),
+        ],
+      },
+      ab: { shown: !!st.ab, text: st.ab || '' },
+      on: {
+        tab: (e) => { const el = e.target.closest('[data-tab]'); if (el) this.setState({ screen: el.dataset.tab }); },
+        mode: (e) => {
+          const el = e.target.closest('[data-mode]');
+          if (el) {
+            const m = el.dataset.mode, rev = m === 'cut' ? 1 : 0;
+            this.setState({ mode: m, reveal: rev, section: m === 'cut' ? this.state.section : 0 });
+            if (this.view) { this.view.setMode(m === 'ghost' ? 'xray' : m); this.view.setReveal(rev); if (m !== 'cut') this.view.setSection(0); }
+            return;
+          }
+          const sn = e.target.closest('[data-snap]');
+          if (sn && this.view) { const i = (this.state.snapI + 1) % 4; this.setState({ snapI: i }); this.view.snapView(this.snaps[i].toLowerCase()); }
+        },
+        src: (e) => { const el = e.target.closest('[data-src]'); if (!el || !this.core) return; const s = el.dataset.src; this.setState({ src: s }); if (s === 'imu' && this.core.sensorState !== 'live') this.core.enableSensors().then(() => this.setState({ src: this.core.src })); else this.core.setSource(s); if (s === 'manual' && this.view) { this.setState({ dragMode: 'vehicle' }); this.view.setDragMode('vehicle'); } if (this.view) { this.view.setFlyLayout(s === 'fly'); if (s === 'fly') { this.setState({ dragMode: 'orbit' }); this.view.setDragMode('orbit'); } } },
+        demo: (e) => { const el = e.target.closest('[data-demo]'); if (el && this.core) { this.setState({ demo: el.dataset.demo, src: 'demo' }); this.core.setDemo(el.dataset.demo); } },
+        lesson: (e) => { const el = e.target.closest('[data-lesson]'); if (el && this.core) { this.setState({ demo: el.dataset.lesson, src: 'demo', screen: 'gimbal' }); this.core.setDemo(el.dataset.lesson); } },
+        align: () => { if (this.core) this.core.align(); },
+        flyLesson: () => { if (this.core) { this.setState({ src: 'fly', screen: 'gimbal', mode: 'solid', reveal: 0 }); this.core.setSource('fly'); if (this.view) { this.view.setMode('solid'); this.view.setReveal(0); this.view.setFlyLayout(true); } } },
+        flyMode: (e) => { const el = e.target.closest('[data-fm]'); if (el && this.core) { this.setState({ flyMode: el.dataset.fm }); this.core.setFlyMode(el.dataset.fm); } },
+        kill: () => { if (this.core) this.core.killRates(); },
+        stickL: this.stick('l'),
+        stickR: this.stick('r'),
+        cage: () => { if (this.core) this.core.cage(); },
+        zeroDv: () => { if (this.core) this.core.zeroDv(); },
+        enable: async () => { if (!this.core) return; const r = await this.core.enableSensors(); this.setState({ src: this.core.src }); this.core.flash('SENSOR ' + String(r).toUpperCase()); },
+        ab: () => this.setState({ ab: this.state.ab ? null : this.runAB() }),
+        reset: () => { this.setState({ wn: 120, zeta: 0.75, acc: 6000, rateMax: 180, ki: true, stops: false, aw: true, drift: 0 }); this.applyServo({ wn: 120, zeta: 0.75, acc: 6000, rateMax: 180, ki: true, stops: false, aw: true }); if (this.core) this.core.driftRate = 0; },
+        ki: () => { const v = !this.state.ki; this.setState({ ki: v }); this.applyServo({ ki: v }); },
+        stops: () => { const v = !this.state.stops; this.setState({ stops: v }); this.applyServo({ stops: v }); },
+        aw: () => { const v = !this.state.aw; this.setState({ aw: v }); this.applyServo({ aw: v }); },
+        stars: () => { const v = !this.state.stars; this.setState({ stars: v }); if (this.view) this.view.setStars(v); },
+        triad: () => { const v = !this.state.triad; this.setState({ triad: v }); if (this.view) this.view.setTriad(v); },
+        dragMode: () => { const v = this.state.dragMode === 'orbit' ? 'vehicle' : 'orbit'; this.setState({ dragMode: v }); if (this.view) this.view.setDragMode(v); },
+        slideReveal: this.slider('reveal', 0, 1, (v) => { if (this.view) this.view.setReveal(v); }),
+        slideSection: this.slider('section', 0, 1, (v) => { if (this.view) { this.view.setSection(v); if (v > 0.02 && this.state.mode !== 'cut') { this.setState({ mode: 'cut' }); this.view.setMode('cut'); } } }),
+        slideWn: this.slider('wn', 4, 200, (v) => this.applyServo({ wn: v })),
+        slideZeta: this.slider('zeta', 0.2, 1.5, (v) => this.applyServo({ zeta: v })),
+        slideAcc: this.slider('acc', 60, 40000, (v) => this.applyServo({ acc: v })),
+        slideRate: this.slider('rateMax', 20, 600, (v) => this.applyServo({ rateMax: v })),
+        slideDrift: this.slider('drift', 0, 12, (v) => { if (this.core) this.core.driftRate = v; }),
+        slideSmooth: this.slider('smooth', 0, 0.22, (v) => { if (this.core) this.core.smooth = v; }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

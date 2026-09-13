@@ -248,7 +248,10 @@ export function installHud(): HudHandle {
       }
 
       // stats (alt = sim Z; speed = |v|)
-      rows["ALT"].textContent = `${s.r.z.toFixed(0)} m`;
+      // ALTITUDE = base-plane height. The streamed r is the CoM (main.c:150 sets S_RZ = h + com;
+      // the sim's own summaries print S_RZ − com as altitude), and com_z rides the packet @88.
+      // A landed booster reads 0 m here, not its CoM height.
+      rows["ALT"].textContent = `${(s.r.z - s.frame.comZ).toFixed(0)} m`;
       rows["SPD"].textContent = `${s.v.length().toFixed(1)} m/s`;
       rows["MACH"].textContent = f.mach.toFixed(2);
       rows["t_go"].textContent = f.tGo > 0 ? `${f.tGo.toFixed(1)} s` : "—";

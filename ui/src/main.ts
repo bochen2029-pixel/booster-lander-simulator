@@ -40,6 +40,7 @@ import { buildPostFx } from "./scene/postfx"; // §5.2 emissive/HDR bloom post-p
 import { installFidelity } from "./hud/fidelity"; // GFX HIGH/LOW toggle
 import { installScreenshot } from "./hud/screenshot"; // in-app capture (P) + DEV self-verify hooks
 import { installCameraBar } from "./hud/cameraBar"; // visible camera-view selector (was hotkey-only)
+import { installFdai } from "./hud/fdai"; // IMU · FDAI attitude ball + gimbal kernel (display-only, PLAN.md Phase 1.2/2.1)
 
 // HEADLESS-DRIVE (DEV, self-verify harness — same family as __shot/__inject): the
 // agent-driven browser pane reports document.visibilityState "hidden", which freezes
@@ -86,6 +87,10 @@ async function boot() {
   const director = new DirectorRig();
   const hud = installHud();
   const timeline = installTimeline();
+  // IMU · FDAI (bottom-right): the streamed quaternion + body rates through the Apollo gimbal
+  // kernel — OGA/MGA/IGA, the middle-gimbal lock margin, rate needles. The first instrument that
+  // shows an attitude departure while it happens. Additive; reads the sample, writes nothing.
+  const fdai = installFdai();
 
   // S3 audio observer — a third pure observer of the SAME stream. Muted by default;
   // its dev-panel ENABLE button is the first-interaction gesture that resumes the
@@ -213,15 +218,21 @@ async function boot() {
         phase: s.frame.phase,
         pos: [s.r.x, s.r.y, s.r.z],
         vel: [s.v.x, s.v.y, s.v.z],
-        altM: s.r.z,
+        altM: s.r.z - s.frame.comZ, // base-plane height (r is the CoM; com_z @88)
+        comZ: s.frame.comZ,
         pAmb: s.frame.pAmb,
         mach: s.frame.mach,
         throttleCmd: s.frame.throttleCmd,
         throttleAct: s.frame.throttleAct,
         cam: director.preset,
         seaActive: (s.frame.flags & 1) !== 0,
+        quat: [s.q.x, s.q.y, s.q.z, s.q.w], // sim body->world, xyzw
+        w: [s.w.x, s.w.y, s.w.z], // body rates [rad/s]
+        imu: { ...fdai.readout, reference: fdai.reference }, // the FDAI's kernel output
+        vehicleModel: doc.vehicleModel,
       };
     };
+    G.__fdai = fdai; // __fdai.align() / __fdai.pad() / __fdai.readout
   }
 
   // camera preset hotkeys (renderer-side only; never crosses the boundary)
@@ -290,8 +301,10 @@ async function boot() {
           missM: doc.markers.missDistanceM,
         });
         timeline.tick(newest.t);
+        fdai.update(s.q, s.w, s.frame); // attitude ball + gimbal kernel (display-only)
       }
     }
+    fdai.tick(t0); // NO ATT when the stream goes stale
     audio.tick(); // keep the causal crackle stream regenerating (never a loop)
     audio.updatePanel(); // refresh meters + "you are N s away" readout
     cameraBar.refresh(); // keep the camera-view highlight in sync with hotkeys + auto-cuts

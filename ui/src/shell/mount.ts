@@ -53,6 +53,12 @@ export async function mountShell(): Promise<ShellHandle> {
   let scenario = "entry";
   let seed = 42;
   let run = 1;
+  // Plain browser: `?port=NNNN` overrides the default — 8787 is also wrangler's default, and a
+  // stray `workerd` on it answers the handshake with an HTTP 200 (seen 2026-09-12).
+  if (!hasControlPlane) {
+    const p = Number(new URLSearchParams(location.search).get("port"));
+    if (Number.isInteger(p) && p > 0 && p < 65536) port = p;
+  }
   if (hasControlPlane) {
     const status = await bridge.getCoreStatus();
     if (status) {

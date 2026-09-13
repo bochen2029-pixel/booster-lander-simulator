@@ -75,6 +75,8 @@ import { buildTargetMarker, readTargetEst } from "./targetMarker";
 import { buildSea, type SeaEnv } from "./sea";
 import { buildEarth, type EarthEnv } from "./earth";
 import { TLM_FLAG_SEA_ACTIVE } from "../net/decode";
+import { buildKestrelVehicle, type KestrelVehicle } from "./kestrel9/kestrelVehicle";
+import { bellAltitude } from "./kestrel9/kestrelTlm";
 
 // OPERATOR DOCTRINE (first light, verbatim): "it MUST always sunny and daytime by
 // default." The dark studio is retired as the default (it survives only as a future
@@ -91,11 +93,26 @@ const DAY_FOG = 0xbdd3e2;
 const STUDIO_FOG_NEAR = 30_000;
 const STUDIO_FOG_FAR = 150_000;
 
+// VEHICLE MODEL (PLAN.md Phase 1.1): the vendored Kestrel-9 procedural booster is the default;
+// `?legacy` keeps the 2026-07 hand-built model + TSL raymarched plume selectable for A/B captures.
+export type VehicleModel = "kestrel9" | "legacy";
+export function selectVehicleModel(): VehicleModel {
+  try {
+    return new URLSearchParams(location.search).has("legacy") ? "legacy" : "kestrel9";
+  } catch {
+    return "kestrel9";
+  }
+}
+
 export interface DocumentaryScene {
   /** Rebased-by-floating-origin root (camera-relative content). */
   world: Group;
   /** The booster pivot (its .position is the sim base point, three-space). */
   boosterPivot: Group;
+  /** which booster model is mounted under boosterPivot */
+  vehicleModel: VehicleModel;
+  /** the Kestrel-9 handle when mounted (null in legacy mode) */
+  kestrel: KestrelVehicle | null;
   markers: MarkersHandle;
   plume: PlumeUniforms;
   /** The SEA environment (ocean + droneship deck); dormant until the SEA flag. */
@@ -233,6 +250,20 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   // --- the booster (procedural-lite; rebuilt from HELLO dims in applyHello) ----
   const boosterPivot = new Group();
   world.add(boosterPivot);
+  // The pivot is posed at the streamed r = the CoM. Both vehicle models are authored with the base
+  // plane at their origin, so they hang from this child, which update() drops com_z down the
+  // vehicle axis (local −Y) every frame. See the pose block in update().
+  const baseOrigin = new Group();
+  baseOrigin.name = "BaseOrigin";
+  boosterPivot.add(baseOrigin);
+
+  // KESTREL-9 (PLAN.md Phase 1.1): the vendored procedural booster + its per-engine plume, mounted
+  // under the same pivot the legacy model used — the asset is authored in the sim body frame
+  // already permuted to three with its origin at the base plane (README "Frame"), i.e. exactly
+  // what frame.ts writes into boosterPivot. Textures: threeShim.ts (real CanvasTexture by default).
+  const vehicleModel = selectVehicleModel();
+  const kestrel: KestrelVehicle | null = vehicleModel === "kestrel9" ? buildKestrelVehicle({ quality: "ultra" }) : null;
+  if (kestrel) baseOrigin.add(kestrel.group);
 
   // materials — PBR + IBL, with the HULL as a TSL node material: white airframe paint with a
   // PROCEDURAL soot job (heavy at the octaweb, streaking up the body — the signature of a
@@ -289,7 +320,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
 
   // geometry containers we rebuild on HELLO
   const bodyGroup = new Group();
-  boosterPivot.add(bodyGroup);
+  baseOrigin.add(bodyGroup);
   const finPivots: Group[] = [];
   const legPivots: Group[] = [];
   let bellY = 0; // three-space Y of the bell exit (where the plume attaches)
@@ -306,14 +337,17 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   const plume = makePlumeUniforms();
   const plumeMat = buildPlumeMaterial(plume);
   const plumeProxy = new Mesh(new BoxGeometry(1, 1, 1), plumeMat);
-  boosterPivot.add(plumeProxy);
-  boosterPivot.add(plumeLight);
+  if (!kestrel) {
+    // legacy only: the Kestrel-9 plume owns its own lights and rides each engine's gimbal
+    baseOrigin.add(plumeProxy);
+    baseOrigin.add(plumeLight);
+  }
 
   function rebuildBooster(): void {
     // clear
     bodyGroup.clear();
-    for (const p of finPivots) boosterPivot.remove(p);
-    for (const p of legPivots) boosterPivot.remove(p);
+    for (const p of finPivots) baseOrigin.remove(p);
+    for (const p of legPivots) baseOrigin.remove(p);
     finPivots.length = 0;
     legPivots.length = 0;
 
@@ -507,7 +541,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
         fin.add(hb);
       }
       pivot.add(fin);
-      boosterPivot.add(pivot);
+      baseOrigin.add(pivot);
       finPivots.push(pivot);
     }
 
@@ -543,7 +577,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
       padRim.position.y = 0.06;
       padG.add(padRim);
       pivot.add(padG);
-      boosterPivot.add(pivot);
+      baseOrigin.add(pivot);
       legPivots.push(pivot);
     }
 
@@ -560,7 +594,7 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
     plumeLight.position.set(0, bellY - 2, 0);
   }
 
-  rebuildBooster();
+  if (!kestrel) rebuildBooster();
 
   // markers (add to the rebased world so they share the floating-origin frame)
   const markers = buildMarkers(0);
@@ -602,6 +636,8 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   return {
     world,
     boosterPivot,
+    vehicleModel,
+    kestrel,
     markers,
     plume,
     sea,
@@ -628,11 +664,13 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
         pad = fresh;
         sea.setPadRadius(h.padRadius);
       }
-      rebuildBooster();
+      if (kestrel) kestrel.applyHello(h); // wholesale rebuild only if the dims changed
+      else rebuildBooster();
     },
 
     triggerGreenFlash() {
       greenFlash = 1.0;
+      kestrel?.triggerGreenFlash();
     },
 
     setMarkersVisible(on: boolean) {
@@ -697,6 +735,13 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
       simToThreeQuaternion(s.q.x, s.q.y, s.q.z, s.q.w, _q);
       boosterPivot.position.copy(_p);
       boosterPivot.quaternion.copy(_q);
+      // THE PIVOT IS THE CoM, THE MODELS ARE BASE-ORIGIN. The streamed r is the centre of mass
+      // (main.c:150 integrates S_RZ = h + com; contact.c places the feet at −1 − com below it) and
+      // com_z (protocol @88, live — it moves with the propellant) is its height above the base
+      // plane. Both models are authored with the base plane at their origin, so they hang com_z
+      // down the vehicle axis (local −Y) from the pivot. Before this the base sat AT the CoM and
+      // the whole vehicle rendered ~12–20 m too high for the entire 2026-07 arc.
+      baseOrigin.position.y = -f.comZ;
 
       // --- sun-shadow FOLLOW: keep the directional shadow frustum centered on the
       // vehicle in RENDER space (the world group carries the floating-origin offset;
@@ -705,54 +750,65 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
       key.target.position.copy(_lightAnchor);
       key.position.copy(_lightAnchor).add(SUN_OFFSET);
 
-      // --- grid fins: hinge each by fins_act[i] (rad) --------------------------
-      for (let i = 0; i < finPivots.length; i++) {
-        const defl = f.finsAct[i] ?? 0;
-        finPivots[i].rotation.z = defl; // deflect about the hinge
+      if (kestrel) {
+        // --- KESTREL-9 (PLAN.md Phase 1.1): the vendored renderer reads the packet's own field
+        // names (throttle_act, n_eng, gimbal_act, fins_act, deploy_frac, stroke, Q_heat, p_amb,
+        // mach, qbar); the adapter maps camelCase → snake_case and adds bell_alt — the bell-exit
+        // height over the surface under the vehicle (the deck at sea, the pad on land) that clamps
+        // the free jet into a wall jet on impingement. Engine gimbal is CONSUMED for the first time.
+        const groundZ = seaOn ? f.deckZ : 0;
+        kestrel.update(f, bellAltitude(s.r.z, groundZ, kestrel.bellLength), dtSec);
+        if (greenFlash > 0) greenFlash = Math.max(0, greenFlash - dtSec * 3.0); // ~0.33 s
+      } else {
+        // --- grid fins: hinge each by fins_act[i] (rad) --------------------------
+        for (let i = 0; i < finPivots.length; i++) {
+          const defl = f.finsAct[i] ?? 0;
+          finPivots[i].rotation.z = defl; // deflect about the hinge
+        }
+
+        // --- legs: swing from stowed (up along hull) to deployed (out+down) ------
+        // deploy_frac 0 => STOWED (~173° = strut folded up along the body, high altitude),
+        // 1 => DEPLOYED (~30° = strut swung out+down into the landing tripod). +θ about the
+        // pivot's local Z rotates the hanging (-Y) strut toward +X (radially outward).
+        const deploy = f.deployFrac;
+        const legAngle = legStowed + (legDeployed - legStowed) * deploy;
+        for (const p of legPivots) p.rotation.z = legAngle;
+
+        // --- plume: drive uniforms from throttle_act / p_chamber / p_amb / mach ---
+        // C_T (thrust coefficient) is not on the wire; approximate the SRP-envelope
+        // blend from mach (SRP is the entry-burn supersonic regime). Canon §B.3: SRP
+        // wraps forward when burning supersonically. Use a mach-gated ct proxy that
+        // rises with mach while the engine is lit — honest to the physics regime, and
+        // the plume's own smoothstep(0.5,3.0,ct) turns it into the envelope amount.
+        const lit = f.throttleAct > 0.01 && f.nEng > 0;
+        const ctProxy = lit ? Math.min(4, f.mach * 0.6) : 0;
+        updatePlumeUniforms(plume, {
+          throttleAct: f.throttleAct,
+          pChamber: f.pChamber,
+          pAmb: f.pAmb,
+          mach: f.mach,
+          ct: ctProxy,
+          nEng: f.nEng,
+        });
+
+        // THROTTLE MADE VISIBLE: scale the raymarch box (plume length + width) with
+        // throttle so 40% reads as a short stub and 100% as a long torch — the modulation
+        // is now obvious instead of on/off (density + brightness already track throttle in
+        // fx/plume.ts). Off => collapse the box so nothing marches.
+        const thr = lit ? f.throttleAct : 0;
+        const lenScale = lit ? 0.28 + 0.72 * thr : 0.02;
+        const wideScale = lit ? 0.5 + 0.5 * thr : 0.3;
+        plumeProxy.scale.set(plumeProxyWide * wideScale, plumeProxyLen * lenScale, plumeProxyWide * wideScale);
+        plumeProxy.position.y = bellY - plumeProxyLen * lenScale * 0.5 + plumeProxyLen * lenScale * 0.12;
+
+        // green flash decay + push to the plume uniform
+        if (greenFlash > 0) greenFlash = Math.max(0, greenFlash - dtSec * 3.0); // ~0.33 s
+        plume.greenFlash.value = greenFlash;
+
+        // plume light tracks throttle (color warms with throttle; off when unlit)
+        plumeLight.intensity = lit ? 40 + 260 * f.throttleAct : 0;
+        plumeLight.color.setRGB(1.0, 0.42 + 0.2 * f.throttleAct, 0.14 + 0.12 * f.throttleAct);
       }
-
-      // --- legs: swing from stowed (up along hull) to deployed (out+down) ------
-      // deploy_frac 0 => STOWED (~173° = strut folded up along the body, high altitude),
-      // 1 => DEPLOYED (~30° = strut swung out+down into the landing tripod). +θ about the
-      // pivot's local Z rotates the hanging (-Y) strut toward +X (radially outward).
-      const deploy = f.deployFrac;
-      const legAngle = legStowed + (legDeployed - legStowed) * deploy;
-      for (const p of legPivots) p.rotation.z = legAngle;
-
-      // --- plume: drive uniforms from throttle_act / p_chamber / p_amb / mach ---
-      // C_T (thrust coefficient) is not on the wire; approximate the SRP-envelope
-      // blend from mach (SRP is the entry-burn supersonic regime). Canon §B.3: SRP
-      // wraps forward when burning supersonically. Use a mach-gated ct proxy that
-      // rises with mach while the engine is lit — honest to the physics regime, and
-      // the plume's own smoothstep(0.5,3.0,ct) turns it into the envelope amount.
-      const lit = f.throttleAct > 0.01 && f.nEng > 0;
-      const ctProxy = lit ? Math.min(4, f.mach * 0.6) : 0;
-      updatePlumeUniforms(plume, {
-        throttleAct: f.throttleAct,
-        pChamber: f.pChamber,
-        pAmb: f.pAmb,
-        mach: f.mach,
-        ct: ctProxy,
-        nEng: f.nEng,
-      });
-
-      // THROTTLE MADE VISIBLE: scale the raymarch box (plume length + width) with
-      // throttle so 40% reads as a short stub and 100% as a long torch — the modulation
-      // is now obvious instead of on/off (density + brightness already track throttle in
-      // fx/plume.ts). Off => collapse the box so nothing marches.
-      const thr = lit ? f.throttleAct : 0;
-      const lenScale = lit ? 0.28 + 0.72 * thr : 0.02;
-      const wideScale = lit ? 0.5 + 0.5 * thr : 0.3;
-      plumeProxy.scale.set(plumeProxyWide * wideScale, plumeProxyLen * lenScale, plumeProxyWide * wideScale);
-      plumeProxy.position.y = bellY - plumeProxyLen * lenScale * 0.5 + plumeProxyLen * lenScale * 0.12;
-
-      // green flash decay + push to the plume uniform
-      if (greenFlash > 0) greenFlash = Math.max(0, greenFlash - dtSec * 3.0); // ~0.33 s
-      plume.greenFlash.value = greenFlash;
-
-      // plume light tracks throttle (color warms with throttle; off when unlit)
-      plumeLight.intensity = lit ? 40 + 260 * f.throttleAct : 0;
-      plumeLight.color.setRGB(1.0, 0.42 + 0.2 * f.throttleAct, 0.14 + 0.12 * f.throttleAct);
 
       // --- markers (diegetic, interpolate-never-snap via the interp frame) ------
       // v2 §4.5/§9.9: the solve-convergence reference is the TARGET ESTIMATE when

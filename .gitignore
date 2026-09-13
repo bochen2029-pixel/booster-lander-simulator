@@ -76,3 +76,35 @@ build_kat/
 runs/theta_prior*.pt
 runs/s0rf*.pt
 runs/theta_*.pt
+
+# ── Operator-supplied assets (assets/, 2026-09-11): SOURCE is tracked, bulk is not ──────────
+# Tracked: assets/kestrel9_gfx/{booster/**, booster-stage.js, *.dc.html, github.md} +
+#          assets/kestrel9_gfx/exports/kestrel9_cfd_1-1_m.stl (the FluidX3D input, 4.7 MB) +
+#          assets/apollo_imu/{gimbal-scene.js, *.dc.html, ios-frame.jsx, uploads/p1_gimbal.c}.
+# Not tracked: the zips, design-tool screenshots/pasted images, the print-scale STLs (regenerable
+# from export-stl.js), the earlier Apollo export (apollo_imu_v1), and the FluidX3D checkout
+# (clone https://github.com/ProjectPhysX/FluidX3D — 21 MB of skybox, not ours).
+assets/*.zip
+assets/**/shots/
+assets/**/uploads/*.png
+assets/**/.thumbnail
+assets/**/support.js
+assets/kestrel9_gfx/exports/*print*
+assets/fluidx3d/
+assets/apollo_imu_v1/
+assets/apollo_imu/uploads/*\ (?).c
+android/
+
+# ── Never publish: serve pid files, packaged builds, and the training corpora (GBs) ──────────
+/*.zip
+User_a_CHUNKER_*
+build2/
+*.pid
+dist/*.zip
+dist/*.exe
+dist/BoosterLander/
+dist/BoosterLander-portable/*
+!dist/BoosterLander-portable/README.md
+dist/portable_stage/
+data/*
+!data/reference/
