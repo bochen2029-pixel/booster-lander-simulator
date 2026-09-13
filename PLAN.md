@@ -144,10 +144,17 @@ is a reference-*loss* failure. The resemblance is superficial and inviting.
   order), `MGA margin = 90° − |MGA|`, lock predicate. **Not a port** — `gimbal-scene.js` is 53 KB
   of Three.js and stays in JS forever. *(DONE 2026-09-12, D-056: `ui/src/hud/imu.ts`, 11 tests.)*
 - **2.2 Attitude-reference failure in `nav.c`** — **a deliberate decision, because it will LOWER
-  97.2%.** That is correct and desirable, but it must not be a surprise.
+  97.2%.** That is correct and desirable, but it must not be a surprise. *(DONE 2026-09-12,
+  D-058: `core/imu.c`, `--imu-platform [deg/s]`. It lowers it exactly as predicted once the servo
+  limit is tight enough: 174 → 173 → **162/180 at 45°/s**, and the mechanism is the belief bias
+  through the flare, not the LOST latch. D-059 put the belief on the wire (protocol v5) so the
+  FDAI shows it.)*
 - **2.3 Extend `ceiling_eo.c` to the attitude-recoverable axis.** The one that changes what every
   number in `SCOREBOARD.md` means.
-- **2.4 CFD STL → FluidX3D**, validating the frozen CA/CN in `dynamics.c`.
+- **2.4 CFD STL → FluidX3D**, validating the frozen CA/CN in `dynamics.c`. *(DONE as a measurement
+  2026-09-12, D-060: at M → 0 the table is low by ~2× on both axes — CA 1.61 vs 0.85, CN(8°) 1.01
+  vs 0.47. The plant change it implies (fin drag + crossflow term) is a new ledger epoch and the
+  operator's call; the sharpening runs (fins off, dx/2) are one env var away.)*
 
 ### Phase 3 — the honest denominator
 - **3.1** Restate the frontier as the real `min(lateral, attitude, terminal-null)`.

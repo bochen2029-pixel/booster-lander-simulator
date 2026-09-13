@@ -1,0 +1,8 @@
+========= HEADLESS MONTE CARLO =========
+scenario=entry seed=99 runs=60 turb=1
+LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%)
+  PERFECT 11  GOOD 46  HARD 3  TIPPED 0  CRASHED 0
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 0
+  crash causes: off-pad 0  too-hard 0  fuel-out 0  other 0
+  imu: reference LOST in 0/60 runs (0 of them crashed/tipped)  max platform err 1.46 deg  min MGA margin 68.5 deg  peak gimbal rate 150 deg/s  (servo limit 180 deg/s)
+  landed means: td_v=2.51 m/s (max 4.97)  lat=2.27 m  tilt=3.01 deg  fuel=2708 kg

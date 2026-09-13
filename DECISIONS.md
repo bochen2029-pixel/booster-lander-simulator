@@ -3855,6 +3855,54 @@ the platform and journaled too (each candidate is a Sim copy); a `quiet` flag no
 so the H3 read comes from the real flight only. The farm was stopped at 21:0x and relaunched on
 the quiet build; finished units are kept (their summaries are the real flight's).*
 
+### D-058 ADDENDUM 1 — THE AXIS BINDS AT 45°/s, AND THE "LOST" LATCH IS NOT THE MECHANISM (2026-09-12 23:22)
+
+Nine units, all verified, `D058-DONE 23:21:52`. The identical 180 faults per arm:
+
+| servo limit | landed | P · G · H · C | references lost (of them crashed) | lat mean | td_v mean |
+|---|---|---|---|---|---|
+| *none (D-054)* | *175/180* | *27 · 127 · 21 · 5* | *—* | *2.39 m* | *2.58 m/s* |
+| **180°/s** (asset default) | **174/180** | 25 · 133 · 16 · 6 | **0** (0) | 2.17 m | 2.61 |
+| **90°/s** | **173/180** | 19 · 131 · 23 · 7 | **135** (3) | 2.32 m | 2.84 |
+| **45°/s** | **162/180 = 90.0%** | **2** · 76 · **84** · 18 | 73 (15) | **7.06 m** | **3.83 m/s** |
+
+**H1 CONFIRMED.** At the asset's 180°/s the platform is transparent: zero losses, −1 draw (inside
+noise), precision unchanged. Peak gimbal-rate demand 151°/s — the margin to the limit is 30°/s, not
+the 100°/s the servo constant suggests.
+
+**H2 CONFIRMED, with a correction to what I thought would carry it.** At 45°/s the attitude axis
+BINDS: 162/180, PERFECT 27 → 2, HARD 21 → 84, lateral 2.4 → 7.1 m, touchdown 2.6 → 3.8 m/s (the HARD
+line is 4.0). **But the "reference LOST" latch is not the mechanism.** At 90°/s the reference was
+lost on 135 of 180 flights — three quarters — and the rate held at 173 with only 3 of those 135
+crashing; at 45°/s it was lost on 73, and the 107 flights that never tripped the float stops
+still landed 7 m off with 4 m/s. **The binding quantity is the belief BIAS the rate-limited servo
+carries through the flare**, present whether or not the floats ever saturate: a gimbal that cannot
+follow the case at the landing-burn ignition (every journal line names the OUTER axis pinned at
+the limit, t ≈ 73–126 s of a ~126–140 s flight) leaves the belief a few degrees wrong for the rest
+of the descent, and a few degrees of attitude error in the flare is exactly a HARD, off-centre
+arrival. The Apollo NO ATT annunciator is the wrong instrument for this failure; a **belief-error
+budget** (`imu_err` on the wire since D-059) is the right one.
+
+**H3 — supported at the population level, not proven per flight.** Losses occur at t = 73–126 s;
+touchdown at ~126–140 s; so the loss precedes the outcome by one to five replan intervals in the
+large majority of flights. Pairing each loss to its own verdict needs the run index in the journal,
+which the farm's build did not print — added (`[imu] run=N …`, commit d3dd4e5) for the next
+battery; the claim "cause, not symptom" stays at the population level tonight.
+
+**What the denominator gains.** PLAN.md §2 wanted the attitude-recoverable axis computed. It now
+has a predicate and a knob: a draw is attitude-recoverable under a platform of limit R if the
+deployable controller lands it with `--imu-platform R` — and the ceiling on this pool is
+**174/180 at 180°/s, 173 at 90, 162 at 45**. Phase 2.3 (extending `ceiling_eo.c`) is the same
+question asked of the oracle instead of the controller: which of the 15–18 draws lost at 45°/s
+could ANY θ have flown with a platform that slow. That run is `ceiling_eo.c` + `--imu-platform`,
+and it is the next farm after the budget sweep.
+
+**One modeling caveat, stated so it is not overclaimed.** The servo constants (ωn 120 rad/s,
+6000°/s², ±3° floats) are the asset's, sized for a phone-driven demo; the rate limit is the only
+parameter swept. A modern strapdown IMU has no gimbals and a ~500°/s gyro range — this battery
+measures the plant's sensitivity to an attitude-reference lag, not the attitude reference a real
+Kestrel-9 would fly.
+
 ## D-059 — PROTOCOL v5: THE FLIGHT COMPUTER'S ATTITUDE BELIEF ON THE WIRE, AND A SERVE BUG (2026-09-12 21:5x)
 
 **Why a bump.** After D-058 the plant can fly a belief that is not the truth, and the cockpit's

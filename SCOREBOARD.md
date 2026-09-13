@@ -154,6 +154,34 @@ BRS with actuator lag is strictly smaller** and `in-frontier ≈ 1.000` is an up
 an optimistic plant. It does not rescue a ~50-draw gap — but part of that gap is a gift, and the
 frontier shrinks when either finding is repaired.
 
+## D · The plant with an attitude reference that can be LOST — the deployable controller × `--imu-platform` (D-058, 2026-09-12)
+
+Column A's deployable row (blind + event replan + 1/8 budget, dev pool 42/7/99, the identical 180
+faults) re-flown with a Block II gimbaled platform as the attitude source (`core/imu.c`), servo
+rate limit swept. **The first measurement of the attitude axis of the ceiling.**
+
+| servo limit | landed | PERFECT | HARD | lost (crashed) | lat | td_v | ADR |
+|---|---|---|---|---|---|---|---|
+| none (truth) | 175/180 | 27 | 21 | — | 2.39 m | 2.58 | D-054 |
+| 180°/s | 174/180 | 25 | 16 | 0 (0) | 2.17 m | 2.61 | D-058 |
+| 90°/s | 173/180 | 19 | 23 | 135 (3) | 2.32 m | 2.84 | D-058 |
+| **45°/s** | **162/180 = 90.0%** | **2** | **84** | 73 (15) | **7.06 m** | **3.83** | D-058 |
+
+The "reference LOST" latch is not what binds (135 losses at 90°/s cost two draws); the belief BIAS a
+rate-limited servo carries through the flare is (at 45°/s the flights that never tripped the
+floats still arrived 7 m off at 4 m/s). Peak gimbal demand on a nominal flight: 151°/s.
+
+## E · The aero table vs a CFD body at low Mach (D-060, 2026-09-12)
+
+| point | table (`dynamics.c`) | FluidX3D LBM/LES (23 cells/D, ±20–30 %) |
+|---|---|---|
+| CA, α = 0, M → 0 | 0.85 (body only; fins have no drag term) | **1.61 ± 0.20** |
+| CN, α = 8°, M → 0 | 0.470 (2.0·α body + passive fins) | **1.01 ± 0.07** |
+
+**Every rate in this file was flown on a plant with roughly half the low-Mach drag and half the
+normal force at angle of attack that its own body produces.** Not yet a plant change (a new
+ledger epoch); the operator's decision.
+
 ---
 
 *Held-out law: seeds 42/7/99 never appear in training data (enforced in the trainer, twice).
