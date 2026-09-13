@@ -229,7 +229,10 @@ export function installHud(): HudHandle {
       // phase ladder highlight
       if (f.phase !== lastPhase) {
         lastPhase = f.phase;
-        const activeIdx = LADDER.indexOf(f.phase as Phase);
+        // SETTLING (phase 6, the post-contact settle) has no rung of its own: it lights TOUCHDOWN,
+        // otherwise the ladder went dark for the settle window (D-056 follow-up).
+        const ladderPhase = f.phase === Phase.Settling ? Phase.Touchdown : (f.phase as Phase);
+        const activeIdx = LADDER.indexOf(ladderPhase);
         LADDER.forEach((ph, i) => {
           const rung = rungs.get(ph)!;
           rung.classList.remove("active", "done");

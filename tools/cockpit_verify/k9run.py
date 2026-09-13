@@ -42,7 +42,7 @@ print("core pid", core.pid, "alive" if core.poll() is None else f"EXITED {core.r
 
 # 3. the burst (installs its tag, then runs)
 js(f"window.__k9tag={tag!r}; 'tagged'")
-with open(f"{HERE}/k9variant.js", encoding="utf-8") as f:
+with open(os.environ.get("K9JS", f"{HERE}/k9variant.js"), encoding="utf-8") as f:
     result, shot = js(f.read(), timeout=300)
 print("burst:", result)
 print("page shot:", shot)

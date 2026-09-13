@@ -143,14 +143,17 @@ export function buildDocumentaryScene(scene: Scene, renderer: WebGPURenderer): D
   // --- ground: DAYTIME scrubland to the horizon + concrete pad (LZ-1 grammar) --
   // (was near-black night-studio; and the 4 km disc ended mid-view — extend to the
   // fog so ground meets sky at the horizon like the real coastline footage)
-  const groundMat = new MeshStandardMaterial({ color: 0x8a8577, roughness: 1.0, metalness: 0.0 });
+  // envMapIntensity LOW on the ground: a rough dielectric still goes Fresnel-white at grazing view
+  // angles under the physical-sky IBL, and every low camera (a hero shot from 8 m up) saw a white
+  // plain with the dark pad bleached out (D-056 captures: legacy_base.jpg / k9data_base.jpg).
+  const groundMat = new MeshStandardMaterial({ color: 0x8a8577, roughness: 1.0, metalness: 0.0, envMapIntensity: 0.12 });
   const ground = new Mesh(new CircleGeometry(60000, 96), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   landGroup.add(ground);
 
   // the landing pad disc (Ø from HELLO pad_radius; default 30 m radius circle-X)
-  const padMat = new MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.85, metalness: 0.05 });
+  const padMat = new MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.85, metalness: 0.05, envMapIntensity: 0.15 });
   let pad = new Mesh(new CircleGeometry(30, 64), padMat);
   pad.rotation.x = -Math.PI / 2;
   pad.position.y = 0.02;

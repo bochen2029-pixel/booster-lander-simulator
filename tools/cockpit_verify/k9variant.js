@@ -39,6 +39,6 @@
   await posed('hero', { d: 70, el: 0.18, az: 0.7, h: 22, fov: 40, lead: 0 });
   await posed('base', { d: 26, el: 0.12, az: 1.1, h: 5, fov: 40, lead: 0 });
   await posed('hull', { d: 16, el: 0.05, az: 2.4, h: 30, fov: 35, lead: 0 });
-  await posed('octaweb', { d: 14, el: -0.35, az: 0.4, h: 0, fov: 45, lead: 0 });
+  await posed('octaweb', { d: 16, el: 0.15, az: 0.4, h: 1.0, fov: 45, lead: 0 });
   return JSON.stringify(out);
 })();

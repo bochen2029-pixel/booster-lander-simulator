@@ -258,7 +258,11 @@ async function boot() {
       if (s) {
         sample = s;
         devSample = s;
-        vehSim.set(s.r.x, s.r.y, s.r.z);
+        // THE DIRECTOR FRAMES THE BASE POINT. Its presets were written as if r were the base plane
+        // (FREE_ORBIT targets vehPos.z + halfH = "the centre"; ONBOARD hangs 1.5·halfH up the body
+        // axis) — but r is the CoM (D-056). Hand it the base: r − R·(0,0,com_z), so every preset's
+        // assumption holds and the orbit centres the vehicle instead of its upper third.
+        vehSim.set(0, 0, -s.frame.comZ).applyQuaternion(s.q).add(s.r);
         vehVel.set(s.v.x, s.v.y, s.v.z);
 
         // drain EVT beats: feed director cuts, HUD ticker, timeline glyphs, and

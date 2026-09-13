@@ -49,8 +49,45 @@ function sameDims(a: KestrelVehicleDims, b: KestrelVehicleDims): boolean {
 export interface KestrelBuildOptions {
   hello?: HelloFrame;
   quality?: KestrelQuality;
-  /** the THREE namespace to inject (default: the DataTexture shim, see threeShim.ts) */
+  /** the THREE namespace to inject (default: the real three/webgpu, see threeShim.ts) */
   three?: ThreeLike;
+}
+
+// ---------------------------------------------------------------------------------------------
+// SCENE TUNING (D-056 follow-up, 2026-09-12) — the asset was lit for its own viewer (exposure 1.0,
+// a modest sky). This scene runs a physical-sky PMREM at environmentIntensity 0.42 with exposure
+// 0.34 and AgX, calibrated in commit 908bc53 for a white paint at envMapIntensity 0.3. Left at the
+// asset's 0.72–2.0 the hull is a bluish sky-mirror (probe 0.93/1.14/1.40 linear at 40 m). These
+// knobs are applied AFTER construction — the vendored file stays verbatim.
+// ---------------------------------------------------------------------------------------------
+/** absolute envMapIntensity for the paint (the 908bc53 calibration), a multiplier for the rest */
+export const K9_ENV = { bodyPaint: 0.3, frost: 0.3, raceway: 0.35, othersScale: 0.6 } as const;
+/** HDR gain on the plume so it crosses the bloom threshold (the asset's plume is LDR ≤ 1.0) */
+export const K9_PLUME_GAIN = { bellFlame: 2.6, throat: 4.0, core: 3.0, sheath: 1.6, diamonds: 2.6, srp: 2.2, flash: 2.0 } as const;
+
+function tuneMaterials(booster: Kestrel9, plume: KestrelPlume): void {
+  for (const [name, m] of Object.entries(booster.materials)) {
+    const std = m as unknown as { isMeshStandardMaterial?: boolean; envMapIntensity: number; needsUpdate: boolean };
+    if (!std.isMeshStandardMaterial) continue;
+    if (name === "bodyPaint") std.envMapIntensity = K9_ENV.bodyPaint;
+    else if (name === "frost") std.envMapIntensity = K9_ENV.frost;
+    else if (name === "raceway") std.envMapIntensity = K9_ENV.raceway;
+    else std.envMapIntensity *= K9_ENV.othersScale;
+    std.needsUpdate = true;
+  }
+  const gain = (mesh: { material: unknown }, k: number) => {
+    const mat = mesh.material as { color?: { multiplyScalar(s: number): unknown } };
+    mat.color?.multiplyScalar(k);
+  };
+  for (const u of plume.units) {
+    gain(u.bellFlame, K9_PLUME_GAIN.bellFlame);
+    gain(u.throat, K9_PLUME_GAIN.throat);
+    gain(u.core, K9_PLUME_GAIN.core);
+    gain(u.sheath, K9_PLUME_GAIN.sheath);
+    gain(u.diamonds, K9_PLUME_GAIN.diamonds);
+    gain(u.flash, K9_PLUME_GAIN.flash);
+  }
+  gain(plume.srp, K9_PLUME_GAIN.srp);
 }
 
 export function buildKestrelVehicle(opts: KestrelBuildOptions = {}): KestrelVehicle {
@@ -63,6 +100,7 @@ export function buildKestrelVehicle(opts: KestrelBuildOptions = {}): KestrelVehi
 
   let booster = createKestrel9(THREE, { vehicle: dims, quality });
   let plume = createPlume(THREE, booster);
+  tuneMaterials(booster, plume);
   group.add(booster.group);
 
   const tlm = makeKestrelTlm();
@@ -95,6 +133,7 @@ export function buildKestrelVehicle(opts: KestrelBuildOptions = {}): KestrelVehi
       booster.dispose();
       booster = createKestrel9(THREE, { vehicle: dims, quality });
       plume = createPlume(THREE, booster);
+      tuneMaterials(booster, plume);
       group.add(booster.group);
     },
 
