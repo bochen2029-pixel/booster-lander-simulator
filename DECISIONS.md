@@ -3943,3 +3943,58 @@ on a blunt base is what it captures well, skin friction it does not):**
   or orientation error, not physics).
 
 **Result: D-060 addendum** (`runs/d060/`: `cfd_alpha{0,8}.log`, `force_alpha*.csv`, frames).
+
+### D-060 ADDENDUM 1 — THE AERO TABLE IS LOW BY A FACTOR OF ~2 AT LOW MACH, ON BOTH AXES (2026-09-12 23:05)
+
+Two runs, 13 min each on the RTX, 5 flow-throughs, coefficient = mean ± sd of the 500-step samples
+over the last 40 % (≈ 50 samples, ≈ 10 s of physical time, many shedding periods):
+
+| α | CA (CFD) | CN (CFD) | the model, computed from the code | pre-registered band |
+|---|---|---|---|---|
+| **0°** | **1.61 ± 0.20** | 0.007 ± 0.056 | CA 0.85 (body only) | > 1.1 ⇒ **under-predicts drag with fins deployed** |
+| **8°** | **2.03 ± 0.18** | **1.01 ± 0.07** | CN 0.470 (body 0.279 + passive fins 0.191) | outside [0.35, 0.60] ⇒ **body slope or fin model is off** |
+
+The symmetry check passed (|CN| at α = 0 is 0.007 against a 0.05 bar), so the orientation and the
+voxelisation are sound; the impulsive-start acoustic artefact that swung CA between −5.6 and +8.5
+was removed by starting from rest with a raised-cosine inflow ramp (the sd above is real shedding,
+not the box ringing).
+
+**Reading it, in the model's own terms:**
+
+- **CA.** The gap is 0.76 in reference-area units. The fin model in `dynamics.c` has radial lift and a
+  roll-cant term and **no axial drag** — four 1.2 × 2.0 m titanium lattices in the stream contribute
+  nothing to deceleration in the plant. A lattice fin at ~15 % solidity runs a drag coefficient of
+  order 0.4–0.6 on its planform: 4 × 2.4 × 0.5 / 10.52 ≈ **0.45**. The base itself — a flat heat
+  shield with nine bells and the octaweb rim protruding, sharp-edged so the separation point is
+  fixed and the drag is Reynolds-insensitive — is more like 0.9–1.0 than 0.85, and the raceway, RCS
+  pods, joint rings and stowed-leg fairings add a little. That sums to 1.4–1.6, which is where the
+  CFD sits. **The 0.85 is a body-only number for a vehicle that never flies the aero descent
+  without its fins.**
+- **CN.** The gap at 8° is 0.54. The model's normal force is LINEAR in α: `CN = CNa·α`. A body of
+  fineness L/D ≈ 13 at angle of attack also carries the **viscous crossflow term** (Allen–Perkins:
+  η·C_dc·(A_plan/A_ref)·α², with A_plan/A_ref = 47.7 × 3.66 / 10.52 = 16.6) — at 8° that is 0.13 at a
+  supercritical C_dc of 0.4 and 0.39 at a subcritical 1.2, and a coarse LES on 23 cells per
+  diameter behaves closer to the latter. Add the crossflow term and the model reaches 0.60–0.86;
+  the remaining 0.15–0.4 is fin lift above the assumed 3.0 /rad and protuberances. **The largest
+  identifiable omission is the crossflow term; the coarse grid inflates it.**
+
+**What this means for every number in `SCOREBOARD.md`.** D-027's frontier caveat already said the
+BRS "rests on an optimistic plant" (no actuator lag). Tonight adds the aero footnote: **the plant
+flies the aero descent with roughly half the drag and, at angle of attack, roughly half the normal
+force that its own body produces at low Mach.** The two errors pull in different directions —
+more drag means lower terminal speeds, a lower and later ignition and more propellant margin (the
+2 700 kg residual would grow); a larger CN at α means more aerodynamic authority for the entry
+divert AND larger disturbance torques through `xcp_frac`, which has also never been measured. The
+transonic part of the table (1.40 at M 1.1) is beyond what a weakly compressible LBM can check.
+
+**What this is NOT, yet.** A plant change. Adding a fin drag term and a crossflow term re-goldens
+everything — TERMINAL ×200, the MPPI anchor, every SCOREBOARD row — a new epoch of the ledger, and
+the numbers above are one realisation of a ±20–30 % instrument at one Mach. It is the operator's
+decision. The evidence is on disk and the setup is one environment variable away from the two runs
+that would sharpen it: **fins off** (attribute the drag; needs a fins-off export) and **dx/2 at
+8 GB** (halve the grid bias). *Frames rendered black — the free-camera pose in the setup is wrong;
+not part of the measurement.*
+
+**FluidX3D on this box:** builds from the operator's drop with MSBuild (v142 toolset present),
+`BENCHMARK` must be commented out or it `#undef`s every extension, `getenv` needs
+`_CRT_SECURE_NO_WARNINGS`; ~5 GLUPS on the 4070 Ti SUPER at FP16S; 62.6 M cells in 4 GB.
