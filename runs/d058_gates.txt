@@ -1,0 +1,10 @@
+D-058 GATES  2026-09-12 20:25:27  exe=C:/Booster_Lander_Simulator/build3/bin/Release/booster-core.exe
+selftest      : [oracle: IMU platform mount + servo + reference loss]
+selftest      : SELFTEST: PASS
+TERMINAL x200 : BYTE-IDENTICAL
+MPPI run-1    : RESULT: HARD  fault=none  td_v=2.63 m/s  lat=10.48 m  tilt=0.23 deg  fuel=4444 kg  t=58.6 s  maxq=35438 Pa
+RFLY x-build  : BYTE-IDENTICAL to build2 (358 chars)
+ON 180 deg/s  : LANDED: 2/2 = 100.0%  (Wilson95: 34.2..100.0%) imu: reference LOST in 0/2 runs (0 of them crashed/tipped)  max platform err 0.92 deg  min MGA margin 70.0 deg  peak gimbal rate 107 deg/s  (servo limit 180 deg/s)
+ON  30 deg/s  : LANDED: 1/2 = 50.0%  (Wilson95: 9.5..90.5%) imu: reference LOST in 1/2 runs (1 of them crashed/tipped)  max platform err 53.19 deg  min MGA margin 71.7 deg  peak gimbal rate 30 deg/s  (servo limit 30 deg/s)
+ON differs    : yes — the belief changes the flight (stdout differs from OFF)
+D058-GATES-DONE 2026-09-12 20:34:38

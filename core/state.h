@@ -93,7 +93,7 @@ typedef struct {
 
 /* Module mask bits. (N0: MOD_TARGET/MOD_ENGINE_OUT added, default-off => byte-identical.) */
 enum { MOD_SLOSH=1, MOD_SEA=2, MOD_NAV_NOISY=4, MOD_FINS=8, MOD_TURB=16, MOD_INJECT=32,
-       MOD_TARGET=64, MOD_ENGINE_OUT=128 };
+       MOD_TARGET=64, MOD_ENGINE_OUT=128, MOD_IMU=256 };
 
 /* Phases (§6.8). */
 enum { PH_INIT,PH_COAST,PH_ENTRY_BURN,PH_AERO,PH_LANDING_BURN,PH_TOUCHDOWN,PH_SETTLING,

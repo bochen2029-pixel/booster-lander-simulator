@@ -3799,3 +3799,49 @@ Wall-clock per flight is recorded but **advisory** — the box is shared tonight
 flight are the exact cost axis. Estimated ~10 h quiet; resumable per unit; the monitor
 (`runs/d057_monitor.ps1`) alarms on the age of the newest output, never on a marker or a process
 name. **Result: D-057 addendum, when the data is on disk.**
+
+*Monitor note, 20:40:* pwsh buffers a native command's `2>` stderr until the unit ends, so
+"newest output age" only ticks at unit boundaries and false-alarmed mid-unit. Both monitors now
+take the live signal from the NAMED process's user-CPU time advancing over a 10 s sample (Clause 5:
+the D-057 match excludes `--imu-platform`, the D-058 match requires it), with output age kept as
+the slow alarm at 90 min. `wmic` is gone from this Windows build; use `Get-CimInstance`.
+
+## D-058 — THE ATTITUDE REFERENCE CAN NOW BE LOST — OPENED, GATED, PRE-REGISTERED, FLYING (2026-09-12 20:36)
+
+PLAN.md Phase 2.2, the deliberate decision that lowers the number. Until tonight `nav.c` could
+degrade attitude but never lose it, and the 500 Hz attitude controller (`control_step`) read
+**truth** regardless of `--nav-noisy` — the inner loop was perfect by construction.
+
+**The plant change — `core/imu.{h,c}`, default OFF, byte-identical by construction.** A three-gimbal
+inertial platform in the Apollo Block II order (outer = case X = the vehicle long axis, middle =
+case Z, inner = case Y), the operator's asset's stabilisation loop ported to the 500 Hz plant step:
+rigid kinematics (the stable member's real pose from the case attitude and the ACTUAL gimbal
+angles) → IRIG floats integrating the SM's inertial rotation with ±3° stops → the resolver chain
+with sec(MGA) on the outer axis → three 2nd-order, acceleration- and rate-limited torque-motor
+servos (`p1_gimbal.c`, wn 120 rad/s, ζ 0.75, 6000°/s², rate limit the CLI's knob, asset default
+180°/s). When the case out-turns the gimbals the SM is dragged, the floats grow, and at the stops
+the reference is **lost**: the platform's belief `q_meas = q_ref ⊗ (SM→case)⁻¹ ⊗ (case←body)⁻¹` is
+wrong by the accumulated drift for the rest of the flight. With `--imu-platform [RATE]` on, the
+attitude controller AND the 50 Hz nav view fly the belief. REFSMMAT = the landing-site frame,
+aligned at t0. No RNG.
+
+**Gates (`runs/d058_gates.txt`, on the final binary):** selftest PASS with a new oracle (mount
+permutation · ideal-angle kernel · lock margin · a 20°/s roll tracked to < 0.5° with the belief
+within 0.5° of truth · a 400°/s tumble saturates the floats and leaves the belief > 2° wrong ·
+memcmp determinism) · TERMINAL ×200 BYTE-IDENTICAL · MPPI anchor exact · **cross-build**: the
+deployable config without the flag on build3 vs the build2 exe the sweep is flying, byte-identical
+· ON: 180°/s ⇒ 0/2 lost, max platform error 0.92°, **peak gimbal-rate demand 107°/s** on a nominal
+flight; 30°/s ⇒ 1/2 lost (53° platform error) and that flight crashed. The belief reaches the
+controller (ON stdout ≠ OFF).
+
+**Sign convention, stated once:** the plant reports the SM→case angles of `gimbal-scene.js`
+(a +30° vehicle tilt reads MGA −30); the FDAI reports case→SM (+30). Margin and lock geometry are
+identical; single-axis signs differ. To be unified when `quat_meas` is streamed (protocol v5).
+
+**The measurement (`runs/d058_imu_platform.ps1`)** — the deployable config (blind + event + 1/8,
+D-054 = 175/180 on this pool, LOC 1), dev pool 42/7/99 × 60, the platform at **180 / 90 / 45°/s**.
+**Pre-registered:** H1 — 180°/s is transparent (≤ 1 lost, landed 175 ± 2). H2 — the limit bites
+between 90 and 45: at 45°/s ≥ 5 references lost and landed < 170, the attitude axis of the
+ceiling becomes BINDING. H3 — where a loss is followed by a crash, the loss precedes it by more
+than a replan interval in the majority of cases (cause, not symptom), read from the `[imu]`
+journal. **Result: D-058 addendum.**

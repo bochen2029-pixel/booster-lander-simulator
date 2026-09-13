@@ -19,6 +19,7 @@ set(BL_C_COMMON
     sim.c
     sea.c               # SEA module (§4.4): deterministic P-M droneship deck heave (D-035; pure math, host-side)
     nav.c
+    imu.c               # D-058 PLAN 2.2: gimbaled inertial platform, attitude reference that can be LOST (default OFF)
     ws.c
     guidance_hoverslam.c
     guidance_mppi.c

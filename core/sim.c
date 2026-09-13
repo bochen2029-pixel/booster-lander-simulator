@@ -56,6 +56,7 @@ void rfly_clamp_theta(double th[10]);
  * still runs, the prior just centres it), so a reduced --rfly-budget can still reach the basin.
  * Default 0 => the CEM cold-starts from the previous θ exactly as D-040. */
 int g_rfly_warm_net = 0;
+double g_imu_rate_deg = 0.0;   /* D-058: --imu-platform [RATE]: gimbal servo rate limit [deg/s]; <=0 => the asset default 180 */
 
 double sim_body_tilt(const State* st){
     double zb[3]={0,0,1}, zw[3]; q_rot(zw,&st->y[S_QX],zb);
@@ -223,6 +224,9 @@ void sim_init(Sim* s, int scenario, uint32_t seed, uint32_t run_idx, int modules
         mppi_init(&s->mppi, seed, scenario);
         s->mppi.warm_neural = g_mppi_warm_neural;   /* E1 (D-029): composite warm-start arm; 0 => byte-identical */
     }
+    /* D-058 (PLAN 2.2): the gimbaled platform, ALIGNED to the landing-site REFSMMAT at the initial
+     * attitude. Off (no MOD_IMU) => imu.on==0 => every consumer below keeps its truth pointer. */
+    imu_init(&s->imu, (modules & MOD_IMU)!=0, g_imu_rate_deg, &s->st.y[S_QX]);
 }
 
 static void set_verdict(Sim* s){
@@ -464,6 +468,9 @@ int sim_step(Sim* s){
     int is_gtick = (st->step % (long)(GUIDANCE_DT/DT) == 0);
     State nav;
     if(is_gtick) nav_measure(&s->nav, st, st->step, &nav);
+    /* D-058: ONE attitude source for the flight computer — the platform's belief (last plant step;
+     * 2 ms stale at most). Off => the nav view keeps the truth/noisy quaternion nav_measure wrote. */
+    if(is_gtick && s->imu.on){ nav.y[S_QX]=s->imu.q_meas[0]; nav.y[S_QY]=s->imu.q_meas[1]; nav.y[S_QZ]=s->imu.q_meas[2]; nav.y[S_QW]=s->imu.q_meas[3]; }
 
     /* guidance at 50 Hz */
     if(is_gtick && s->guidance_mode==GM_HOVERSLAM){
@@ -811,8 +818,19 @@ int sim_step(Sim* s){
         policy_hist_update(&s->phist, &nav, &s->gcmd);
     }
 
-    /* control at 500 Hz */
-    control_step(st,&s->gcmd,&s->env,&s->act);
+    /* control at 500 Hz. D-058: with the IMU platform on, the attitude controller flies the
+     * PLATFORM'S BELIEF of the attitude (q_meas), never truth — a lost reference is now a real
+     * failure the vehicle can suffer. Off: the same truth pointer as always (byte-identical). */
+    const State* cst = st;
+    State imu_view;
+    if(s->imu.on){
+        imu_step(&s->imu, &st->y[S_QX], st->t, DT);
+        imu_view = *st;
+        imu_view.y[S_QX]=s->imu.q_meas[0]; imu_view.y[S_QY]=s->imu.q_meas[1];
+        imu_view.y[S_QZ]=s->imu.q_meas[2]; imu_view.y[S_QW]=s->imu.q_meas[3];
+        cst = &imu_view;
+    }
+    control_step(cst,&s->gcmd,&s->env,&s->act);
 
     /* environment */
     wind_sample(s, st->y[S_RZ], s->env.wind_world);

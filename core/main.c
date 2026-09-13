@@ -35,6 +35,7 @@
 /* M5: --mppi-cuda routes GM_MPPI solves to the GPU (defined in sim.c; exists in BOTH builds so the
  * flag parse compiles either way — in a no-CUDA build it stays 0 and the CLI refuses --mppi-cuda). */
 extern int g_mppi_use_cuda;
+extern double g_imu_rate_deg;    /* D-058: --imu-platform [RATE deg/s] gimbal servo rate limit; defined in sim.c */
 extern int g_mppi_warm_neural;   /* E1 (D-029): --mppi-warm-neural arms the composite (student-warm-started MPPI); defined in sim.c */
 extern int g_rfly_theta_net;     /* R2 (D-042): --rfly-theta-net flies GM_RFLY gains from the prior net, not the CEM; defined in sim.c */
 extern int g_rfly_warm_net;      /* R2b (D-042): --rfly-warm-net seeds the CEM mean from θ̂; defined in sim.c */
@@ -320,6 +321,54 @@ static void test_theta_kat(void){
     CHECK(fin, "TP KAT output is finite");
 }
 
+/* D-058 IMU PLATFORM ORACLE — the mount permutation, the ideal-angle kernel (the display twin in
+ * ui/src/hud/imu.ts pins the same cases), the lock margin, tracking, and the loss mechanism. */
+static void selftest_q_axis(double q[4], const double axis[3], double ang){
+    double n=sqrt(axis[0]*axis[0]+axis[1]*axis[1]+axis[2]*axis[2]); double s=sin(0.5*ang)/n;
+    q[0]=axis[0]*s; q[1]=axis[1]*s; q[2]=axis[2]*s; q[3]=cos(0.5*ang);
+}
+static void test_imu_platform(void){
+    printf("[oracle: IMU platform mount + servo + reference loss]\n");
+    double qcb[4]; imu_mount_quat(qcb);
+    double v[3], cx[3]={1,0,0}, cy[3]={0,1,0}, cz[3]={0,0,1};
+    q_rot(v, qcb, cx); CHECK(fabs(v[0])<1e-12 && fabs(v[1])<1e-12 && fabs(v[2]-1)<1e-12, "mount: case X = body Z");
+    q_rot(v, qcb, cy); CHECK(fabs(v[0]-1)<1e-12 && fabs(v[1])<1e-12 && fabs(v[2])<1e-12, "mount: case Y = body X");
+    q_rot(v, qcb, cz); CHECK(fabs(v[0])<1e-12 && fabs(v[1]-1)<1e-12 && fabs(v[2])<1e-12, "mount: case Z = body Y");
+    ImuState imu; double qI[4]={0,0,0,1};
+    imu_init(&imu, 1, 0.0, qI);
+    CHECK(fabs(imu.ga[0])<1e-9 && fabs(imu.ga[1])<1e-9 && fabs(imu.ga[2])<1e-9, "upright at heading 0 aligns to 0/0/0");
+    /* a 30 deg tilt about world Y (north) is MGA — the lock axis */
+    double ax[3]={0,1,0}, qt[4], omi[3]; selftest_q_axis(qt, ax, 30.0*DEG2RAD);
+    imu_ideal_angles(qt, imu.q_ref, omi);
+    /* SIGN CONVENTION: the plant reports the SM->case angles of gimbal-scene.js (Rx(o)Rz(m)Ry(i) maps SM to
+     * case), so a +30 deg vehicle tilt reads MGA = -30; the FDAI (ui/src/hud/imu.ts) reports case->SM and
+     * shows +30. The margin 90 - |MGA| and the lock geometry are identical; only single-axis signs differ. */
+    CHECK(fabs(omi[1]*RAD2DEG+30.0)<1e-6 && fabs(omi[0])<1e-6 && fabs(omi[2])<1e-6, "tilt about north = MGA -30 (o,i = 0)");
+    /* a 30 deg roll about the long axis is OGA */
+    double az[3]={0,0,1}; selftest_q_axis(qt, az, 30.0*DEG2RAD);
+    imu_ideal_angles(qt, imu.q_ref, omi);
+    CHECK(fabs(omi[0]*RAD2DEG+30.0)<1e-6 && fabs(omi[1])<1e-6 && fabs(omi[2])<1e-6, "roll about the long axis = OGA -30");
+    /* TRACKING: a slow 20 deg/s roll for 2 s is followed with a small platform error and no loss */
+    imu_init(&imu, 1, 0.0, qI);
+    double q[4]={0,0,0,1}, dq[4], qn[4]; selftest_q_axis(dq, az, 20.0*DEG2RAD*0.002);
+    for(int k=0;k<1000;k++){ q_mul(qn, q, dq); q_normalize(qn); q_copy(q, qn); imu_step(&imu, q, k*0.002, 0.002); }
+    CHECK(imu.max_err*RAD2DEG < 0.5 && !imu.lost, "20 deg/s roll tracked: platform err < 0.5 deg, reference kept");
+    double dd = fabs(imu.q_meas[0]*q[0]+imu.q_meas[1]*q[1]+imu.q_meas[2]*q[2]+imu.q_meas[3]*q[3]);
+    CHECK(2.0*acos(dd<1?dd:1)*RAD2DEG < 0.5, "belief within 0.5 deg of truth while tracking");
+    /* LOSS: a 400 deg/s tumble (above the 180 deg/s servo limit) drags the SM past the float stops */
+    imu_init(&imu, 1, 0.0, qI);
+    q[0]=q[1]=q[2]=0; q[3]=1; selftest_q_axis(dq, ax, 400.0*DEG2RAD*0.002);
+    for(int k=0;k<500;k++){ q_mul(qn, q, dq); q_normalize(qn); q_copy(q, qn); imu_step(&imu, q, k*0.002, 0.002); }
+    CHECK(imu.lost, "400 deg/s tumble: floats saturate, reference LOST");
+    dd = fabs(imu.q_meas[0]*q[0]+imu.q_meas[1]*q[1]+imu.q_meas[2]*q[2]+imu.q_meas[3]*q[3]);
+    CHECK(2.0*acos(dd<1?dd:1)*RAD2DEG > 2.0, "after loss the belief is wrong by more than 2 deg");
+    /* DETERMINISM: two identical runs of the tracking case are bit-identical */
+    ImuState a, b; imu_init(&a, 1, 0.0, qI); imu_init(&b, 1, 0.0, qI);
+    q[0]=q[1]=q[2]=0; q[3]=1; selftest_q_axis(dq, az, 20.0*DEG2RAD*0.002);
+    for(int k=0;k<300;k++){ q_mul(qn, q, dq); q_normalize(qn); q_copy(q, qn); imu_step(&a, q, k*0.002, 0.002); imu_step(&b, q, k*0.002, 0.002); }
+    CHECK(memcmp(&a, &b, sizeof(a))==0, "platform step is deterministic (memcmp)");
+}
+
 static int cmd_selftest(void){
     g_fail=0;
     test_atmosphere(); test_rng(); test_quat();
@@ -327,6 +376,7 @@ static int cmd_selftest(void){
     test_hover_impossible(); test_fin_damping(); test_aero_stability(); test_determinism();
     test_neural_kat();
     test_theta_kat();
+    test_imu_platform();
     if(g_fail==0){ printf("SELFTEST: PASS\n"); return 0; }
     printf("SELFTEST: FAIL (%d)\n", g_fail); return 1;
 }
@@ -473,6 +523,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--verbose")) verbose=1;
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
+        else if(!strcmp(argv[i],"--imu-platform")){ modules|=MOD_IMU; if(i+1<argc && argv[i+1][0]!='-') g_imu_rate_deg=strtod(argv[++i],0); }   /* D-058: gimbaled platform, reference can be LOST */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;   /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
@@ -572,6 +623,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--no-turb")) modules&=~MOD_TURB;
         else if(!strcmp(argv[i],"--inject")) modules|=MOD_INJECT;   /* Tier-B plant disturbances (F4) */
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
+        else if(!strcmp(argv[i],"--imu-platform")){ modules|=MOD_IMU; if(i+1<argc && argv[i+1][0]!='-') g_imu_rate_deg=strtod(argv[++i],0); }   /* D-058: gimbaled platform, reference can be LOST */
         else if(!strcmp(argv[i],"--mppi")) gmode=GM_MPPI;           /* HIER MPPI controller (track 4-B) */
         else if(!strcmp(argv[i],"--mppi-cuda")){ gmode=GM_MPPI; g_mppi_use_cuda=1; }  /* M5 GPU rollout */
         else if(!strcmp(argv[i],"--neural")) gmode=GM_NEURAL;   /* N1 §9.8 tier-3 learned policy */
@@ -645,6 +697,7 @@ static int cmd_headless(int argc, char** argv){
     long c_offpad=0, c_hard=0, c_fuel=0, c_other=0;
     double sv=0,slat=0,stilt=0,sfuel=0; long good=0;
     double vmax=0;
+    long imu_lost=0, imu_lost_crash=0; double imu_maxerr=0.0, imu_minmargin=1.5707963267948966, imu_ratepk=0.0;   /* D-058 */
     for(long r=0;r<runs;r++){
         Sim s; RunResult res; sim_init(&s,scen,seed,(uint32_t)(r+1),modules,gmode);
         apply_rfly_fixed(&s);   /* R2 ablation: constant-theta GM_RFLY, no CEM (no-op without --rfly-fixed) */
@@ -654,6 +707,12 @@ static int cmd_headless(int argc, char** argv){
         if(modules&MOD_TARGET){ sim_arm_target(&s, tm, t_amp, t_per, t_brg); }
         if(modules&MOD_SEA){ sim_arm_sea(&s, seed, (uint32_t)(r+1), sea_hs, sea_wander); }
         sim_run(&s,&res,300.0);
+        if(modules&MOD_IMU){   /* D-058 tally: reference losses, worst platform error, worst lock margin */
+            if(s.imu.lost){ imu_lost++; if(res.verdict==V_CRASHED||res.verdict==V_TIPPED) imu_lost_crash++; }
+            if(s.imu.max_err>imu_maxerr) imu_maxerr=s.imu.max_err;
+            if(s.imu.margin_min<imu_minmargin) imu_minmargin=s.imu.margin_min;
+            if(s.imu.rate_peak>imu_ratepk) imu_ratepk=s.imu.rate_peak;
+        }
         cnt[res.verdict<6?res.verdict:5]++; fault[res.fault<6?res.fault:0]++;
         if(res.verdict==V_CRASHED||res.verdict==V_TIPPED){
             if(res.fault==F_FUEL) c_fuel++;
@@ -683,6 +742,8 @@ static int cmd_headless(int argc, char** argv){
         cnt[V_PERFECT],cnt[V_GOOD],cnt[V_HARD],cnt[V_TIPPED],cnt[V_CRASHED]);
     printf("  faults: FUEL %ld  STRUCT %ld  THERMAL %ld  LOC %ld\n", fault[F_FUEL],fault[F_STRUCT],fault[F_THERMAL],fault[F_LOC]);
     printf("  crash causes: off-pad %ld  too-hard %ld  fuel-out %ld  other %ld\n", c_offpad,c_hard,c_fuel,c_other);
+    if(modules&MOD_IMU) printf("  imu: reference LOST in %ld/%ld runs (%ld of them crashed/tipped)  max platform err %.2f deg  min MGA margin %.1f deg  peak gimbal rate %.0f deg/s  (servo limit %.0f deg/s)\n",
+        imu_lost, runs, imu_lost_crash, imu_maxerr*RAD2DEG, imu_minmargin*RAD2DEG, imu_ratepk*RAD2DEG, (g_imu_rate_deg>0.0?g_imu_rate_deg:180.0));
     if(good>0) printf("  landed means: td_v=%.2f m/s (max %.2f)  lat=%.2f m  tilt=%.2f deg  fuel=%.0f kg\n",
         sv/good, vmax, slat/good, stilt/good*RAD2DEG, sfuel/good);
     if(out){
@@ -954,6 +1015,7 @@ static int cmd_serve(int argc, char** argv){
         else if(!strcmp(argv[i],"--seed")&&i+1<argc) seed=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--run")&&i+1<argc)  run=(uint32_t)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--nav-noisy")) modules|=MOD_NAV_NOISY; /* §8.1 noisy measurement layer */
+        else if(!strcmp(argv[i],"--imu-platform")){ modules|=MOD_IMU; if(i+1<argc && argv[i+1][0]!='-') g_imu_rate_deg=strtod(argv[++i],0); }   /* D-058: gimbaled platform, reference can be LOST */
         else if(!strcmp(argv[i],"--port")&&i+1<argc) port=(unsigned short)strtoul(argv[++i],0,10);
         else if(!strcmp(argv[i],"--gust")&&i+1<argc) parse_gust_flag(argv[i],argv[i+1],&g_peak,&g_alt,&g_hw),i++;
         else if(!strcmp(argv[i],"--gust-dir")&&i+1<argc) g_dir=strtod(argv[++i],0);

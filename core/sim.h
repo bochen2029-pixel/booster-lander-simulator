@@ -7,6 +7,7 @@
 #include "scenario.h"
 #include "guidance_mppi.h"
 #include "nav.h"
+#include "imu.h"
 #include "policy_tap.h"   /* N1 S0: the teacher (o,a) logging tap (--policy-log; GM_MPPI only) */
 #include "guidance_cfly.h"   /* N2-S2: GM_CFLY optimizer-in-the-loop (CflyState; default OFF) */
 #include "guidance_rfly.h"   /* D-040 pivot: GM_RFLY CEM over the native reactive stack (RflyState; default OFF) */
@@ -107,6 +108,9 @@ typedef struct Sim {
     /* ---- D-040 PIVOT GM_RFLY: CEM over the native reactive stack's gains. Armed by --rfly;
      * memset 0 + guidance_mode!=GM_RFLY => never read => byte-identical. */
     RflyState rfly;
+    /* ---- D-058 (PLAN 2.2) IMU PLATFORM: the attitude reference that can be LOST. Armed by --imu-platform
+     * (MOD_IMU); memset 0 => imu.on==0 => control_step + the nav view read truth exactly as before. */
+    ImuState imu;
 } Sim;
 
 typedef struct {
