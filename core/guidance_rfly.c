@@ -141,6 +141,7 @@ static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], d
     for(int i=0;i<RFLY_N_THETA;i++) c2.rfly.th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
     c2.rfly.noreplan=1;
     c2.tap.f=NULL;                     /* never touch the shared tap file */
+    c2.imu.quiet=1;                    /* D-058: candidate rollouts carry the platform but never journal */
     /* D-046 ①b — THE BLIND TEACHER (default OFF => byte-identical).
      * GM_RFLY is a PRIVILEGED oracle: this copy carries eo_engine/eo_time, so a candidate is
      * scored by flying the TRUE realization — the search knows which engine fails and when,
@@ -288,6 +289,7 @@ void rfly_async_poll(Sim* s){
         int big = (s->rfly.next_replan_t<=0.0);
         g_ra.snap = *s;
         g_ra.snap.tap.f = NULL;
+        g_ra.snap.imu.quiet = 1;
         g_ra.big = big;
         InterlockedExchange(&g_ra.busy, 1);
         HANDLE h = CreateThread(NULL, 0, rfly_worker, &g_ra, 0, NULL);

@@ -15,8 +15,8 @@
 //     a yaw (MGA) slides the ball sideways toward them, the margin bar counts it down;
 //   • the zero marker at +SM X (upright, heading 0).
 // The pure parts (gimbalRotation, ballPixel) are exported and unit-tested; the DOM part is not.
-import type { Quaternion, Vector3 } from "three";
-import { Phase, type TlmFrame } from "../net/decode";
+import { Quaternion, type Vector3 } from "three";
+import { IMU_FLAG_LOST, IMU_FLAG_ON, Phase, type TlmFrame } from "../net/decode";
 import {
   LOCK_DEG,
   WARN_DEG,
@@ -230,7 +230,7 @@ export function installFdai(): FdaiHandle {
   const grid = document.createElement("div");
   grid.className = "fdai-grid";
   const cells: Record<string, HTMLElement> = {};
-  for (const key of ["OGA", "ROLL°/s", "MGA", "PTCH°/s", "IGA", "YAW°/s", "TILT", "REF"]) {
+  for (const key of ["OGA", "ROLL°/s", "MGA", "PTCH°/s", "IGA", "YAW°/s", "TILT", "REF", "SRC", "ERR"]) {
     const k = document.createElement("span");
     k.className = "k";
     k.textContent = key;
@@ -263,6 +263,11 @@ export function installFdai(): FdaiHandle {
   let lastQ: Quaternion | null = null;
   let lastDataMs = -Infinity;
   let stale = true;
+  let platformOn = false; // v5: the plant's gimbaled platform is the attitude source
+  let platformLost = false;
+  let platformErrDeg = 0;
+  let platformMarginDeg = 90;
+  const _qBelief = new Quaternion();
   let phaseLoc = false;
   const R = new Float64Array(9);
   const rgba = new Uint8ClampedArray(px * px * 4);
@@ -352,7 +357,7 @@ export function installFdai(): FdaiHandle {
   function setAnnunciator(): void {
     let text = "OK";
     let cls = "";
-    if (stale || !readout.valid) { text = "NO ATT"; cls = "noatt"; }
+    if (stale || !readout.valid || platformLost) { text = "NO ATT"; cls = "noatt"; }
     else if (phaseLoc) { text = "LOC"; cls = "loc"; }
     else if (readout.lock === "LOCK") { text = "GMBL LOCK"; cls = "lock"; }
     else if (readout.lock === "WARN") { text = "LOCK CAUTION"; cls = "warn"; }
@@ -369,6 +374,10 @@ export function installFdai(): FdaiHandle {
     cells["IGA"]!.textContent = f2(r.iga);
     cells["TILT"]!.textContent = r.tiltDeg.toFixed(1) + "°";
     cells["REF"]!.textContent = reference;
+    cells["SRC"]!.textContent = platformOn ? "PLATFORM" : "TRUTH";
+    const errEl = cells["ERR"]!;
+    errEl.textContent = platformErrDeg.toFixed(2) + "°";
+    errEl.classList.toggle("hot", platformErrDeg > 3);
     for (const [key, val] of [["ROLL°/s", r.rateRoll], ["PTCH°/s", r.ratePitch], ["YAW°/s", r.rateYaw]] as const) {
       const el = cells[key]!;
       el.textContent = f2(val);
@@ -396,7 +405,21 @@ export function installFdai(): FdaiHandle {
       lastDataMs = performance.now();
       stale = false;
       phaseLoc = frame.phase === Phase.LOC;
-      computeImu(qBody, wBody, qRef, readout);
+      // v5 (D-059): when the plant flies a gimbaled platform, the ball shows what the flight
+      // computer BELIEVES (quat_meas) and NO ATT / the margin come from the plant; otherwise the
+      // display-only kernel runs on truth as before.
+      platformOn = (frame.imuFlags & IMU_FLAG_ON) !== 0;
+      platformLost = platformOn && (frame.imuFlags & IMU_FLAG_LOST) !== 0;
+      platformErrDeg = platformOn ? frame.imuErr * (180 / Math.PI) : 0;
+      if (platformOn) {
+        _qBelief.set(frame.quatMeas[0], frame.quatMeas[1], frame.quatMeas[2], frame.quatMeas[3]);
+        computeImu(_qBelief, wBody, qRef, readout);
+        platformMarginDeg = frame.imuMargin * (180 / Math.PI);
+        readout.marginDeg = platformMarginDeg;
+        readout.lock = platformMarginDeg <= 5 ? "LOCK" : platformMarginDeg <= 20 ? "WARN" : "OK";
+      } else {
+        computeImu(qBody, wBody, qRef, readout);
+      }
       refresh();
     },
     tick(nowMs) {

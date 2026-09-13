@@ -35,7 +35,9 @@ def js(code, timeout=240):
 
 # 2. serve (terminal scenario: ~26 s, landing burn from 8 km)
 err = open(f"{REPO}/runs/serve_{tag}.err", "w")
-core = subprocess.Popen([CORE, "--serve", "--port", port, "--interactive", "--scenario", SCENARIO, "--seed", "42", "--run", "1"],
+EXTRA = os.environ.get("SERVE_EXTRA", "").split()
+SEED = os.environ.get("SEED", "42")
+core = subprocess.Popen([CORE, "--serve", "--port", port, "--interactive", "--scenario", SCENARIO, "--seed", SEED, "--run", "1"] + EXTRA,
                         cwd=REPO, stdout=subprocess.DEVNULL, stderr=err)
 time.sleep(2.5)
 print("core pid", core.pid, "alive" if core.poll() is None else f"EXITED {core.returncode}")

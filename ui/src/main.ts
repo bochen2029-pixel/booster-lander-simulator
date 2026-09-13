@@ -229,6 +229,10 @@ async function boot() {
         quat: [s.q.x, s.q.y, s.q.z, s.q.w], // sim body->world, xyzw
         w: [s.w.x, s.w.y, s.w.z], // body rates [rad/s]
         imu: { ...fdai.readout, reference: fdai.reference }, // the FDAI's kernel output
+        quatMeas: s.frame.quatMeas, // v5: the attitude the controller flies (platform belief or truth)
+        imuFlags: s.frame.imuFlags, // v5: IMU_FLAG_ON | LOST | SAT
+        imuErrDeg: (s.frame.imuErr * 180) / Math.PI,
+        imuMarginDeg: (s.frame.imuMargin * 180) / Math.PI,
         vehicleModel: doc.vehicleModel,
       };
     };

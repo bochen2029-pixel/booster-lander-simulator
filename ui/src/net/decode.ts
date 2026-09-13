@@ -15,9 +15,9 @@ export const HELLO_MAGIC = 0x304c4c48; // 'HLL0'
 export const EVT_MAGIC = 0x30545645; // 'EVT0'
 export const STATS_MAGIC = 0x30545453; // 'STT0'
 
-export const PROTO_VERSION = 4; // v4 (N0): the wide socket (TargetEstimate + EngineHealth)
+export const PROTO_VERSION = 5; // v5 (D-059): the attitude belief (quat_meas + platform health); v4 was the wide socket
 
-export const TLM_FIXED_SIZE = 328; // v4: was 288 (+40 wide socket)
+export const TLM_FIXED_SIZE = 356; // v5: was 328 (+28 attitude belief)
 export const PLAN_KNOT_SIZE = 16;
 export const CLOUD_SAMPLE_SIZE = 12;
 export const PLAN_MAX = 64;
@@ -28,6 +28,10 @@ export const TLM_FLAG_RAW_MODE = 1 << 1;
 export const TLM_FLAG_NAV_NOISY = 1 << 2;
 export const TLM_FLAG_TARGET_MOVABLE = 1 << 3; // v4: target not pinned at origin
 export const TLM_FLAG_ENGINE_OUT = 1 << 4; // v4: an engine has failed this run
+// v5 imu_flags (protocol.h BL_IMU_FLAG_*)
+export const IMU_FLAG_ON = 1 << 0; // a gimbaled platform is the attitude source
+export const IMU_FLAG_LOST = 1 << 1; // its reference is LOST (floats saturated)
+export const IMU_FLAG_SAT = 1 << 2; // a gimbal servo is rate-saturated this frame
 
 // v4 target_src provenance (mirrors core/state.h TGT_* / protocol.h BL_TGT_SRC_*)
 export enum TargetSrc {
@@ -119,6 +123,13 @@ export interface TlmFrame {
   deckZ: number;
   deckQuat: [number, number, number, number];
 
+  // v5 (D-059): the attitude the controller FLIES — the gimbaled platform's belief under
+  // --imu-platform, else truth. Draw the FDAI from this; NO ATT / GMBL LOCK come from imuFlags.
+  quatMeas: [number, number, number, number]; // xyzw
+  imuErr: number; // platform error [rad] (0 without a platform)
+  imuMargin: number; // MGA margin to gimbal lock [rad] (pi/2 without)
+  imuFlags: number; // IMU_FLAG_*
+
   plan: PlanKnot[];
   cloud: CloudSample[];
 }
@@ -205,9 +216,14 @@ export function decodeTlm(buf: ArrayBuffer, byteOffset = 0): TlmFrame {
 
   const deckZ = f(304); // was 264
   const deckQuat: [number, number, number, number] = [f(308), f(312), f(316), f(320)];
+  // v5 (D-059) @324
+  const quatMeas: [number, number, number, number] = [f(324), f(328), f(332), f(336)];
+  const imuErr = f(340);
+  const imuMargin = f(344);
+  const imuFlags = dv.getUint8(348);
 
-  let planN = dv.getUint16(324, LE); // was 284
-  let cloudN = dv.getUint16(326, LE);
+  let planN = dv.getUint16(352, LE); // v5: was 324
+  let cloudN = dv.getUint16(354, LE);
   if (planN > PLAN_MAX) planN = PLAN_MAX; // defensive clamp (canon §10.3)
   if (cloudN > CLOUD_MAX) cloudN = CLOUD_MAX;
 
@@ -243,6 +259,7 @@ export function decodeTlm(buf: ArrayBuffer, byteOffset = 0): TlmFrame {
     deployFrac, stroke,
     fAero,
     deckZ, deckQuat,
+    quatMeas, imuErr, imuMargin, imuFlags,
     plan, cloud,
   };
 }

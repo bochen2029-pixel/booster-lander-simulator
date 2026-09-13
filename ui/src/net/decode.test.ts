@@ -58,8 +58,10 @@ function buildFrame(planN: number, cloudN: number): ArrayBuffer {
   for (let o = 272; o <= 288; o += 4) f(o); // deploy, stroke (v4-shifted +40)
   for (let o = 292; o <= 300; o += 4) f(o); // f_aero
   for (let o = 304; o <= 320; o += 4) f(o); // deck_z, deck_quat
-  dv.setUint16(324, planN, LE);
-  dv.setUint16(326, cloudN, LE);
+  for (let o = 324; o <= 344; o += 4) f(o); // v5: quat_meas[4], imu_err, imu_margin
+  dv.setUint8(348, 0x03); // imu_flags: ON | LOST
+  dv.setUint16(352, planN, LE); // v5: was 324
+  dv.setUint16(354, cloudN, LE);
 
   let off = TLM_FIXED_SIZE;
   for (let i = 0; i < planN; i++) {
@@ -79,9 +81,9 @@ function buildFrame(planN: number, cloudN: number): ArrayBuffer {
 }
 
 describe("TLM decoder mirrors protocol.h", () => {
-  it("fixed size is 328 (v4)", () => {
-    expect(TLM_FIXED_SIZE).toBe(328);
-    expect(PROTO_VERSION).toBe(4);
+  it("fixed size is 356 (v5)", () => {
+    expect(TLM_FIXED_SIZE).toBe(356);
+    expect(PROTO_VERSION).toBe(5);
   });
 
   it("decodes every field at the right offset", () => {
@@ -145,6 +147,11 @@ describe("TLM decoder mirrors protocol.h", () => {
     expect(f.fAero).toEqual([292, 296, 300]);
     expect(f.deckZ).toBe(304);
     expect(f.deckQuat).toEqual([308, 312, 316, 320]);
+    // v5 (D-059): the attitude belief
+    expect(f.quatMeas).toEqual([324, 328, 332, 336]);
+    expect(f.imuErr).toBe(340);
+    expect(f.imuMargin).toBe(344);
+    expect(f.imuFlags).toBe(0x03);
 
     // tails
     expect(f.plan).toHaveLength(3);

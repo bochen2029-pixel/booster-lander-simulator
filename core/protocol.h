@@ -49,8 +49,14 @@
  * sizeof 288 -> 328. BlHello += module-mask bits (TARGET/ENGINE_OUT/NEURAL), world_id + world_hash,
  * np_version; sizeof 72 -> 80. The renderer draws the ESTIMATE marker (with uncertainty ellipse)
  * distinct from truth — "what the rocket believes", directive-8-honest. TS mirror + hex goldens
- * re-frozen as one unit (re-baseline pre-authorized by D-019). */
-#define BL_PROTO_VERSION   4u
+ * re-frozen as one unit (re-baseline pre-authorized by D-019).
+ * v5 (D-059, 2026-09-12 — THE ATTITUDE BELIEF): BlTlmFixed += quat_meas[4] (the flight computer's
+ * attitude estimate: the gimbaled platform's belief under --imu-platform, == quat otherwise),
+ * imu_err (platform error, rad), imu_margin (MGA margin to gimbal lock, rad), imu_flags
+ * (ON / LOST / SAT). Appended after deck_quat; plan_n/cloud_n shift 324 -> 356; sizeof 328 -> 360.
+ * The cockpit FDAI now shows what the vehicle BELIEVES and annunciates NO ATT from the plant.
+ * TS mirror + hex goldens re-frozen as one unit. */
+#define BL_PROTO_VERSION   5u
 
 /* Packet magic tags (first 4 bytes of every frame — lets the decoder switch on
  * packet kind and reject garbage). ASCII, read as LE u32. */
@@ -77,6 +83,10 @@
 #define BL_TLM_FLAG_NAV_NOISY      (1u << 2) /* nav in NOISY mode                             */
 #define BL_TLM_FLAG_TARGET_MOVABLE (1u << 3) /* v4: target not pinned at origin — read target_est_xy */
 #define BL_TLM_FLAG_ENGINE_OUT     (1u << 4) /* v4: an engine has failed this run (eng_health has a 0) */
+/* v5 imu_flags */
+#define BL_IMU_FLAG_ON             (1u << 0) /* a gimbaled platform is the attitude source (--imu-platform) */
+#define BL_IMU_FLAG_LOST           (1u << 1) /* the platform's reference is LOST (floats saturated)         */
+#define BL_IMU_FLAG_SAT            (1u << 2) /* a gimbal servo is rate-saturated this frame                  */
 
 /* v4 target_src provenance tag (mirrors state.h TGT_*; on the wire in BlTlmFixed.target_src). */
 #define BL_TGT_SRC_FIXED     0u
@@ -188,10 +198,16 @@ typedef struct BlTlmFixed {
     /* --- ASDS deck pose (304), valid iff flags & SEA_ACTIVE --- */
     float deck_z;          /* 304 deck heave [m]                             */
     float deck_quat[4];    /* 308 deck attitude, xyzw                        */
-    /* --- tail counts (324) --- */
-    uint16_t plan_n;       /* 324 count of plan knots (<= BL_PLAN_MAX)       */
-    uint16_t cloud_n;      /* 326 count of cloud samples (<= BL_CLOUD_MAX)   */
-    /* total fixed size = 328 (v3 was 288; +40 for the wide socket)          */
+    /* --- v5 (D-059) the flight computer's ATTITUDE BELIEF (324) --- */
+    float quat_meas[4];    /* 324 attitude the controller flies, xyzw (== quat without a platform) */
+    float imu_err;         /* 340 platform error [rad] (0 without a platform)  */
+    float imu_margin;      /* 344 MGA margin to gimbal lock [rad] (pi/2 without)*/
+    uint8_t imu_flags;     /* 348 BL_IMU_FLAG_*                               */
+    uint8_t _pad5[3];      /* 349                                            */
+    /* --- tail counts (352) --- */
+    uint16_t plan_n;       /* 352 count of plan knots (<= BL_PLAN_MAX)       */
+    uint16_t cloud_n;      /* 354 count of cloud samples (<= BL_CLOUD_MAX)   */
+    /* total fixed size = 356 (v4 was 328; +28 for the attitude belief)      */
 } BlTlmFixed;
 
 /* Tail element structs (appended immediately after BlTlmFixed, tightly packed) */
@@ -297,7 +313,7 @@ typedef enum BlEvtCode {
 } BlEvtCode;
 
 /* ---- size + offset contract (frozen; goldens/protocol/tlm_layout.txt) ---- */
-BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 328, "TLM fixed head must be 328 bytes (v4: +40 wide socket)");
+BL_STATIC_ASSERT(sizeof(BlTlmFixed)   == 356, "TLM fixed head must be 356 bytes (v5: +28 attitude belief)");
 BL_STATIC_ASSERT(sizeof(BlPlanKnot)   == 16,  "plan knot must be 16 bytes");
 BL_STATIC_ASSERT(sizeof(BlCloudSample)== 12,  "cloud sample must be 12 bytes");
 BL_STATIC_ASSERT(sizeof(BlEvt)        == 48,  "EVT must be 48 bytes");
@@ -329,7 +345,11 @@ BL_STATIC_ASSERT(offsetof(BlTlmFixed, guidance_np_ver) == 270, "guidance_np_ver@
 /* v4-shifted tail pins (+40) */
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, deploy_frac)== 272, "deploy_frac@272");  /* was 232 */
 BL_STATIC_ASSERT(offsetof(BlTlmFixed, deck_z)     == 304, "deck_z@304");       /* was 264 */
-BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 324, "plan_n@324");       /* was 284 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, quat_meas)  == 324, "quat_meas@324");    /* v5 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, imu_err)    == 340, "imu_err@340");      /* v5 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, imu_margin) == 344, "imu_margin@344");   /* v5 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, imu_flags)  == 348, "imu_flags@348");    /* v5 */
+BL_STATIC_ASSERT(offsetof(BlTlmFixed, plan_n)     == 352, "plan_n@352");       /* was 324 */
 /* HELLO pins */
 BL_STATIC_ASSERT(offsetof(BlHello, t0)            == 8,   "hello.t0@8");
 BL_STATIC_ASSERT(offsetof(BlHello, seed)          == 16,  "hello.seed@16");

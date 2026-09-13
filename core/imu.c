@@ -118,8 +118,8 @@ void imu_step(ImuState* imu, const double q_body_world[4], double t, double dt){
         if(imu->th[k] < -imu->float_max){ imu->th[k] = -imu->float_max; hit=1; }
         if(hit && !imu->lost){
             imu->lost=1; imu->t_lost=t;
-            /* journal (stderr, module-on only): when, which float, the gimbal rates at that moment */
-            fprintf(stderr, "  [imu] reference LOST t=%.2f float=%c gimbal rates o/m/i = %.0f/%.0f/%.0f deg/s (limit %.0f) MGA=%.1f\n",
+            /* journal (stderr, module-on only, the REAL flight only): when, which float, the gimbal rates */
+            if(!imu->quiet) fprintf(stderr, "  [imu] reference LOST t=%.2f float=%c gimbal rates o/m/i = %.0f/%.0f/%.0f deg/s (limit %.0f) MGA=%.1f\n",
                     t, "xyz"[k], imu->gr[0]*57.29577951308232, imu->gr[1]*57.29577951308232, imu->gr[2]*57.29577951308232,
                     imu->rate_max*57.29577951308232, imu->ga[1]*57.29577951308232);
         }

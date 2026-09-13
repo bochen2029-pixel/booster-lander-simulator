@@ -3845,3 +3845,56 @@ between 90 and 45: at 45°/s ≥ 5 references lost and landed < 170, the attitud
 ceiling becomes BINDING. H3 — where a loss is followed by a crash, the loss precedes it by more
 than a replan interval in the majority of cases (cause, not symptom), read from the `[imu]`
 journal. **Result: D-058 addendum.**
+
+*First unit, before the relaunch (imu180 seed 42, valid — its summary comes from the real flight):*
+**57/60 with ZERO references lost**, max platform error 1.47°, min MGA margin 68.6°, **peak
+gimbal-rate demand 151°/s** against the 180°/s limit — one draw under D-054's 58/60 on the same
+seed. The platform is not transparent even when it never loses reference: the servo lag and the
+1.5° transient error at the landing-burn ignition change the flight. *Candidate rollouts carried
+the platform and journaled too (each candidate is a Sim copy); a `quiet` flag now silences them
+so the H3 read comes from the real flight only. The farm was stopped at 21:0x and relaunched on
+the quiet build; finished units are kept (their summaries are the real flight's).*
+
+## D-059 — PROTOCOL v5: THE FLIGHT COMPUTER'S ATTITUDE BELIEF ON THE WIRE, AND A SERVE BUG (2026-09-12 21:5x)
+
+**Why a bump.** After D-058 the plant can fly a belief that is not the truth, and the cockpit's
+FDAI (D-056) was computing from truth — an instrument that could never show NO ATT for a real
+reason. New information on the wire is the legitimate case for a protocol change.
+
+**v5** (`protocol.h`, one validated unit, the D-013 ceremony): `BlTlmFixed` += `quat_meas[4]` @324
+(the attitude the controller flies: the platform's belief under `--imu-platform`, == `quat`
+otherwise), `imu_err` @340, `imu_margin` @344, `imu_flags` @348 (ON / LOST / SAT); `plan_n`/`cloud_n`
+shift 324 → 352; sizeof 328 → **356**; `BL_PROTO_VERSION 5`. TS mirror (`decode.ts`), the
+decode/hello tests, and `goldens/protocol/{hello,tlm}.hex` re-frozen from `--golden` (EVT
+byte-identical). The FDAI draws the ball from `quatMeas` when the ON flag is set, takes the margin
+and NO ATT from the plant, and shows `SRC PLATFORM|TRUTH` and `ERR`; `__telem()` returns
+`quatMeas`, `imuFlags`, `imuErrDeg`, `imuMarginDeg`.
+
+**Measured end to end** (`tools/cockpit_verify/k9noatt.py`: an ENTRY flight, seed 7, deployable
+config, `--imu-platform 20`, the v5 core serving the real cockpit through peek):
+
+| t [s] | plant journal | cockpit FDAI (read back from the DOM) |
+|---|---|---|
+| 101.63 | `[imu] reference LOST float=x, outer gimbal pinned at −20°/s, MGA −0.0` | — |
+| 102.1 | | **NO ATT · SRC PLATFORM · ERR 6.41° · margin 89.1°** (flags ON\|LOST) |
+| 112.6 | | NO ATT · ERR **11.04°** — the belief diverging while the vehicle flies on it |
+| 126.6 | verdict **HARD** | NO ATT · ERR 10.39° · tilt 0.7° |
+
+The same flight at 30°/s kept its reference and landed GOOD. Evidence: `runs/d059/`.
+
+**A serve bug found on the way — a slow client was a dead client.** `ws.c` sets the client socket
+non-blocking and `send_all` treated any `SOCKET_ERROR` — including `WSAEWOULDBLOCK`, a full send
+buffer because the renderer was starved for a moment on a box running two farms — as a
+disconnect. A live flight ended at t = 92.9 s with "client disconnected" while the page was alive.
+Fix: on `WSAEWOULDBLOCK`, `select()` for writability up to 2 s and retry; only a real error or a
+client unreadable for 2 s is a disconnect. Serve-only path; the next flight ran 126 s under the
+same load. (Also on the way: three stray serve processes bound to one port at once — Windows
+allows it — and port 8791 belongs to another project on this box. One serve, one page, 8790.)
+
+**Gates:** build4 selftest PASS (with the D-058 oracle) · TERMINAL ×200 BYTE-IDENTICAL · MPPI anchor
+exact · UI typecheck · decode/hello/hud/audio suites green on the new goldens · `pnpm -C ui build`.
+The headless byte gates are untouched by a protocol change by construction (no headless path
+emits TLM); the goldens are the gate for the wire.
+
+**Sign convention (from D-058) still stands:** the plant's MGA is the SM→case angle; the display
+kernel's is case→SM; the margin the FDAI shows is now the plant's own.

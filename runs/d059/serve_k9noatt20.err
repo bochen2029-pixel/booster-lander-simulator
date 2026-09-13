@@ -1,0 +1,31 @@
+serve: ENGINE-OUT armed k=2 t=12.65 s (seeded)
+ws: listening on 127.0.0.1:8790 — waiting for a client...
+ws: client connected, handshake OK
+serve: INTERACTIVE inbound channel ON (§M2 — determinism WAIVED; injections journaled below as [INJECT])
+serve: RFLY t=0 MISSION SOLVE (pre-stream)...
+  [rfly_replan t=0.0 big=1] gbest=987.7 | EKR=2.14 EKV=0.38 EBANK=1.45 ADEC=0.63 TLD=0.26 KDIV=1.50 KVN=0.50 IGN=1.04 TGL=0.00 KV=0.50
+serve: RFLY mission plan locked (live replans ASYNC) — streaming
+serve: scenario=entry seed=7 run=1 — streaming @125 Hz
+  [rfly_async] terminal freeze at t=98.1 (flare flies locked gains)
+  [rfly_replan t=10.0 big=0] gbest=909.0 | EKR=2.64 EKV=0.30 EBANK=1.61 ADEC=0.60 TLD=0.25 KDIV=1.24 KVN=0.57 IGN=1.23 TGL=0.20 KV=0.50
+  [rfly_async] theta SWAPPED at t=19.0 (live replan answered)
+  [rfly_replan t=20.0 big=0] gbest=883.8 | EKR=2.67 EKV=0.34 EBANK=1.71 ADEC=0.71 TLD=0.27 KDIV=1.07 KVN=0.50 IGN=1.56 TGL=0.08 KV=0.57
+  [rfly_async] theta SWAPPED at t=27.9 (live replan answered)
+  [rfly_replan t=30.0 big=0] gbest=1689.8 | EKR=2.84 EKV=0.30 EBANK=1.84 ADEC=0.82 TLD=0.54 KDIV=1.23 KVN=0.63 IGN=1.73 TGL=0.00 KV=0.50
+  [rfly_async] theta SWAPPED at t=37.6 (live replan answered)
+  [rfly_replan t=40.0 big=0] gbest=1209.6 | EKR=3.39 EKV=0.41 EBANK=1.82 ADEC=0.67 TLD=0.34 KDIV=1.55 KVN=0.58 IGN=1.20 TGL=0.00 KV=0.76
+  [rfly_async] theta SWAPPED at t=46.0 (live replan answered)
+  [rfly_replan t=50.0 big=0] gbest=962.5 | EKR=3.70 EKV=0.55 EBANK=1.84 ADEC=0.76 TLD=0.25 KDIV=1.31 KVN=0.50 IGN=1.05 TGL=0.00 KV=1.00
+  [rfly_async] theta SWAPPED at t=55.2 (live replan answered)
+  [rfly_replan t=60.0 big=0] gbest=1273.9 | EKR=3.50 EKV=0.75 EBANK=1.65 ADEC=0.83 TLD=0.30 KDIV=1.70 KVN=0.50 IGN=1.26 TGL=0.00 KV=1.08
+  [rfly_async] theta SWAPPED at t=64.6 (live replan answered)
+  [rfly_replan t=70.1 big=0] gbest=609.3 | EKR=4.00 EKV=0.46 EBANK=2.00 ADEC=0.65 TLD=0.48 KDIV=1.53 KVN=0.55 IGN=1.43 TGL=0.00 KV=1.46
+  [rfly_async] theta SWAPPED at t=74.4 (live replan answered)
+  [rfly_replan t=80.1 big=0] gbest=513.9 | EKR=4.00 EKV=0.52 EBANK=1.69 ADEC=0.52 TLD=0.25 KDIV=1.61 KVN=0.60 IGN=1.06 TGL=0.00 KV=2.05
+  [rfly_async] theta SWAPPED at t=83.6 (live replan answered)
+  [rfly_replan t=90.1 big=0] gbest=607.7 | EKR=4.00 EKV=0.36 EBANK=1.70 ADEC=0.46 TLD=0.33 KDIV=1.64 KVN=0.50 IGN=0.87 TGL=0.00 KV=1.98
+  [rfly_async] theta SWAPPED at t=93.4 (live replan answered)
+  [imu] reference LOST t=101.63 float=x gimbal rates o/m/i = -20/3/7 deg/s (limit 20) MGA=-0.0
+  [rfly_replan t=116.9 big=0] gbest=633.1 | EKR=4.00 EKV=0.36 EBANK=1.70 ADEC=0.46 TLD=0.33 KDIV=1.64 KVN=0.50 IGN=0.87 TGL=0.00 KV=1.98
+  [rfly_async] theta SWAPPED at t=118.0 (live replan answered)
+serve: done — verdict=HARD emitted=15820 frames, t=126.6 s

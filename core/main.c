@@ -878,6 +878,19 @@ static void fill_tlm(const Sim* s, BlTlmFixed* p, uint32_t seq){
     /* ASDS deck pose only if SEA active; identity otherwise */
     p->deck_z = (s->modules & MOD_SEA) ? (float)s->se.deck_z : 0.0f;
     p->deck_quat[0]=0.0f; p->deck_quat[1]=0.0f; p->deck_quat[2]=0.0f; p->deck_quat[3]=1.0f;
+    /* v5 (D-059): the attitude the controller flies. With the gimbaled platform on, its belief and
+     * its health; otherwise truth, zero error, full margin — the renderer's display-only kernel
+     * keeps drawing the ball, but NO ATT / GMBL LOCK now come from the PLANT when it is on. */
+    if(s->imu.on){
+        for(int i=0;i<4;i++) p->quat_meas[i]=(float)s->imu.q_meas[i];
+        p->imu_err=(float)s->imu.err; p->imu_margin=(float)(1.5707963267948966-fabs(s->imu.ga[1]));
+        p->imu_flags=(uint8_t)(BL_IMU_FLAG_ON | (s->imu.lost?BL_IMU_FLAG_LOST:0u));
+    } else {
+        p->quat_meas[0]=(float)st->y[S_QX]; p->quat_meas[1]=(float)st->y[S_QY];
+        p->quat_meas[2]=(float)st->y[S_QZ]; p->quat_meas[3]=(float)st->y[S_QW];
+        p->imu_err=0.0f; p->imu_margin=1.5707963f; p->imu_flags=0u;
+    }
+    p->_pad5[0]=p->_pad5[1]=p->_pad5[2]=0u;
 
     /* MPPI tails not wired yet (directive B) */
     p->plan_n = 0; p->cloud_n = 0;

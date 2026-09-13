@@ -100,7 +100,21 @@ static int send_all(SOCKET s, const uint8_t* p, size_t n){
     size_t off=0;
     while(off<n){
         int k = send(s, (const char*)(p+off), (int)(n-off), 0);
-        if(k==SOCKET_ERROR) return -1;
+        if(k==SOCKET_ERROR){
+            /* D-059 (2026-09-12): the client socket is NON-BLOCKING (FIONBIO below), so a full send
+             * buffer returns WSAEWOULDBLOCK — the client is momentarily slow (a renderer starved on
+             * a box running two farms), NOT gone. Declaring it a disconnect ended a live flight at
+             * t=92.9 s with "client disconnected". Wait for writability up to 2 s; only a real error
+             * or a client that stays unreadable for 2 s is a disconnect. Serve-only path. */
+            if(WSAGetLastError()==WSAEWOULDBLOCK){
+                fd_set wf; FD_ZERO(&wf); FD_SET(s, &wf);
+                struct timeval tv; tv.tv_sec=2; tv.tv_usec=0;
+                int r = select(0, NULL, &wf, NULL, &tv);
+                if(r<=0) return -1;
+                continue;
+            }
+            return -1;
+        }
         off += (size_t)k;
     }
     return 0;

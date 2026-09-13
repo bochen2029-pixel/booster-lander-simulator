@@ -143,6 +143,7 @@ static double cfly_eval_candidate(const Sim* s, const double th[CFLY_N_THETA], d
     for(int i=0;i<CFLY_N_THETA;i++) c2.cfly.theta[i]=clampd(th[i],TH_LO[i],TH_HI[i]);
     c2.cfly.noreplan=1;                /* candidates never replan (no recursion) */
     c2.tap.f=NULL;                     /* never touch the shared tap file */
+    c2.imu.quiet=1;
     RunResult R; memset(&R,0,sizeof(R));
     sim_run(&c2, &R, t_horizon);
     return cfly_cost(&c2, &R);

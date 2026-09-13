@@ -27,7 +27,7 @@ function readHexGolden(): ArrayBuffer {
 }
 
 describe("HELLO identity gate", () => {
-  it("accepts the canonical golden HELLO (magic HLL0, ver 4)", () => {
+  it("accepts the canonical golden HELLO (magic HLL0, ver 5)", () => {
     const buf = readHexGolden();
     const id = verifyHello(buf);
     expect(id.ok).toBe(true);
@@ -48,7 +48,7 @@ describe("HELLO identity gate", () => {
     new DataView(buf).setUint16(4, 2, true); // pretend v2
     const id = verifyHello(buf);
     expect(id.ok).toBe(false);
-    expect(id.reason).toMatch(/version 2 != 4/);
+    expect(id.reason).toMatch(/version 2 != 5/);
   });
 
   it("rejects a too-short frame", () => {

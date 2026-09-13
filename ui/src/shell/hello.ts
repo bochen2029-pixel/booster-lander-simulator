@@ -2,7 +2,7 @@
 //
 // The supervisor guarantees the PORT is one WE spawned, but the frontend still
 // performs an independent IDENTITY GATE on the wire before trusting the stream:
-// the first frame must be a HELLO with magic 'HLL0' and ver == PROTO_VERSION (4).
+// the first frame must be a HELLO with magic 'HLL0' and ver == PROTO_VERSION (5).
 // This is the exact analog of understory's "don't attach to whatever is squatting
 // on the port" — if some other producer answers, its bytes won't pass this gate.
 //

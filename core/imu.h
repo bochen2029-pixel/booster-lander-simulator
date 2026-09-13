@@ -50,6 +50,7 @@ typedef struct {
     int    lost;            /* latched: floats saturated => reference lost */
     double t_lost;          /* sim time of first loss [s] */
     int    sat_steps;       /* steps with a rate-saturated servo */
+    int    quiet;           /* 1 in a search candidate / async snapshot: no stderr journal */
 } ImuState;
 
 /* Align the platform: REFSMMAT = landing-site frame, gimbals at the ideal angles for the initial
