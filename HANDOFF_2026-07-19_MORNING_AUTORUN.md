@@ -6,6 +6,34 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-12 ~23:35 [opus5] — D-057 FLYING, D-058 MEASURED, D-059 ON THE WIRE, D-060 CHECKED.**
+  Under standing autonomy after the 19:30 hand-off. **D-057** budget sweep (`--rfly-pop-scale` /
+  `--rfly-iters-scale`, byte-clean at 1.0, gates two-sided) launched 19:34 on `build2`, nine arms with
+  two matched-cost pairs, P1/P2/P3 pre-registered; first arm joint_0.25 = 178/180, 41 PERFECT at
+  ~400 evals/flight (P3 met already); ~6/27 units by midnight, resumable, `runs/d057_monitor.ps1`.
+  **D-058** the Block II gimbaled platform at the plant rate (`core/imu.c`, `--imu-platform`,
+  default off byte-identical; the controller and nav view fly its BELIEF when on) — measured on
+  `build3`: 180°/s transparent (174/180, 0 lost), 90°/s 173 with 135 references lost, **45°/s
+  162/180 = 90 % with 2 PERFECT and 7 m lateral** — the axis binds, and the binding quantity is the
+  servo's belief bias through the flare, not the LOST latch. **D-059** protocol v5 (`quat_meas`,
+  `imu_err/margin/flags` @324–348, sizeof 356; goldens re-frozen from `--golden`): the FDAI shows
+  the belief and NO ATT from the plant — proven end to end at 20°/s (NO ATT at t = 102 s, belief 11°
+  off six seconds later, verdict HARD); found and fixed on the way: `ws.c` treated WSAEWOULDBLOCK as
+  a disconnect (a starved renderer ended a live flight at 92.9 s). **D-060** FluidX3D LBM/LES of the
+  Kestrel-9 (legs-stowed export via `__exportStowedSTL`, base first, M 0.09, 23 cells/D, ramped
+  start after the impulsive start rang the box): **CA 1.61 ± 0.20 vs the table's 0.85; CN(8°)
+  1.01 ± 0.07 vs the model's 0.47** — fins have no drag term, no crossflow term; a plant-change
+  decision for the operator (new ledger epoch), sharpening runs one env var away. **Traps paid for:**
+  never build into a dir whose exe a farm is running (build2 = sweep, build3 = platform, build4 =
+  current source); pwsh buffers a native command's stderr redirect (monitors use CPU progress of the
+  named job); `wmic` is gone; port 8787 = wrangler, 8791 = sill, ours = 8790; several serves can bind
+  one port on Windows — kill orphans; never match your own shell when killing; **never put a
+  backtick in a `python -c` string on the Bash tool — bash substitutes it and the file is silently
+  garbled (happened twice tonight; repaired with Edit)**. Kestrel-9 tuning first cut (IBL, HDR plume,
+  base-point director, SETTLING rung); the posed-capture "white ground" isolated to the capture path.
+  **Next:** read D-057 when done (addendum) · 2.3 the oracle with a 45°/s platform · 3.x the honest
+  denominator · the operator's two decisions: the aero plant change (D-060) and the eyes-on pass
+  for the Kestrel-9 look. Tauri app needs a rebuild for v5 before any release.
 - **2026-09-12 ~19:30 [fable5.1→opus5] — D-055 + D-056: THE SEALED POOL CONFIRMS 97.5%, AND THE VISUAL
   LAYER LANDS WITH A POSE BUG THE WHOLE ARC CARRIED.** Session resumed from the 09-11 hand-off with
   three operator archives at `C:\` (Graphics, Apollo Gimbal, FluidX3D) and the repo 24 commits
