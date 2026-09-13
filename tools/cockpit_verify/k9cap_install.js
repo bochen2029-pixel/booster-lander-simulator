@@ -1,0 +1,36 @@
+window.__k9cap = async function (name, opts) {
+  opts = opts || {};
+  const t = __telem();
+  if (!t) return 'no-telem';
+  const wp = __doc.world.position;
+  const v = t.vel;
+  const lead = opts.lead === undefined ? 0.85 : opts.lead;
+  const px = t.pos[0] + v[0] * lead, py = t.pos[1] + v[1] * lead, pz = t.pos[2] + v[2] * lead;
+  const com = [px + wp.x, pz + wp.y, -py + wp.z];
+  const base = [com[0], com[1] - t.comZ, com[2]];
+  const h = opts.h === undefined ? 24 : opts.h;
+  const tgt = [base[0], base[1] + h, base[2]];
+  const d = opts.d === undefined ? 90 : opts.d;
+  const el = opts.el === undefined ? 0.35 : opts.el;
+  const az = opts.az === undefined ? 0.8 : opts.az;
+  const eye = [tgt[0] + d * Math.cos(el) * Math.cos(az), tgt[1] + d * Math.sin(el), tgt[2] + d * Math.cos(el) * Math.sin(az)];
+  const fov = opts.fov === undefined ? 40 : opts.fov;
+  const url = await __shotPoseHDR(eye, tgt, fov, 1280, 720, 0.85, 1280);
+  const r = await fetch('/__cap?name=' + name, { method: 'POST', body: url });
+  return JSON.stringify({ name, status: r.status, t: +t.t.toFixed(1), phase: t.phase, alt: +t.altM.toFixed(1), thr: +t.throttleAct.toFixed(2), com: +t.comZ.toFixed(2), imu: { oga: +t.imu.oga.toFixed(1), mga: +t.imu.mga.toFixed(1), iga: +t.imu.iga.toFixed(1), margin: +t.imu.marginDeg.toFixed(1), lock: t.imu.lock } });
+};
+window.__k9probe = async function (opts) {
+  opts = opts || {};
+  const t = __telem();
+  const wp = __doc.world.position;
+  const com = [t.pos[0] + wp.x, t.pos[2] + wp.y, -t.pos[1] + wp.z];
+  const base = [com[0], com[1] - t.comZ, com[2]];
+  const h = opts.h === undefined ? 24 : opts.h;
+  const tgt = [base[0], base[1] + h, base[2]];
+  const d = opts.d === undefined ? 60 : opts.d;
+  const eye = [tgt[0] + d * 0.7, tgt[1] + d * 0.3, tgt[2] + d * 0.7];
+  const pts = opts.pts || [[160, 90], [160, 60], [160, 120], [150, 90], [170, 90]];
+  const px = await __shotProbe(eye, tgt, pts);
+  return JSON.stringify({ pts, px });
+};
+'k9cap-installed';
