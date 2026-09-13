@@ -3755,3 +3755,47 @@ attitude departure legible while it happens, which until today it was not.
 Exposure/IBL balance for the Kestrel-9 materials and an HDR boost for its plume (with eyes on) ·
 director framing at the true centre · the phase ladder has no SETTLING rung (phase 6 lights
 nothing) · `?port=` override documented for the wrangler-on-8787 collision.
+
+## D-057 — THE BUDGET SWEEP, POP AND ITERS SEPARATELY — OPENED, PRE-REGISTERED, FLYING (2026-09-12 19:34)
+
+PLAN.md Phase 0.3. **Why the existing curve was confounded:** `--rfly-budget` scales POP and ITERS
+together with floors at 8 and 2 (`guidance_rfly.c:171`), so D-054's "1/8" is a big solve of
+24×2 = 48 evaluations (1/40 of full) and small replans of 8×2 = 16 (1/12). Two new flags,
+`--rfly-pop-scale` and `--rfly-iters-scale`, multiply one axis each AFTER the budget; at 1.0 the
+product is bit-exact (x·1.0 is exact in IEEE) and the flags are byte-clean when absent.
+
+**Gates (runs/d057_gates.txt), two-sided:** selftest PASS · TERMINAL ×200 BYTE-IDENTICAL · MPPI
+anchor `HARD td_v=2.63 lat=10.48` exact · a GM_RFLY flight with both flags at 1.0 vs absent
+byte-identical on stdout AND stderr · ON: `pop 0.5` ⇒ big 96×10 / small 24×4, `iters 0.5` ⇒ big
+192×5 / small 48×2 — **the two are exactly matched at 960 / 96 evaluations**, which is the
+comparison the whole ADR turns on.
+
+**The grid** (`runs/d057_budget_sweep.ps1`, blind + event replan, dev pool 42/7/99 × 60, the
+identical 180 faults per arm; anchors on disk: joint 1.0 = D-052, joint 0.125 = D-054):
+
+| arm | big POP×ITERS | small POP×ITERS | evals/flight | matched with |
+|---|---|---|---|---|
+| joint_0.25 | 48×2 | 12×2 | ~408 | — |
+| pop_0.0625 | 12×10 | 8×4 | ~536 | — |
+| pop_0.125 | 24×10 | 8×4 | ~656 | — |
+| joint_0.5 | 96×5 | 24×2 | ~1104 | **pair A** |
+| pop_0.25 | 48×10 | 12×4 | ~1104 | **pair A** |
+| iters_0.2 | 192×2 | 48×2 | ~1632 | — |
+| iters_0.3 | 192×3 | 48×2 | ~1824 | — |
+| pop_0.5 | 96×10 | 24×4 | ~2208 | **pair B** |
+| iters_0.5 | 192×5 | 48×2 | ~2208 | **pair B** |
+
+**Pre-registered before the first flight:**
+
+- **P1** — the landed RATE is flat across the grid (every arm ≥ 172/180): the rate is carried by the
+  warm start + event replan, not by search volume. *Falsified by any arm < 170.*
+- **P2** — PERFECT rises with evaluations per flight, and at matched evaluations (pairs A, B) the
+  ITERS-preserving `pop_*` arm has MORE PERFECT than the ITERS-cut arm: refinement of the CEM mean
+  is what buys the bullseye. *Falsified if the ITERS-cut arm wins PERFECT in both pairs.*
+- **P3** — a real-time configuration strictly better than D-054's exists: some arm at ≤ ~1100
+  evals/flight lands ≥ 175 AND has > 27 PERFECT. *Falsified if none does.*
+
+Wall-clock per flight is recorded but **advisory** — the box is shared tonight. Evaluations per
+flight are the exact cost axis. Estimated ~10 h quiet; resumable per unit; the monitor
+(`runs/d057_monitor.ps1`) alarms on the age of the newest output, never on a marker or a process
+name. **Result: D-057 addendum, when the data is on disk.**

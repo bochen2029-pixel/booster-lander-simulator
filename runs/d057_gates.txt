@@ -1,0 +1,11 @@
+D-057 GATES  2026-09-12 19:30:07  exe=C:/Booster_Lander_Simulator/build2/bin/Release/booster-core.exe
+selftest      : SELFTEST: PASS
+TERMINAL x200 : BYTE-IDENTICAL
+MPPI run-1    : RESULT: HARD  fault=none  td_v=2.63 m/s  lat=10.48 m  tilt=0.23 deg  fuel=4444 kg  t=58.6 s  maxq=35438 Pa
+RFLY leak 1.0 : BYTE-IDENTICAL (359 chars)
+RFLY leak err : stderr identical (no [rfly_budget] line at 1.0)
+ON pop 0.5    : [rfly_budget] budget=1 pop_scale=0.5 iters_scale=1 => big POP=96 ITERS=10 (960 evals) | small POP=24 ITERS=4 (96 evals)
+ON iters 0.5  : [rfly_budget] budget=1 pop_scale=1 iters_scale=0.5 => big POP=192 ITERS=5 (960 evals) | small POP=48 ITERS=2 (96 evals)
+ON pop result : LANDED: 1/1 = 100.0%  (Wilson95: 20.7..100.0%)
+ON iters res. : LANDED: 1/1 = 100.0%  (Wilson95: 20.7..100.0%)
+D057-GATES-DONE 2026-09-12 19:32:55

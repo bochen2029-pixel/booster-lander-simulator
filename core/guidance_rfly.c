@@ -165,11 +165,27 @@ static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], d
 /* R2b (D-042): CEM budget scale. 1.0 => the D-040 POP/ITERS exactly (byte-clean). <1 shrinks the
  * search — the lever that shows how much θ̂-warm-starting saves. Set by --rfly-budget. */
 double g_rfly_budget = 1.0;
+/* D-057 (PLAN.md Phase 0.3): --rfly-budget scales POP and ITERS TOGETHER, and ITERS floors at 2 —
+ * so below ~1/5 only POP moves and the budget curve is confounded. These two scale ONE axis each,
+ * multiplied AFTER the budget. Default 1.0: x*1.0 is exact in IEEE, so (int)((base*budget)*1.0)
+ * == (int)(base*budget) bit for bit and the flags are byte-clean when absent. */
+double g_rfly_pop_scale   = 1.0;
+double g_rfly_iters_scale = 1.0;
+static int g_rfly_scale_logged = 0;
 
 void rfly_replan(Sim* s, int big){
     RflyState* rf=&s->rfly;
-    int POP   = (int)((big ? 192 : 48) * g_rfly_budget); if(POP<8)  POP=8;
-    int ITERS = (int)((big ? 10  : 4 ) * g_rfly_budget); if(ITERS<2)ITERS=2;
+    int POP   = (int)(((big ? 192 : 48) * g_rfly_budget) * g_rfly_pop_scale);   if(POP<8)  POP=8;
+    int ITERS = (int)(((big ? 10  : 4 ) * g_rfly_budget) * g_rfly_iters_scale); if(ITERS<2)ITERS=2;
+    if(!g_rfly_scale_logged && (g_rfly_pop_scale!=1.0 || g_rfly_iters_scale!=1.0)){
+        int POPs   = (int)((48 * g_rfly_budget) * g_rfly_pop_scale);   if(POPs<8)  POPs=8;
+        int ITERSs = (int)((4  * g_rfly_budget) * g_rfly_iters_scale); if(ITERSs<2)ITERSs=2;
+        int POPb   = (int)((192* g_rfly_budget) * g_rfly_pop_scale);   if(POPb<8)  POPb=8;
+        int ITERSb = (int)((10 * g_rfly_budget) * g_rfly_iters_scale); if(ITERSb<2)ITERSb=2;
+        fprintf(stderr, "  [rfly_budget] budget=%.4g pop_scale=%.4g iters_scale=%.4g => big POP=%d ITERS=%d (%d evals) | small POP=%d ITERS=%d (%d evals)\n",
+                g_rfly_budget, g_rfly_pop_scale, g_rfly_iters_scale, POPb, ITERSb, POPb*ITERSb, POPs, ITERSs, POPs*ITERSs);
+        g_rfly_scale_logged = 1;
+    }
     double sd_scale = big ? 1.0 : 0.35;
     double t_horizon = s->st.t + 160.0;              /* the reactive descent is ~117-140 s */
     if(t_horizon < 210.0) t_horizon = 210.0;
