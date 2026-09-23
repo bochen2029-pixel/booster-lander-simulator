@@ -165,11 +165,17 @@ is a reference-*loss* failure. The resemblance is superficial and inviting.
 
 ## 5 · DELIBERATELY DROPPED, with reasons
 
-- **The Qwen-Drive generative / multi-sample direction.** D-053 killed its justification on data
-  already on disk: at matched observations the teacher's θ dispersion is **0.295 of global**
-  (every component 0.22–0.34), so the observation explains ~91% of θ's variance. **The labels are
-  not multimodal.** Flow matching answers multimodal targets; these are not. Interesting
-  architecture, **not an indicated fix here**, and I should stop citing it as one.
+- **The Qwen-Drive generative / multi-sample direction — dropped, but the reason changed
+  (2026-09-15 audit).** This bullet first cited D-053 ("labels not multimodal, dispersion 0.295").
+  **D-053 was wrong**: it matched neighbours on downstream state, and the state at time *t* is a
+  *consequence* of the gains over [0, *t*], so the match conditioned on the label itself. At t = 0,
+  the one point with no history, the label spread equals the corpus spread (R² ≈ 0). **The
+  teacher's pick at the mission-plan decision IS an arbitrary draw from a wide valley whose mean is
+  identity** — which is the multimodal-target condition. So flow matching was never refuted. It
+  stays dropped **on merit**: the two better answers are to remove the arbitrariness at the source
+  (anchor / deterministic stream — E2/E3, worth 32 points and no more) or to learn the search's
+  *judgment* rather than its *choice* (the critic, `ROADMAP_NN-FLIGHT_2026-09-15.md`, E8). Modelling
+  the ambiguity is strictly worse than either. What survives from D-053: the 7 dead channels.
 - **Further constant-θ / conditional-policy work.** D-050 is a null (+2 draws of 180, per-seed
   −1/+3/0), and D-052 made the line moot: **one legal event trigger beat every policy searched
   for, by 54 draws.**
