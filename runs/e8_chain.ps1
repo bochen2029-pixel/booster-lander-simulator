@@ -36,7 +36,9 @@ Log "farm complete: $($cands.Count) seeds, $rows rows"
 if ($cands.Count -lt 20 -or $rows -lt 200000) { Log "CHAIN-ABORT: too little data"; exit 1 }
 
 Log "training critic_v1 (ranking loss, full observation)"
-& python "C:\bl_e1\runs\e8_train_critic.py" --data $D --out (Join-Path $D "critic_v1.w") --epochs 30 --hidden 256 1> (Join-Path $D "train_v1.out") 2> (Join-Path $D "train_v1.err")
+# --pair_weight 4.0: A/B'd on six seeds (v0b uniform vs v0c weighted): regret median 1.57 -> 1.42,
+# P(pick lands | best lands) 0.719 -> 0.736, top-1 unchanged. Lander-vs-crasher pairs dominate.
+& python "C:\bl_e1\runs\e8_train_critic.py" --data $D --out (Join-Path $D "critic_v1.w") --epochs 30 --hidden 256 --batch 32 --pair_weight 4.0 1> (Join-Path $D "train_v1.out") 2> (Join-Path $D "train_v1.err")
 if (-not (Test-Path (Join-Path $D "critic_v1.w"))) { Log "CHAIN-ABORT: trainer produced no critic_v1.w"; Get-Content (Join-Path $D "train_v1.err") -Tail 8 | ForEach-Object { Log "   $_" }; exit 1 }
 $last = Get-Content (Join-Path $D "train_v1.out") | Select-String "EXPORTED" | Select-Object -Last 1
 Log ("trained: " + $last.Line)

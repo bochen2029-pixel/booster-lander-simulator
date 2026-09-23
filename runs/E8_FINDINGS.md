@@ -34,8 +34,9 @@ keep-the-elite on P(land); (2) **regret p90 = 18.7** says one pick in ten costs 
 those are the crashers, and they are exactly what confirm-at-events is for. So arm C remains the
 deployable candidate. (3) A loss/metric misalignment: listwise CE penalises "picked the second-best
 lander" and "picked a crasher" identically; only the second kills a flight. `--pair_weight` (below)
-weights pairwise pairs by |Δlog cost| so lander-vs-crasher dominates. To be A/B'd on prelim2 before
-the chain trains v1.
+weights pairwise pairs by |Δlog cost| so lander-vs-crasher dominates. **A/B'd (v0c, same six seeds,
+same steps): top-1 0.148 vs 0.145, regret median 1.42 vs 1.57, p90 17.6 vs 18.7, P(land\|best lands)
+0.736 vs 0.719.** Neutral on top-1, better on both flight-predicting metrics. **Enabled for v1.**
 
 ## The baseline that actually matters (measured on all 5,062 groups, no training)
 
