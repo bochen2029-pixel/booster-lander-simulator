@@ -121,8 +121,11 @@ def main():
 
     # group tensors: pad each group to its size, keep a mask
     def build_batches(mask_rows, shuffle):
-        order, st, en = groups_of(np.where(mask_rows, gid, -1))
-        grp = [order[s:e] for s, e in zip(st, en) if gid[order[s]] >= 0 and e - s >= 2]
+        gm = np.where(mask_rows, gid, -1)               # rows outside the split collapse to one -1 group
+        order, st, en = groups_of(gm)
+        grp = [order[s:e] for s, e in zip(st, en) if gm[order[s]] >= 0 and e - s >= 2]   # MASKED gid
+        big = max((len(g) for g in grp), default=0)
+        assert big <= 256, f"a replan group has {big} rows — groups are colliding (see gid key)"
         if shuffle: rng.shuffle(grp)
         return grp
     tr_groups = build_batches(~isval, True); va_groups = build_batches(isval, False)
@@ -153,6 +156,7 @@ def main():
 
     def batch_loss(groups):
         B = len(groups); L = max(len(g) for g in groups)
+        assert L <= 256, f"batch group size {L}: the pairwise term is (B,L,L) and this would not fit"
         idx = np.full((B, L), -1, dtype=np.int64)
         for b, g in enumerate(groups): idx[b, :len(g)] = g
         idx_t = torch.tensor(idx, device=dev); m = idx_t >= 0
