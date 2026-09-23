@@ -703,6 +703,9 @@ int sim_step(Sim* s){
             if(g_rfly_mlp_warm) rfly_mlp_theta(s, &nav, s->rfly.th);
             /* E7: stash the twelve legal features at this replan for the candidate log / the critic */
             if(g_rfly_cand_log || g_rfly_critic_on) rfly_features(s, &nav, s->rfly.phi);
+            /* E8: the FULL legal observation at this replan — the same builder the tap and every
+             * net use, from the same nav/gcmd/phist. The critic reads it; the log writes it. */
+            if(g_rfly_cand_log || g_rfly_critic_on) policy_build_obs(&nav, &s->gcmd, &s->phist, s->rfly.obs39);
             /* E7: with the critic armed the sampler runs against Q(phi, theta) instead of the plant */
             if(g_rfly_critic_on) rfly_replan_critic(s, big); else rfly_replan(s, big);
             s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;

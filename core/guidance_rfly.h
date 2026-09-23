@@ -58,6 +58,9 @@ typedef struct {
     double t_n_eng_change;
     int    mlp_last_n_eng;
     double phi[12];          /* E7: the twelve legal features at the current replan (rfly_features) */
+    double obs39[39];        /* E8: the FULL legal observation at the current replan (policy_build_obs,
+                              *     exactly what the tap and every net consume). Filled in sim.c only
+                              *     when the candidate log or the critic is armed. */
 } RflyState;
 
 #define RFLY_REPLAN_DT 10.0
@@ -102,10 +105,29 @@ extern FILE* g_rfly_cand_log;
 /* E7: --rfly-critic FILE — the search's sampler unchanged, the plant rollouts replaced by a critic
  * Q(phi[12], theta[10]) -> log cost trained on the candidate log (runs/e7_train_critic.py). Sixty
  * forward passes per replan instead of sixty rollouts. Default off => byte-identical. */
-#define RFLY_CRITIC_NIN  22
-#define RFLY_CRITIC_MAXH 256
+/* E8 (2026-09-23): the critic rebuilt on the FULL observation. Input = obs39[39] + the CEM mean at
+ * that iteration[10] + the candidate[10] = 59 channels; the file declares nin (<= MAXIN) so the
+ * trainer may drop dead channels. Trained to RANK within a replan group, not to regress cost.
+ * The E7 22-input critics are dead data; this loader refuses them. */
+#define RFLY_OBS_N        39
+#define RFLY_CRITIC_NIN   (RFLY_OBS_N + 2*RFLY_N_THETA)   /* 59 */
+#define RFLY_CRITIC_MAXIN 64
+#define RFLY_CRITIC_MAXH  256
 extern int g_rfly_critic_on;
 int  rfly_load_critic(const char* path);
 void rfly_replan_critic(struct Sim* s, int big);
+
+/* E8: --rfly-cand-design — beside the CEM's own population, evaluate a DESIGNED set at every
+ * replan and log it: the replan's start mean, plus one-coordinate steps of +-0.5 and +-1.5 sd on
+ * each of the ten gains (41 rollouts). Logged ONLY: they consume no RNG draws and never enter
+ * elite selection, so the flight is byte-identical to the same run without the flag. */
+extern int g_rfly_cand_design;
+
+/* E8 candidate-log ROW (f64, little-endian), 71 columns. The E7 27-column format is retired.
+ *   0 t   1 seed   2 run   3 big   4 iter   5 designed(0/1)
+ *   6..44   obs39            45..54  mean_theta (the CEM mean this candidate was drawn around)
+ *   55..64  cand_theta (clamped, as flown)
+ *   65 cost   66 landed(0/1)   67 td_v   68 td_lat   69 td_tilt   70 fuel_margin */
+#define RFLY_CAND_ROW 71
 
 #endif

@@ -552,6 +552,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-mlp")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_on=1; }   /* E5: runtime-loaded MLP gain policy */
         else if(!strcmp(argv[i],"--rfly-mlp-warm")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp-warm: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_warm=1; }   /* E6: the MLP seeds the CEM; search stays on */
         else if(!strcmp(argv[i],"--rfly-cand-log")&&i+1<argc){ g_rfly_cand_log=fopen(argv[++i],"wb"); if(!g_rfly_cand_log){ fprintf(stderr,"error: --rfly-cand-log: cannot open %s\n", argv[i]); return 2; } }   /* E7: log every CEM candidate evaluation */
+        else if(!strcmp(argv[i],"--rfly-cand-design")) g_rfly_cand_design=1;   /* E8: designed candidates, logged only, byte-identical flight */
         else if(!strcmp(argv[i],"--rfly-critic")&&i+1<argc){ if(!rfly_load_critic(argv[++i])){ fprintf(stderr,"error: --rfly-critic: cannot load %s\n", argv[i]); return 2; } g_rfly_critic_on=1; }   /* E7: the critic replaces the plant rollouts in the search */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
@@ -659,6 +660,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-mlp")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_on=1; }   /* E5: runtime-loaded MLP gain policy */
         else if(!strcmp(argv[i],"--rfly-mlp-warm")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp-warm: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_warm=1; }   /* E6: the MLP seeds the CEM; search stays on */
         else if(!strcmp(argv[i],"--rfly-cand-log")&&i+1<argc){ g_rfly_cand_log=fopen(argv[++i],"wb"); if(!g_rfly_cand_log){ fprintf(stderr,"error: --rfly-cand-log: cannot open %s\n", argv[i]); return 2; } }   /* E7: log every CEM candidate evaluation */
+        else if(!strcmp(argv[i],"--rfly-cand-design")) g_rfly_cand_design=1;   /* E8: designed candidates, logged only, byte-identical flight */
         else if(!strcmp(argv[i],"--rfly-critic")&&i+1<argc){ if(!rfly_load_critic(argv[++i])){ fprintf(stderr,"error: --rfly-critic: cannot load %s\n", argv[i]); return 2; } g_rfly_critic_on=1; }   /* E7: the critic replaces the plant rollouts in the search */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */

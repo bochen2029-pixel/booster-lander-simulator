@@ -182,10 +182,16 @@ int rfly_load_critic(const char* path){
 }
 
 /* predicted log cost of candidate theta at the replan's features. Fixed order, fp64. */
-static double rfly_critic_eval(const double phi[RFLY_MLP_NIN], const double th[RFLY_N_THETA]){
+/* E8: Q(obs39, mean, cand) -> standardised log cost. Input order MUST match the candidate-log row
+ * (obs39, mean_theta, cand_theta) and the trainer's export. Dead observation channels arrive with
+ * sd=1 and mu=their constant, so they contribute exactly 0. */
+static double rfly_critic_eval(const double obs[RFLY_OBS_N], const double mean[RFLY_N_THETA], const double th[RFLY_N_THETA]){
+    double raw[RFLY_CRITIC_NIN]; int k=0;
+    for(int i=0;i<RFLY_OBS_N;i++)   raw[k++]=obs[i];
+    for(int i=0;i<RFLY_N_THETA;i++) raw[k++]=mean[i];
+    for(int i=0;i<RFLY_N_THETA;i++) raw[k++]=th[i];
     double x[RFLY_CRITIC_NIN];
-    for(int i=0;i<RFLY_MLP_NIN;i++) x[i] = (phi[i]-cr_mu[i])/cr_sd[i];
-    for(int i=0;i<RFLY_N_THETA;i++) x[RFLY_MLP_NIN+i] = (th[i]-cr_mu[RFLY_MLP_NIN+i])/cr_sd[RFLY_MLP_NIN+i];
+    for(int i=0;i<RFLY_CRITIC_NIN;i++) x[i] = (raw[i]-cr_mu[i])/cr_sd[i];
     double h1[RFLY_CRITIC_MAXH], h2[RFLY_CRITIC_MAXH];
     for(int j=0;j<cr_nh;j++){ double a=cr_b1[j]; for(int i=0;i<RFLY_CRITIC_NIN;i++) a+=cr_w1[j][i]*x[i]; h1[j]=tanh(a); }
     for(int j=0;j<cr_nh;j++){ double a=cr_b2[j]; for(int i=0;i<cr_nh;i++) a+=cr_w2[j][i]*h1[i]; h2[j]=tanh(a); }
@@ -216,7 +222,7 @@ void rfly_replan_critic(Sim* s, int big){
             for(int i=0;i<RFLY_N_THETA;i++)
                 cand[p*RFLY_N_THETA+i]=rclampd(mean[i]+sd[i]*rf_nrand(), RT_LO[i], RT_HI[i]);
         for(int i=0;i<RFLY_N_THETA;i++) cand[i]=gtheta[i];
-        for(int p=0;p<POP;p++) cost[p]=rfly_critic_eval(rf->phi, &cand[p*RFLY_N_THETA]);
+        for(int p=0;p<POP;p++) cost[p]=rfly_critic_eval(rf->obs39, mean, &cand[p*RFLY_N_THETA]);   /* E8: full obs + this iteration's mean */
         for(int q=0;q<POP;q++) idx[q]=q;
         for(int a=0;a<ELITE;a++){ int m=a; for(int b=a+1;b<POP;b++) if(cost[idx[b]]<cost[idx[m]]) m=b; int t=idx[a];idx[a]=idx[m];idx[m]=t; }
         if(cost[idx[0]]<gbest){ gbest=cost[idx[0]]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cand[idx[0]*RFLY_N_THETA+i]; }
@@ -340,7 +346,10 @@ void rfly_clamp_theta(double th[RFLY_N_THETA]){
     for(int i=0;i<RFLY_N_THETA;i++) th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
 }
 
-static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], double t_horizon){
+/* E8: the rollout's terminal summary, beside its cost — what the critic is trained to predict. */
+typedef struct { double cost; int touched, verdict; double td_v, td_lat, td_tilt, fuel_margin; } RflyEval;
+
+static double rfly_eval_candidate_ex(const Sim* s, const double th[RFLY_N_THETA], double t_horizon, RflyEval* out){
     Sim c2 = *s;
     for(int i=0;i<RFLY_N_THETA;i++) c2.rfly.th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
     c2.rfly.noreplan=1;
@@ -372,7 +381,31 @@ static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], d
         for(int i=0;i<RFLY_N_THETA;i++){ double d=(c2.rfly.th[i]-g_rfly_anchor[i])/(RT_HI[i]-RT_LO[i]); p += d*d; }
         c += g_rfly_anchor_w * p;
     }
+    if(out){ out->cost=c; out->touched=c2.touched; out->verdict=R.verdict; out->td_v=R.td_v;
+             out->td_lat=R.td_lat; out->td_tilt=R.td_tilt; out->fuel_margin=R.fuel_margin; }
     return c;
+}
+/* the original entry point, unchanged for every other caller */
+static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], double t_horizon){
+    return rfly_eval_candidate_ex(s, th, t_horizon, NULL);
+}
+
+/* E8: --rfly-cand-design (see header). Default off => the designed block never runs. */
+int g_rfly_cand_design = 0;
+
+/* E8: one 71-column row of the candidate log (layout in guidance_rfly.h, RFLY_CAND_ROW). */
+static void rfly_cand_log_row(const Sim* s, const RflyState* rf, int big, int it, int designed,
+                              const double mean[RFLY_N_THETA], const double cand[RFLY_N_THETA], const RflyEval* ev){
+    double row[RFLY_CAND_ROW]; int k=0;
+    row[k++]=s->st.t; row[k++]=(double)s->seed; row[k++]=(double)s->tap.run; row[k++]=(double)big;
+    row[k++]=(double)it; row[k++]=(double)designed;
+    for(int i=0;i<RFLY_OBS_N;i++)   row[k++]=rf->obs39[i];
+    for(int i=0;i<RFLY_N_THETA;i++) row[k++]=mean[i];
+    for(int i=0;i<RFLY_N_THETA;i++) row[k++]=rclampd(cand[i], RT_LO[i], RT_HI[i]);
+    row[k++]=ev->cost;
+    row[k++]=(ev->touched && (ev->verdict==V_PERFECT||ev->verdict==V_GOOD||ev->verdict==V_HARD)) ? 1.0 : 0.0;
+    row[k++]=ev->td_v; row[k++]=ev->td_lat; row[k++]=ev->td_tilt; row[k++]=ev->fuel_margin;
+    fwrite(row, sizeof(double), RFLY_CAND_ROW, g_rfly_cand_log);
 }
 
 /* R2b (D-042): CEM budget scale. 1.0 => the D-040 POP/ITERS exactly (byte-clean). <1 shrinks the
@@ -427,20 +460,37 @@ void rfly_replan(Sim* s, int big){
          * first solve) — plain hoverslam is in-population, so gbest <= the baseline's cost. */
         for(int i=0;i<RFLY_N_THETA;i++) cand[i]=gtheta[i];
         int p;
+        RflyEval* ev=(RflyEval*)malloc((size_t)POP*sizeof(RflyEval));
         #pragma omp parallel for schedule(dynamic)
-        for(p=0;p<POP;p++) cost[p]=rfly_eval_candidate(s, &cand[p*RFLY_N_THETA], t_horizon);
-        /* E7: the search's judgment, logged. One row per candidate: t, seed, run, big, phi[12],
-         * theta[10] (clamped, as flown), cost. Default NULL => skipped => byte-identical. */
+        for(p=0;p<POP;p++) cost[p]=rfly_eval_candidate_ex(s, &cand[p*RFLY_N_THETA], t_horizon, &ev[p]);
+        /* E8: the search's JUDGMENT, logged — one 71-column row per candidate: the full legal
+         * observation at this replan, the CEM mean it was drawn around, the candidate as flown, and
+         * the rollout's cost + terminal summary. Default NULL => skipped => byte-identical. */
         if(g_rfly_cand_log){
-            for(int q=0;q<POP;q++){
-                double row[27]; int k=0;
-                row[k++]=s->st.t; row[k++]=(double)s->seed; row[k++]=(double)s->tap.run; row[k++]=(double)big;
-                for(int i=0;i<RFLY_MLP_NIN;i++) row[k++]=rf->phi[i];
-                for(int i=0;i<RFLY_N_THETA;i++) row[k++]=rclampd(cand[q*RFLY_N_THETA+i], RT_LO[i], RT_HI[i]);
-                row[k++]=cost[q];
-                fwrite(row, sizeof(double), 27, g_rfly_cand_log);
+            for(int q=0;q<POP;q++) rfly_cand_log_row(s, rf, big, it, 0, mean, &cand[q*RFLY_N_THETA], &ev[q]);
+            /* E8: the DESIGNED set, iteration 0 only (mean == the replan's start point there):
+             * the mean itself, then +-0.5 and +-1.5 sd one-coordinate steps on each gain — 41
+             * rollouts. No RNG draws, never enters elite selection: the flight is byte-identical. */
+            if(g_rfly_cand_design && it==0){
+                static const double STEPS[4] = { -1.5, -0.5, 0.5, 1.5 };
+                const int ND = 1 + 4*RFLY_N_THETA;
+                double*   dc=(double*)malloc((size_t)ND*RFLY_N_THETA*sizeof(double));
+                RflyEval* de=(RflyEval*)malloc((size_t)ND*sizeof(RflyEval));
+                for(int i=0;i<RFLY_N_THETA;i++) dc[i]=mean[i];
+                for(int i=0;i<RFLY_N_THETA;i++) for(int kk=0;kk<4;kk++){
+                    int d=1+i*4+kk;
+                    for(int j=0;j<RFLY_N_THETA;j++) dc[d*RFLY_N_THETA+j]=mean[j];
+                    dc[d*RFLY_N_THETA+i]=rclampd(mean[i]+STEPS[kk]*sd[i], RT_LO[i], RT_HI[i]);
+                }
+                int d;
+                #pragma omp parallel for schedule(dynamic)
+                for(d=0;d<ND;d++) rfly_eval_candidate_ex(s, &dc[d*RFLY_N_THETA], t_horizon, &de[d]);
+                for(int q=0;q<ND;q++) rfly_cand_log_row(s, rf, big, it, 1, mean, &dc[q*RFLY_N_THETA], &de[q]);
+                free(dc); free(de);
             }
+            fflush(g_rfly_cand_log);   /* E7's torn-file race: the manifest must never outrun the rows */
         }
+        free(ev);
         for(int q=0;q<POP;q++) idx[q]=q;
         for(int a=0;a<ELITE;a++){ int m=a; for(int b=a+1;b<POP;b++) if(cost[idx[b]]<cost[idx[m]]) m=b; int t=idx[a];idx[a]=idx[m];idx[m]=t; }
         if(cost[idx[0]]<gbest){ gbest=cost[idx[0]]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cand[idx[0]*RFLY_N_THETA+i]; }
