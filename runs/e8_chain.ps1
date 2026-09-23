@@ -10,7 +10,7 @@
 # the states its own search reaches.
 $ErrorActionPreference = "Continue"
 $D   = "D:\bl_e1_data\e8"
-$Exe = "C:\bl_e1\build_e8\bin\Release\booster-core.exe"
+$Exe = "C:\bl_e1\build_e9\bin\Release\booster-core.exe"   # superset of build_e8 (adds --rfly-critic-confirm), gated byte-identical
 $log = Join-Path $D "chain.log"
 function Log($m){ ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File $log -Append }
 
@@ -41,19 +41,34 @@ if (-not (Test-Path (Join-Path $D "critic_v1.w"))) { Log "CHAIN-ABORT: trainer p
 $last = Get-Content (Join-Path $D "train_v1.out") | Select-String "EXPORTED" | Select-Object -Last 1
 Log ("trained: " + $last.Line)
 
-Log "FLIGHT: critic-scored search, blind, event replan, budget 1.0, held-out 42/7/99 x60 -- flown ONCE"
-$tot = 0; $ok = $true
-foreach ($s in 42, 7, 99) {
-  $res = Join-Path $D "critic_v1_s$s.txt"; $err = Join-Path $D "critic_v1_s$s.err"
-  & $Exe --headless --scenario entry --seed $s --runs 60 --rfly --rfly-blind --rfly-event-replan `
-         --rfly-critic (Join-Path $D "critic_v1.w") --engine-out random 1> $res 2> $err
-  if (-not (Select-String -Path $res -Pattern "LANDED:" -Quiet)) { Log "FLIGHT FAILED seed $s -- no LANDED line"; $ok = $false; break }
-  $line = (Select-String -Path $res -Pattern "LANDED:").Line.Trim(); $l = [int]($line -replace '.*LANDED: (\d+)/.*','$1'); $tot += $l
-  Log ("  seed $s : $line | " + (Select-String -Path $res -Pattern "PERFECT").Line.Trim())
+# THREE ARMS, each flown ONCE on held-out 42/7/99 x60. The pre-registered read applies to arm B,
+# which matches the critic's training distribution (the 1/32 teacher's 8 sampled candidates per
+# iteration); arm A is the roadmap's budget-1.0 flight (192 candidates -- more chances to find a
+# critic error it has never seen); arm C previews phase 2 (plant confirms the top 2 at events).
+$W = Join-Path $D "critic_v1.w"
+$arms = @(
+  @{ name = 'A_budget1.0';      args = @() },
+  @{ name = 'B_budget1of32';    args = @('--rfly-budget','0.03125') },
+  @{ name = 'C_1of32_confirm2'; args = @('--rfly-budget','0.03125','--rfly-critic-confirm','2') }
+)
+$summary = @(); $okAll = $true; $totB = -1
+foreach ($arm in $arms) {
+  Log "FLIGHT $($arm.name): critic-scored search, blind, event replan, held-out 42/7/99 x60 -- flown ONCE"
+  $tot = 0; $P = 0; $ok = $true
+  foreach ($s in 42, 7, 99) {
+    $res = Join-Path $D "critic_v1_$($arm.name)_s$s.txt"; $err = Join-Path $D "critic_v1_$($arm.name)_s$s.err"
+    & $Exe --headless --scenario entry --seed $s --runs 60 --rfly --rfly-blind --rfly-event-replan `
+           --rfly-critic $W @($arm.args) --engine-out random 1> $res 2> $err
+    if (-not (Select-String -Path $res -Pattern "LANDED:" -Quiet)) { Log "  FLIGHT FAILED $($arm.name) seed $s -- no LANDED line"; $ok = $false; $okAll = $false; break }
+    $line = (Select-String -Path $res -Pattern "LANDED:").Line.Trim(); $l = [int]($line -replace '.*LANDED: (\d+)/.*','$1'); $tot += $l
+    $pl = (Select-String -Path $res -Pattern "PERFECT").Line.Trim(); $P += [int]($pl -replace '.*PERFECT (\d+).*','$1')
+    Log "  $($arm.name) seed $s : $line | $pl"
+  }
+  if ($ok) { Log "  $($arm.name) TOTAL: $tot/180  PERFECT $P"; $summary += "$($arm.name)=$tot/180(P$P)"; if ($arm.name -eq 'B_budget1of32') { $totB = $tot } }
 }
-if ($ok) {
-  $read = if ($tot -ge 160) { "TRANSFERS -> phase 2" } elseif ($tot -ge 100) { "partial -> phase 1.5 (expert iteration on the critic)" } else { "does not capture the rollout -> section 3 (terminal-state head)" }
-  Log "E8 CRITIC v1 HELD-OUT: $tot/180  ($read)"
-  "E8-CHAIN-DONE $tot/180 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File (Join-Path $D "chain_done.txt")
+if ($okAll) {
+  $read = if ($totB -ge 160) { "TRANSFERS -> phase 2" } elseif ($totB -ge 100) { "partial -> phase 1.5 (expert iteration on the critic)" } else { "does not capture the rollout -> section 3 (terminal-state head)" }
+  Log "E8 CRITIC v1 HELD-OUT: $($summary -join ' | ')   read on arm B: $read"
+  "E8-CHAIN-DONE $($summary -join ' | ') $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File (Join-Path $D "chain_done.txt")
 }
 [void][WE8C.Pwr]::SetThreadExecutionState([uint32]2147483648)
