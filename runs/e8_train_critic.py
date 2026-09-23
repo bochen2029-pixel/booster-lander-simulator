@@ -88,6 +88,10 @@ def main():
     ap.add_argument("--w_list", type=float, default=1.0)
     ap.add_argument("--w_pair", type=float, default=1.0)
     ap.add_argument("--w_mse", type=float, default=0.1)
+    ap.add_argument("--pair_weight", type=float, default=0.0,
+                    help="weight each pairwise term by min(|dlogcost|, this cap): 0 = off (uniform). "
+                         "Makes lander-vs-crasher pairs (|d| ~ 3) dominate near-tie pairs, which is the "
+                         "distinction that decides a flight")
     ap.add_argument("--val_frac", type=float, default=0.15)
     ap.add_argument("--batch", type=int, default=32, help="groups per gradient step (256 gave 17 steps/epoch on 3 seeds — far too few)")
     ap.add_argument("--seed", type=int, default=0)
@@ -175,7 +179,15 @@ def main():
         pm = m.unsqueeze(2) & m.unsqueeze(1) & (d_tgt.abs() > args.margin)
         # P(i better than j) should be 1 when tgt_i < tgt_j  =>  want pred_i < pred_j
         lab = (d_tgt < 0).float()
-        l_pair = F.binary_cross_entropy_with_logits(-d_pred[pm], lab[pm]) if pm.any() else pred.sum() * 0
+        if pm.any():
+            bce = F.binary_cross_entropy_with_logits(-d_pred[pm], lab[pm], reduction="none")
+            if args.pair_weight > 0:
+                w = d_tgt[pm].abs().clamp(max=args.pair_weight)
+                l_pair = (bce * w).sum() / w.sum().clamp(min=1e-6)
+            else:
+                l_pair = bce.mean()
+        else:
+            l_pair = pred.sum() * 0
         l_mse = F.mse_loss(pred[m], tgt[m])
         return args.w_list * l_list + args.w_pair * l_pair + args.w_mse * l_mse
 

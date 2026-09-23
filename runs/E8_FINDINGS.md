@@ -19,6 +19,24 @@ these as a **floor**, not a level:
 puts the critic **3× above chance**, where E7's twelve summary magnitudes sat *at* chance. The
 signal E7 could not see is in the full observation.
 
+## v0b — 6 seeds, batch 32 (4,005 steps): the critic is learning
+
+| | v0 (3 seeds, 255 steps) | **v0b (6 seeds, 4,005 steps)** | keep-the-elite |
+|---|---|---|---|
+| top-1 | 0.106 | **0.145** | 0.354 |
+| regret median / p90 | 2.27 / 25.6 | **1.49 / 18.7** | — |
+| P(pick lands \| best lands) | 0.592 | **0.722** | 0.919 |
+| train loss (chance ≈ 4.1) | 3.69 | **3.37** | — |
+
+Every metric improves with data and gradient steps, so v1 (24 seeds, 30 epochs) will improve
+again. Two readings: (1) extrapolated, arm B — the critic *alone* — likely still lands short of
+keep-the-elite on P(land); (2) **regret p90 = 18.7** says one pick in ten costs 18× the best —
+those are the crashers, and they are exactly what confirm-at-events is for. So arm C remains the
+deployable candidate. (3) A loss/metric misalignment: listwise CE penalises "picked the second-best
+lander" and "picked a crasher" identically; only the second kills a flight. `--pair_weight` (below)
+weights pairwise pairs by |Δlog cost| so lander-vs-crasher dominates. To be A/B'd on prelim2 before
+the chain trains v1.
+
 ## The baseline that actually matters (measured on all 5,062 groups, no training)
 
 Chance is the wrong yardstick. The search carries an **elite** (the previous solution, `gtheta`)
