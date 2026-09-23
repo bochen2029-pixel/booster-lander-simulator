@@ -50,7 +50,7 @@ if ($n -lt [math]::Max(4, $Seeds/2)) { Log "ROUND-ABORT: only $n visited logs"; 
 # 2. retrain on the union of the farm and every visited log so far
 $dirs = @($D) + (1..$Round | ForEach-Object { Join-Path $D "visited_$_" })
 Log ("  training critic_v$($Round+1) on: " + ($dirs -join ", "))
-& python "C:\bl_e1\runs\e8_train_critic.py" --data ($dirs -join ",") --out $Wn --epochs 30 --hidden 256 `
+& python "C:\bl_e1\runs\e8_train_critic.py" --data ($dirs -join ",") --out $Wn --epochs 30 --hidden 256 --batch 32 --pair_weight 4.0 `
     1> (Join-Path $D "train_v$($Round+1).out") 2> (Join-Path $D "train_v$($Round+1).err")
 if (-not (Test-Path $Wn)) { Log "ROUND-ABORT: no $Wn produced"; Get-Content (Join-Path $D "train_v$($Round+1).err") -Tail 6 | ForEach-Object { Log "   $_" }; exit 1 }
 Log ("  " + (Get-Content (Join-Path $D "train_v$($Round+1).out") | Select-String "EXPORTED" | Select-Object -Last 1).Line)
