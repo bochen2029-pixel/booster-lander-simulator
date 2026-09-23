@@ -90,6 +90,9 @@ def main():
     ap.add_argument("--w_mse", type=float, default=0.1)
     ap.add_argument("--val_frac", type=float, default=0.15)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--eval", default=None, metavar="CRITIC.w",
+                    help="score an existing exported critic on this data's held-out runs (no training); "
+                         "same run split as training with the same --seed, so rounds are comparable")
     args = ap.parse_args()
 
     import torch, torch.nn as nn, torch.nn.functional as F
@@ -125,6 +128,22 @@ def main():
     tr_groups = build_batches(~isval, True); va_groups = build_batches(isval, False)
     print(f"train groups {len(tr_groups):,}  val groups {len(va_groups):,}  "
           f"mean group size {np.mean([len(g) for g in tr_groups]):.1f}", flush=True)
+
+    if args.eval:
+        # numpy forward pass with the exported file's own mu/sd (NOT this data's), exactly as C does
+        with open(args.eval) as f:
+            nin, H = map(int, f.readline().split())
+            emu = np.array(f.readline().split(), float); esd = np.array(f.readline().split(), float)
+            W1 = np.array([f.readline().split() for _ in range(H)], float); b1 = np.array(f.readline().split(), float)
+            W2 = np.array([f.readline().split() for _ in range(H)], float); b2 = np.array(f.readline().split(), float)
+            W3 = np.array(f.readline().split(), float); b3 = float(f.readline()); eymu, eysd = map(float, f.readline().split())
+        x = (X - emu) / esd
+        h1 = np.tanh(x @ W1.T + b1); h2 = np.tanh(h1 @ W2.T + b2); pred = (h2 @ W3 + b3).astype(np.float32)
+        sel = np.concatenate(va_groups); mv = metrics(pred[sel], y[sel], land[sel], gid[sel])
+        chance = 1.0 / np.mean([len(g) for g in va_groups])
+        print(f"EVAL {args.eval}: VAL top1 {mv['top1']:.3f} (chance {chance:.3f})  regret med {mv['regret_med']:.2f} "
+              f"p90 {mv['regret_p90']:.2f}  P(land|best lands) {mv['land_given']:.3f}  groups {mv['groups']}", flush=True)
+        return 0
 
     Xt = torch.tensor(Xs, device=dev); yt = torch.tensor(ys, device=dev)
     H = args.hidden
