@@ -554,6 +554,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-cand-log")&&i+1<argc){ g_rfly_cand_log=fopen(argv[++i],"wb"); if(!g_rfly_cand_log){ fprintf(stderr,"error: --rfly-cand-log: cannot open %s\n", argv[i]); return 2; } }   /* E7: log every CEM candidate evaluation */
         else if(!strcmp(argv[i],"--rfly-cand-design")) g_rfly_cand_design=1;   /* E8: designed candidates, logged only, byte-identical flight */
         else if(!strcmp(argv[i],"--rfly-critic")&&i+1<argc){ if(!rfly_load_critic(argv[++i])){ fprintf(stderr,"error: --rfly-critic: cannot load %s\n", argv[i]); return 2; } g_rfly_critic_on=1; }   /* E7: the critic replaces the plant rollouts in the search */
+        else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
         else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
@@ -662,6 +663,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-cand-log")&&i+1<argc){ g_rfly_cand_log=fopen(argv[++i],"wb"); if(!g_rfly_cand_log){ fprintf(stderr,"error: --rfly-cand-log: cannot open %s\n", argv[i]); return 2; } }   /* E7: log every CEM candidate evaluation */
         else if(!strcmp(argv[i],"--rfly-cand-design")) g_rfly_cand_design=1;   /* E8: designed candidates, logged only, byte-identical flight */
         else if(!strcmp(argv[i],"--rfly-critic")&&i+1<argc){ if(!rfly_load_critic(argv[++i])){ fprintf(stderr,"error: --rfly-critic: cannot load %s\n", argv[i]); return 2; } g_rfly_critic_on=1; }   /* E7: the critic replaces the plant rollouts in the search */
+        else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
         else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */

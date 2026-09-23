@@ -58,6 +58,9 @@ typedef struct {
     double t_n_eng_change;
     int    mlp_last_n_eng;
     double phi[12];          /* E7: the twelve legal features at the current replan (rfly_features) */
+    int    replan_is_event;  /* E8 phase 2: set by sim.c — 1 when this replan fired on the sensed
+                              *     engine-count change rather than the 10 s clock (a replan that
+                              *     arrives BEFORE next_replan_t can only be an event). */
     double obs39[39];        /* E8: the FULL legal observation at the current replan (policy_build_obs,
                               *     exactly what the tap and every net consume). Filled in sim.c only
                               *     when the candidate log or the critic is armed. */
@@ -116,6 +119,12 @@ extern FILE* g_rfly_cand_log;
 extern int g_rfly_critic_on;
 int  rfly_load_critic(const char* path);
 void rfly_replan_critic(struct Sim* s, int big);
+
+/* E8 phase 2 — PROPOSE, RANK, CONFIRM (ROADMAP_NN-FLIGHT §2). --rfly-critic-confirm K: at EVENT
+ * replans only, the critic's top K candidates plus its global best are rolled out on the plant and
+ * the plant's choice is committed — the plant keeps the last word exactly where the flight is
+ * decided, for K+1 rollouts. Periodic replans stay critic-only. Default 0 => byte-identical. */
+extern int g_rfly_critic_confirm;
 
 /* E8: --rfly-cand-design — beside the CEM's own population, evaluate a DESIGNED set at every
  * replan and log it: the replan's start mean, plus one-coordinate steps of +-0.5 and +-1.5 sd on

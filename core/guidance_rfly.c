@@ -163,6 +163,7 @@ FILE* g_rfly_cand_log = NULL;
 /* ---- E7: the critic (see guidance_rfly.h). ------------------------------------------------------ */
 extern double g_rfly_budget, g_rfly_pop_scale, g_rfly_iters_scale;   /* defined below rfly_eval_candidate */
 int g_rfly_critic_on = 0;
+int g_rfly_critic_confirm = 0;   /* E8 phase 2: --rfly-critic-confirm K (see header) */
 static int    cr_nh = 0;
 static double cr_mu[RFLY_CRITIC_NIN], cr_sd[RFLY_CRITIC_NIN];
 static double cr_w1[RFLY_CRITIC_MAXH][RFLY_CRITIC_NIN], cr_b1[RFLY_CRITIC_MAXH];
@@ -254,6 +255,25 @@ void rfly_replan_critic(Sim* s, int big){
             double var=0; for(int a=0;a<ELITE;a++){ double d=cand[idx[a]*RFLY_N_THETA+i]-mu; var+=d*d; } var/=ELITE;
             mean[i]=mu; sd[i]=sqrt(var)+0.02*RT_STD0[i];
         }
+    }
+    /* E8 phase 2 — CONFIRM at events. The critic ranked; at an event replan the plant gets the last
+     * word on the critic's top K (plus its global best). K+1 plant rollouts. Default 0 => this
+     * block never runs => byte-identical to the critic-only flight. */
+    if(g_rfly_critic_confirm > 0 && rf->replan_is_event){
+        int K = g_rfly_critic_confirm; if(K > ELITE) K = ELITE;
+        const int NC = K + 1;
+        double* cc=(double*)malloc((size_t)NC*RFLY_N_THETA*sizeof(double));
+        double* pc=(double*)malloc((size_t)NC*sizeof(double));
+        for(int i=0;i<RFLY_N_THETA;i++) cc[i]=gtheta[i];
+        for(int k=0;k<K;k++) for(int i=0;i<RFLY_N_THETA;i++) cc[(k+1)*RFLY_N_THETA+i]=cand[idx[k]*RFLY_N_THETA+i];
+        double t_horizon = s->st.t + 160.0; if(t_horizon < 210.0) t_horizon = 210.0;
+        int q;
+        #pragma omp parallel for schedule(dynamic)
+        for(q=0;q<NC;q++) pc[q]=rfly_eval_candidate_ex(s, &cc[q*RFLY_N_THETA], t_horizon, NULL);
+        int best=0; for(int q2=1;q2<NC;q2++) if(pc[q2]<pc[best]) best=q2;
+        for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cc[best*RFLY_N_THETA+i];
+        fprintf(stderr, "  [rfly_confirm t=%.1f] plant picked %d of %d (0 = critic's best): plant cost %.1f\n", s->st.t, best, NC, pc[best]);
+        free(cc); free(pc);
     }
     for(int i=0;i<RFLY_N_THETA;i++) rf->th[i]=gtheta[i];
     fprintf(stderr, "  [rfly_critic t=%.1f big=%d] predicted log-cost %.3f | EKR=%.2f EKV=%.2f EBANK=%.2f ADEC=%.2f TLD=%.2f KDIV=%.2f KVN=%.2f IGN=%.2f TGL=%.2f KV=%.2f\n",
@@ -536,6 +556,7 @@ void rfly_init(Sim* s){
     s->rfly.next_replan_t=0.0;
     s->rfly.noreplan=0;
     s->rfly.last_n_eng=0;   /* D-052: 0 = not yet observed; arms on the first gtick without firing */
+    s->rfly.replan_is_event=0;   /* E8 phase 2 */
     s->rfly.t_n_eng_change=-1e9; s->rfly.mlp_last_n_eng=0;   /* E5: the MLP policy's own memory */
 }
 

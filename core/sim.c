@@ -707,6 +707,10 @@ int sim_step(Sim* s){
              * net use, from the same nav/gcmd/phist. The critic reads it; the log writes it. */
             if(g_rfly_cand_log || g_rfly_critic_on) policy_build_obs(&nav, &s->gcmd, &s->phist, s->rfly.obs39);
             /* E7: with the critic armed the sampler runs against Q(phi, theta) instead of the plant */
+            /* E8 phase 2: a replan arriving BEFORE the periodic time can only be an event (the
+             * n_eng change); the clock alone never fires early. Read here so the short-circuit
+             * D-052 depends on is untouched. */
+            s->rfly.replan_is_event = (st->t < s->rfly.next_replan_t) ? 1 : 0;
             if(g_rfly_critic_on) rfly_replan_critic(s, big); else rfly_replan(s, big);
             s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
         }
