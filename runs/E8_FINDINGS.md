@@ -38,6 +38,37 @@ weights pairwise pairs by |Δlog cost| so lander-vs-crasher dominates. **A/B'd (
 same steps): top-1 0.148 vs 0.145, regret median 1.42 vs 1.57, p90 17.6 vs 18.7, P(land\|best lands)
 0.736 vs 0.719.** Neutral on top-1, better on both flight-predicting metrics. **Enabled for v1.**
 
+## v0c FLOWN on 42/7/99 (10:10) — the offline metrics do not predict flight, and confirm-at-events does not rescue it
+
+| v0c (6 seeds, P(land\|best lands) 0.736, regret med 1.42) | 42 / 7 / 99 | total | PERFECT |
+|---|---|---|---|
+| **arm B** — critic alone, blind, event replan, 1/32 | 24 / 26 / 30 | **80/180 = 44.4%** | 0 |
+| **arm C** — + `--rfly-critic-confirm 2` at events | 22 / 22 / 33 | **77/180 = 42.8%** | 0 |
+
+Against: the constant 121/180, E4/E5 129/180, the cold 1/32 search 179/180. **The critic-driven
+search flies worse than a fixed constant**, with zero PERFECT landings. Pre-registered branch:
+**< 100 — the one-shot cost critic cannot capture the rollout.** (Pre-registered for v1; v0c is an
+early read on a third of the data, but the gap is not one that 4× data closes.)
+
+**Why the offline metric lied.** "When the plant's best lands, the critic's pick lands 74%" is
+measured at states the *plant's* search visited. In flight, the critic's search picks slightly
+worse at each of ~13 periodic replans; the state drifts off the training distribution; every later
+ranking is made where the critic was never trained. Compounding error — the same mechanism as
+π's covariate shift in D-041, one level up.
+
+**Why confirm-at-events did not help (77 vs 80).** Confirm lets the plant choose among the
+critic's top-2 plus the carried elite. By the time an event fires, the critic's *population* is
+already off the basin — the plant is choosing the best of three bad options. The safety net is at
+the wrong place: the damage is done across the periodic replans, not at the event.
+
+**The sharper test this points at: confirm at EVERY replan** (`--rfly-critic-confirm-every`). The
+plant rolls out the critic's top-2 + the elite at every replan — 3 rollouts instead of the cold
+search's 16. Two readings, both decisive: **≈ 179** ⇒ the critic is a useful *proposer/prefilter*
+and has earned a ~5× compute cut over the cold search; **≈ 80** ⇒ its proposals are worthless
+even as a prefilter, and the whole "critic replaces rollouts" direction closes on this data.
+Floor: with a garbage critic the plant picks the carried elite (keep-the-elite lands 92%/replan),
+so arm D should not fall below the constant.
+
 ## The baseline that actually matters (measured on all 5,062 groups, no training)
 
 Chance is the wrong yardstick. The search carries an **elite** (the previous solution, `gtheta`)

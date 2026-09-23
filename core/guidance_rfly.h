@@ -125,6 +125,9 @@ void rfly_replan_critic(struct Sim* s, int big);
  * the plant's choice is committed — the plant keeps the last word exactly where the flight is
  * decided, for K+1 rollouts. Periodic replans stay critic-only. Default 0 => byte-identical. */
 extern int g_rfly_critic_confirm;
+/* E8: --rfly-critic-confirm-every — apply the confirm at EVERY replan (the critic proposes its
+ * top K, the plant judges K+1 rollouts, everywhere), not only at events. Default 0 => byte-identical. */
+extern int g_rfly_critic_confirm_every;
 
 /* E8: --rfly-cand-design — beside the CEM's own population, evaluate a DESIGNED set at every
  * replan and log it: the replan's start mean, plus one-coordinate steps of +-0.5 and +-1.5 sd on

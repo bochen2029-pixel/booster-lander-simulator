@@ -164,6 +164,7 @@ FILE* g_rfly_cand_log = NULL;
 extern double g_rfly_budget, g_rfly_pop_scale, g_rfly_iters_scale;   /* defined below rfly_eval_candidate */
 int g_rfly_critic_on = 0;
 int g_rfly_critic_confirm = 0;   /* E8 phase 2: --rfly-critic-confirm K (see header) */
+int g_rfly_critic_confirm_every = 0;   /* E8: confirm at every replan, not only events; default off */
 static int    cr_nh = 0;
 static double cr_mu[RFLY_CRITIC_NIN], cr_sd[RFLY_CRITIC_NIN];
 static double cr_w1[RFLY_CRITIC_MAXH][RFLY_CRITIC_NIN], cr_b1[RFLY_CRITIC_MAXH];
@@ -259,7 +260,11 @@ void rfly_replan_critic(Sim* s, int big){
     /* E8 phase 2 — CONFIRM at events. The critic ranked; at an event replan the plant gets the last
      * word on the critic's top K (plus its global best). K+1 plant rollouts. Default 0 => this
      * block never runs => byte-identical to the critic-only flight. */
-    if(g_rfly_critic_confirm > 0 && rf->replan_is_event){
+    /* --rfly-critic-confirm-every (E8, after the v0c flight): confirm at EVERY replan, not only
+     * events. v0c flew 80/180 alone and 77/180 with confirm-at-events -- the damage is done across
+     * the periodic replans, not at the event. This makes the critic a PROPOSER (16 -> top-2) and the
+     * plant the judge everywhere: K+1 rollouts per replan against the cold search's 16. */
+    if(g_rfly_critic_confirm > 0 && (rf->replan_is_event || g_rfly_critic_confirm_every)){
         int K = g_rfly_critic_confirm; if(K > ELITE) K = ELITE;
         const int NC = K + 1;
         double* cc=(double*)malloc((size_t)NC*RFLY_N_THETA*sizeof(double));
