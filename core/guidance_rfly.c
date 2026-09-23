@@ -25,6 +25,14 @@ static const double RT_HI[RFLY_N_THETA]  = { 4.00, 4.00, 3.00, 2.50, 3.00, 2.50,
 static const double RT_STD0[RFLY_N_THETA]= { 0.50, 0.50, 0.35, 0.30, 0.40, 0.30, 0.30, 0.50, 0.30, 0.30 };
 static const double RT_IDENTITY[RFLY_N_THETA] = { 1,1,1, 1,1,1, 1,1, 0, 1 };
 
+/* E8 forward declarations. The rollout summary and its writers are DEFINED beside rfly_replan,
+ * further down; rfly_replan_critic sits above them in this file and uses them for the phase-1.5
+ * plant-labelled log. */
+typedef struct { double cost; int touched, verdict; double td_v, td_lat, td_tilt, fuel_margin; } RflyEval;
+static double rfly_eval_candidate_ex(const Sim* s, const double th[RFLY_N_THETA], double t_horizon, RflyEval* out);
+static void   rfly_cand_log_row(const Sim* s, const RflyState* rf, int big, int it, int designed,
+                                const double mean[RFLY_N_THETA], const double cand[RFLY_N_THETA], const RflyEval* ev);
+
 /* ---- deterministic CEM sampler (local xorshift; seeded per replan from (seed, step);
  * a distinct mix constant from cfly's so the two searches draw independent streams) ---- */
 static unsigned long long rfly_rng;
@@ -223,6 +231,21 @@ void rfly_replan_critic(Sim* s, int big){
                 cand[p*RFLY_N_THETA+i]=rclampd(mean[i]+sd[i]*rf_nrand(), RT_LO[i], RT_HI[i]);
         for(int i=0;i<RFLY_N_THETA;i++) cand[i]=gtheta[i];
         for(int p=0;p<POP;p++) cost[p]=rfly_critic_eval(rf->obs39, mean, &cand[p*RFLY_N_THETA]);   /* E8: full obs + this iteration's mean */
+        /* E8 phase 1.5 — EXPERT ITERATION FOR THE CRITIC. With --rfly-cand-log also armed, every
+         * candidate the critic's search proposes is ALSO rolled out on the plant and logged with the
+         * plant's cost as the label (designed=2). The search keeps using the critic's scores — no
+         * RNG draw, no change to cost[]/mean/sd — so the flight is byte-identical to the same run
+         * without the log. Where the critic is wrong is exactly where its own search goes; this
+         * collects the plant's answer there. Retrain on the union, repeat (DAgger, for a critic). */
+        if(g_rfly_cand_log){
+            double t_horizon = s->st.t + 160.0; if(t_horizon < 210.0) t_horizon = 210.0;
+            RflyEval* ev=(RflyEval*)malloc((size_t)POP*sizeof(RflyEval));
+            int pp;
+            #pragma omp parallel for schedule(dynamic)
+            for(pp=0;pp<POP;pp++) rfly_eval_candidate_ex(s, &cand[pp*RFLY_N_THETA], t_horizon, &ev[pp]);
+            for(int q=0;q<POP;q++) rfly_cand_log_row(s, rf, big, it, 2, mean, &cand[q*RFLY_N_THETA], &ev[q]);
+            fflush(g_rfly_cand_log); free(ev);
+        }
         for(int q=0;q<POP;q++) idx[q]=q;
         for(int a=0;a<ELITE;a++){ int m=a; for(int b=a+1;b<POP;b++) if(cost[idx[b]]<cost[idx[m]]) m=b; int t=idx[a];idx[a]=idx[m];idx[m]=t; }
         if(cost[idx[0]]<gbest){ gbest=cost[idx[0]]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cand[idx[0]*RFLY_N_THETA+i]; }
@@ -346,9 +369,8 @@ void rfly_clamp_theta(double th[RFLY_N_THETA]){
     for(int i=0;i<RFLY_N_THETA;i++) th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);
 }
 
-/* E8: the rollout's terminal summary, beside its cost — what the critic is trained to predict. */
-typedef struct { double cost; int touched, verdict; double td_v, td_lat, td_tilt, fuel_margin; } RflyEval;
-
+/* E8: the rollout's terminal summary (RflyEval, declared at the top of this file), beside its
+ * cost — what the critic is trained to predict. */
 static double rfly_eval_candidate_ex(const Sim* s, const double th[RFLY_N_THETA], double t_horizon, RflyEval* out){
     Sim c2 = *s;
     for(int i=0;i<RFLY_N_THETA;i++) c2.rfly.th[i]=rclampd(th[i],RT_LO[i],RT_HI[i]);

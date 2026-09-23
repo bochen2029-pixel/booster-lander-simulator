@@ -96,7 +96,9 @@ def main():
     torch.manual_seed(args.seed); np.random.seed(args.seed)
     dev = "cuda" if torch.cuda.is_available() else "cpu"
 
-    paths = sorted(glob.glob(os.path.join(args.data, "s*.cand")))
+    # --data may be a comma-separated list of dirs: round-0 farm + each phase-1.5 round's
+    # critic-visited log (designed=2 rows), trained on the union.
+    paths = sorted(p for d in args.data.split(",") for p in glob.glob(os.path.join(d.strip(), "s*.cand")))
     if not paths: sys.exit("no .cand files")
     X, y, land, gid, run_id = load(paths)
     print(f"rows {len(X):,}  groups {len(np.unique(gid)):,}  runs {len(np.unique(run_id)):,}  files {len(paths)}", flush=True)
