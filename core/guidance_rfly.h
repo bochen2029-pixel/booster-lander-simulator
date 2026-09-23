@@ -23,6 +23,7 @@
 #define BL_GUIDANCE_RFLY_H
 
 struct Sim;
+#include "state.h"   /* E5: the MLP gain policy reads the nav State (an anonymous typedef, so no forward declaration) */
 
 #define RFLY_N_THETA 10
 enum {
@@ -51,6 +52,12 @@ typedef struct {
                              * mid-entry-burn. That is the suspected mechanism behind the blind
                              * arm's LOC 13, and n_eng is §4.3-legal sensed state, so reacting to
                              * it is not privilege. */
+    /* E5 (2026-09-15): the runtime-loaded MLP gain policy's own memory — when the sensed engine
+     * count last changed (feature 8, time since the fault). Separate from last_n_eng, which
+     * rfly_event_due owns. t_n_eng_change < -1e8 means "never". */
+    double t_n_eng_change;
+    int    mlp_last_n_eng;
+    double phi[12];          /* E7: the twelve legal features at the current replan (rfly_features) */
 } RflyState;
 
 #define RFLY_REPLAN_DT 10.0
@@ -75,5 +82,30 @@ void rfly_async_poll(struct Sim* s);
  * --rfly-event-replan is armed, so a stale plan is re-solved the moment the fault fires
  * rather than up to RFLY_REPLAN_DT later. Always updates last_n_eng, even when disarmed. */
 int rfly_event_due(struct Sim* s, int n_eng_now);
+
+/* E5 (2026-09-15): --rfly-mlp FILE — a small MLP gain policy over twelve legal features, loaded at
+ * run time so the outcome optimiser (runs/e5_es_mlp.py) can evaluate candidates without an export
+ * ceremony. theta = clamp(b2 + Wlin.phi + W2.tanh(W1.phi + b1)). Default off => byte-identical.
+ * File: "nin nhid" then Wlin[10][nin], b2[10], W1[nhid][nin], b1[nhid], W2[10][nhid]. */
+#define RFLY_MLP_NIN   12
+#define RFLY_MLP_MAXH  32
+extern int g_rfly_mlp_on;
+extern int g_rfly_mlp_warm;   /* E6: the MLP as the search's warm start (search still on); default off => byte-identical */
+int  rfly_load_mlp(const char* path);
+void rfly_clamp_theta(double th[RFLY_N_THETA]);   /* defined in guidance_rfly.c; sim.c declares it locally too */
+void rfly_features(struct Sim* s, const State* nav, double phi[RFLY_MLP_NIN]);   /* the twelve legal features (updates the engine-change memory) */
+void rfly_mlp_theta(struct Sim* s, const State* nav, double th[RFLY_N_THETA]);
+/* E7 (2026-09-15): --rfly-cand-log FILE — every candidate the CEM evaluates is written as one row of
+ * 27 f64: t, seed, run, big, phi[12], theta[10], cost. The search's JUDGMENT, not its pick. */
+#include <stdio.h>
+extern FILE* g_rfly_cand_log;
+/* E7: --rfly-critic FILE — the search's sampler unchanged, the plant rollouts replaced by a critic
+ * Q(phi[12], theta[10]) -> log cost trained on the candidate log (runs/e7_train_critic.py). Sixty
+ * forward passes per replan instead of sixty rollouts. Default off => byte-identical. */
+#define RFLY_CRITIC_NIN  22
+#define RFLY_CRITIC_MAXH 256
+extern int g_rfly_critic_on;
+int  rfly_load_critic(const char* path);
+void rfly_replan_critic(struct Sim* s, int big);
 
 #endif

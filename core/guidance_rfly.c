@@ -5,6 +5,8 @@
 #include "guidance_rfly.h"
 #include "guidance.h"
 #include "constants.h"
+#include "atmosphere.h"   /* E5: Mach / qbar features of the MLP gain policy */
+#include "vmath.h"        /* E5: q_rot for the tilt feature */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,6 +63,208 @@ static double rfly_cost(const Sim* s2, const RunResult* R){
 /* D-046 ①b: --rfly-blind. 0 => the D-040 clairvoyant search exactly (byte-clean, leak GREEN).
  * Defined here, above its only use, so the candidate evaluator can read it. */
 int g_rfly_blind = 0;
+
+/* E2 (2026-09-15, the C:\bl_e1 distillation experiment): two default-off levers that make the
+ * search's answer a deterministic function of the state, so a student can learn it. Measured on the
+ * July corpus and again on the legal 1/8-budget corpus: the theta the search returns at t=0 is
+ * spread across runs by ~1.0 of the corpus width and is unpredictable from the state (R^2 ~ 0),
+ * because the sampler's per-run stream picks an arbitrary point in a wide basin. See
+ * C:\ONE\ONE_BOOSTER_NN-ROOT-CAUSE_2026-09-15_S3.md. Off => byte-identical.
+ *   --rfly-det-stream    seed the CEM sampler from the tick alone (not the run): equal states draw
+ *                        equal candidates, so the label no longer depends on the run's seed.
+ *   --rfly-anchor-w W    add W * sum_i ((theta_i - identity_i)/(hi_i - lo_i))^2 to every candidate's
+ *                        cost: a tie-break that returns the gentlest theta that lands, so the flat
+ *                        directions of the basin stop selecting a random point. */
+int    g_rfly_det_stream = 0;
+double g_rfly_anchor_w   = 0.0;
+/* E3: --rfly-anchor "v0,..,v9" sets BOTH the search's warm start (rfly_init) and the tie-break
+ * target. With E2's constant stream the t=0 pick was deterministic but still spread across runs by
+ * ~1.0 of the corpus width: the argmin among the same candidates flips with tiny state differences,
+ * so the label is not a smooth function of the state and its conditional mean sits near identity,
+ * the one point that crashes. Anchoring at a theta that lands on its own (D-047's constant, 67%)
+ * makes every label "that constant plus the smallest consistent correction". Unset => identity
+ * => rfly_init and the penalty are unchanged => byte-identical. */
+double g_rfly_anchor[RFLY_N_THETA] = { 1,1,1, 1,1,1, 1,1, 0, 1 };
+int    g_rfly_anchor_set = 0;
+int rfly_parse_anchor(const char* s){
+    double v[RFLY_N_THETA]; int n=0; const char* p=s;
+    while(n<RFLY_N_THETA){ char* e; v[n]=strtod(p,&e); if(e==p) return 0; n++; if(*e==',') p=e+1; else break; }
+    if(n!=RFLY_N_THETA) return 0;
+    for(int i=0;i<RFLY_N_THETA;i++) g_rfly_anchor[i]=rclampd(v[i],RT_LO[i],RT_HI[i]);
+    g_rfly_anchor_set=1;
+    return 1;
+}
+
+/* ---- E5: the runtime-loaded MLP gain policy (see guidance_rfly.h). Default off. ---------------- */
+int g_rfly_mlp_on = 0;
+int g_rfly_mlp_warm = 0;   /* E6: --rfly-mlp-warm FILE — the MLP seeds the CEM mean at every replan; the search stays ON */
+static int    mlp_nhid = 0;
+static double mlp_wlin[RFLY_N_THETA][RFLY_MLP_NIN];
+static double mlp_b2[RFLY_N_THETA];
+static double mlp_w1[RFLY_MLP_MAXH][RFLY_MLP_NIN];
+static double mlp_b1[RFLY_MLP_MAXH];
+static double mlp_w2[RFLY_N_THETA][RFLY_MLP_MAXH];
+
+int rfly_load_mlp(const char* path){
+    FILE* f = fopen(path, "r");
+    if(!f) return 0;
+    int nin=0, nh=0;
+    if(fscanf(f, "%d %d", &nin, &nh)!=2 || nin!=RFLY_MLP_NIN || nh<1 || nh>RFLY_MLP_MAXH){ fclose(f); return 0; }
+    int ok = 1;
+    for(int o=0;o<RFLY_N_THETA && ok;o++) for(int i=0;i<nin && ok;i++) ok = (fscanf(f,"%lf",&mlp_wlin[o][i])==1);
+    for(int o=0;o<RFLY_N_THETA && ok;o++) ok = (fscanf(f,"%lf",&mlp_b2[o])==1);
+    for(int h=0;h<nh && ok;h++) for(int i=0;i<nin && ok;i++) ok = (fscanf(f,"%lf",&mlp_w1[h][i])==1);
+    for(int h=0;h<nh && ok;h++) ok = (fscanf(f,"%lf",&mlp_b1[h])==1);
+    for(int o=0;o<RFLY_N_THETA && ok;o++) for(int h=0;h<nh && ok;h++) ok = (fscanf(f,"%lf",&mlp_w2[o][h])==1);
+    fclose(f);
+    if(!ok) return 0;
+    mlp_nhid = nh;
+    return 1;
+}
+
+/* Twelve LEGAL features from the nav view and the flight-state flags (never truth, never the
+ * fault's future): the D-050 six, engine_on, fins_deployed, time since the sensed engine count
+ * changed (saturating at 20 s; 1.0 = never), Mach/5, qbar/60 kPa, cos(tilt). Fixed evaluation
+ * order, fp64, no reductions out of order: bit-deterministic like every other law here. */
+void rfly_features(struct Sim* s, const State* nav, double phi[RFLY_MLP_NIN]){
+    RflyState* rf = &s->rfly;
+    if(rf->mlp_last_n_eng==0){ rf->mlp_last_n_eng = nav->n_eng; }
+    else if(nav->n_eng != rf->mlp_last_n_eng){ rf->t_n_eng_change = nav->t; rf->mlp_last_n_eng = nav->n_eng; }
+    const double* ny = nav->y;
+    double rxy = sqrt(ny[S_RX]*ny[S_RX] + ny[S_RY]*ny[S_RY]);
+    double vxy = sqrt(ny[S_VX]*ny[S_VX] + ny[S_VY]*ny[S_VY]);
+    double vsp = sqrt(vxy*vxy + ny[S_VZ]*ny[S_VZ]);
+    AtmoOut atm; atmo_eval(ny[S_RZ], &atm);
+    double zb[3]={0.0,0.0,1.0}, zw[3]; q_rot(zw, &ny[S_QX], zb);
+    phi[0]  = ny[S_RZ] / 62000.0;
+    phi[1]  = rxy / 3000.0;
+    phi[2]  = ny[S_VZ] / 1500.0;
+    phi[3]  = vxy / 300.0;
+    phi[4]  = (double)nav->n_eng / 3.0;
+    phi[5]  = (ny[S_MLOX]+ny[S_MRP1]) / 30000.0;
+    phi[6]  = nav->engine_on ? 1.0 : 0.0;
+    phi[7]  = nav->fins_deployed ? 1.0 : 0.0;
+    phi[8]  = (rf->t_n_eng_change < -1e8) ? 1.0 : fmin(1.0, (nav->t - rf->t_n_eng_change)/20.0);
+    phi[9]  = (atm.a > 1e-9) ? (vsp/atm.a)/5.0 : 0.0;
+    phi[10] = 0.5*atm.rho*vsp*vsp / 60000.0;
+    phi[11] = zw[2];
+}
+
+FILE* g_rfly_cand_log = NULL;
+
+/* ---- E7: the critic (see guidance_rfly.h). ------------------------------------------------------ */
+extern double g_rfly_budget, g_rfly_pop_scale, g_rfly_iters_scale;   /* defined below rfly_eval_candidate */
+int g_rfly_critic_on = 0;
+static int    cr_nh = 0;
+static double cr_mu[RFLY_CRITIC_NIN], cr_sd[RFLY_CRITIC_NIN];
+static double cr_w1[RFLY_CRITIC_MAXH][RFLY_CRITIC_NIN], cr_b1[RFLY_CRITIC_MAXH];
+static double cr_w2[RFLY_CRITIC_MAXH][RFLY_CRITIC_MAXH], cr_b2[RFLY_CRITIC_MAXH];
+static double cr_w3[RFLY_CRITIC_MAXH], cr_b3, cr_ymu, cr_ysd;
+
+int rfly_load_critic(const char* path){
+    FILE* f = fopen(path, "r");
+    if(!f) return 0;
+    int nin=0, nh=0, ok=1;
+    if(fscanf(f, "%d %d", &nin, &nh)!=2 || nin!=RFLY_CRITIC_NIN || nh<1 || nh>RFLY_CRITIC_MAXH){ fclose(f); return 0; }
+    for(int i=0;i<nin && ok;i++) ok = (fscanf(f,"%lf",&cr_mu[i])==1);
+    for(int i=0;i<nin && ok;i++) ok = (fscanf(f,"%lf",&cr_sd[i])==1);
+    for(int h=0;h<nh && ok;h++) for(int i=0;i<nin && ok;i++) ok = (fscanf(f,"%lf",&cr_w1[h][i])==1);
+    for(int h=0;h<nh && ok;h++) ok = (fscanf(f,"%lf",&cr_b1[h])==1);
+    for(int h=0;h<nh && ok;h++) for(int i=0;i<nh && ok;i++) ok = (fscanf(f,"%lf",&cr_w2[h][i])==1);
+    for(int h=0;h<nh && ok;h++) ok = (fscanf(f,"%lf",&cr_b2[h])==1);
+    for(int h=0;h<nh && ok;h++) ok = (fscanf(f,"%lf",&cr_w3[h])==1);
+    if(ok) ok = (fscanf(f,"%lf",&cr_b3)==1);
+    if(ok) ok = (fscanf(f,"%lf %lf",&cr_ymu,&cr_ysd)==2);
+    fclose(f);
+    if(!ok) return 0;
+    cr_nh = nh;
+    return 1;
+}
+
+/* predicted log cost of candidate theta at the replan's features. Fixed order, fp64. */
+static double rfly_critic_eval(const double phi[RFLY_MLP_NIN], const double th[RFLY_N_THETA]){
+    double x[RFLY_CRITIC_NIN];
+    for(int i=0;i<RFLY_MLP_NIN;i++) x[i] = (phi[i]-cr_mu[i])/cr_sd[i];
+    for(int i=0;i<RFLY_N_THETA;i++) x[RFLY_MLP_NIN+i] = (th[i]-cr_mu[RFLY_MLP_NIN+i])/cr_sd[RFLY_MLP_NIN+i];
+    double h1[RFLY_CRITIC_MAXH], h2[RFLY_CRITIC_MAXH];
+    for(int j=0;j<cr_nh;j++){ double a=cr_b1[j]; for(int i=0;i<RFLY_CRITIC_NIN;i++) a+=cr_w1[j][i]*x[i]; h1[j]=tanh(a); }
+    for(int j=0;j<cr_nh;j++){ double a=cr_b2[j]; for(int i=0;i<cr_nh;i++) a+=cr_w2[j][i]*h1[i]; h2[j]=tanh(a); }
+    double o=cr_b3; for(int j=0;j<cr_nh;j++) o+=cr_w3[j]*h2[j];
+    double c = cr_ymu + cr_ysd*o;
+    return isfinite(c) ? c : 1e12;
+}
+
+/* The CEM of rfly_replan with the plant rollouts replaced by the critic: same POP/ITERS/sd
+ * schedule, same sampler stream, same elitism and best tracking. No Sim copies, no rollouts. */
+void rfly_replan_critic(Sim* s, int big){
+    RflyState* rf=&s->rfly;
+    int POP   = (int)(((big ? 192 : 48) * g_rfly_budget) * g_rfly_pop_scale);   if(POP<8)  POP=8;
+    int ITERS = (int)(((big ? 10  : 4 ) * g_rfly_budget) * g_rfly_iters_scale); if(ITERS<2)ITERS=2;
+    double sd_scale = big ? 1.0 : 0.35;
+    rfly_rng = g_rfly_det_stream
+             ? 0xD1B54A32D192ED03ULL
+             : (0xD1B54A32D192ED03ULL ^ ((unsigned long long)s->seed<<32) ^ (unsigned long long)s->st.step);
+    double mean[RFLY_N_THETA], sd[RFLY_N_THETA];
+    for(int i=0;i<RFLY_N_THETA;i++){ mean[i]=rf->th[i]; sd[i]=RT_STD0[i]*sd_scale; }
+    double* cand=(double*)malloc((size_t)POP*RFLY_N_THETA*sizeof(double));
+    double* cost=(double*)malloc((size_t)POP*sizeof(double));
+    int*    idx =(int*)malloc((size_t)POP*sizeof(int));
+    int ELITE=POP/8; if(ELITE<2)ELITE=2;
+    double gbest=1e300; double gtheta[RFLY_N_THETA]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=mean[i];
+    for(int it=0; it<ITERS; it++){
+        for(int p=0;p<POP;p++)
+            for(int i=0;i<RFLY_N_THETA;i++)
+                cand[p*RFLY_N_THETA+i]=rclampd(mean[i]+sd[i]*rf_nrand(), RT_LO[i], RT_HI[i]);
+        for(int i=0;i<RFLY_N_THETA;i++) cand[i]=gtheta[i];
+        for(int p=0;p<POP;p++) cost[p]=rfly_critic_eval(rf->phi, &cand[p*RFLY_N_THETA]);
+        for(int q=0;q<POP;q++) idx[q]=q;
+        for(int a=0;a<ELITE;a++){ int m=a; for(int b=a+1;b<POP;b++) if(cost[idx[b]]<cost[idx[m]]) m=b; int t=idx[a];idx[a]=idx[m];idx[m]=t; }
+        if(cost[idx[0]]<gbest){ gbest=cost[idx[0]]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cand[idx[0]*RFLY_N_THETA+i]; }
+        for(int i=0;i<RFLY_N_THETA;i++){
+            double mu=0; for(int a=0;a<ELITE;a++) mu+=cand[idx[a]*RFLY_N_THETA+i]; mu/=ELITE;
+            double var=0; for(int a=0;a<ELITE;a++){ double d=cand[idx[a]*RFLY_N_THETA+i]-mu; var+=d*d; } var/=ELITE;
+            mean[i]=mu; sd[i]=sqrt(var)+0.02*RT_STD0[i];
+        }
+    }
+    for(int i=0;i<RFLY_N_THETA;i++) rf->th[i]=gtheta[i];
+    fprintf(stderr, "  [rfly_critic t=%.1f big=%d] predicted log-cost %.3f | EKR=%.2f EKV=%.2f EBANK=%.2f ADEC=%.2f TLD=%.2f KDIV=%.2f KVN=%.2f IGN=%.2f TGL=%.2f KV=%.2f\n",
+            s->st.t, big, gbest, gtheta[0], gtheta[1], gtheta[2], gtheta[3], gtheta[4], gtheta[5], gtheta[6], gtheta[7], gtheta[8], gtheta[9]);
+    free(cand); free(cost); free(idx);
+}
+
+void rfly_mlp_theta(struct Sim* s, const State* nav, double th[RFLY_N_THETA]){
+    RflyState* rf = &s->rfly;
+    if(rf->mlp_last_n_eng==0){ rf->mlp_last_n_eng = nav->n_eng; }
+    else if(nav->n_eng != rf->mlp_last_n_eng){ rf->t_n_eng_change = nav->t; rf->mlp_last_n_eng = nav->n_eng; }
+    const double* ny = nav->y;
+    double rxy = sqrt(ny[S_RX]*ny[S_RX] + ny[S_RY]*ny[S_RY]);
+    double vxy = sqrt(ny[S_VX]*ny[S_VX] + ny[S_VY]*ny[S_VY]);
+    double vsp = sqrt(vxy*vxy + ny[S_VZ]*ny[S_VZ]);
+    AtmoOut atm; atmo_eval(ny[S_RZ], &atm);
+    double zb[3]={0.0,0.0,1.0}, zw[3]; q_rot(zw, &ny[S_QX], zb);
+    double phi[RFLY_MLP_NIN];
+    phi[0]  = ny[S_RZ] / 62000.0;
+    phi[1]  = rxy / 3000.0;
+    phi[2]  = ny[S_VZ] / 1500.0;
+    phi[3]  = vxy / 300.0;
+    phi[4]  = (double)nav->n_eng / 3.0;
+    phi[5]  = (ny[S_MLOX]+ny[S_MRP1]) / 30000.0;
+    phi[6]  = nav->engine_on ? 1.0 : 0.0;
+    phi[7]  = nav->fins_deployed ? 1.0 : 0.0;
+    phi[8]  = (rf->t_n_eng_change < -1e8) ? 1.0 : fmin(1.0, (nav->t - rf->t_n_eng_change)/20.0);
+    phi[9]  = (atm.a > 1e-9) ? (vsp/atm.a)/5.0 : 0.0;
+    phi[10] = 0.5*atm.rho*vsp*vsp / 60000.0;
+    phi[11] = zw[2];
+    double h[RFLY_MLP_MAXH];
+    for(int k=0;k<mlp_nhid;k++){ double a=mlp_b1[k]; for(int i=0;i<RFLY_MLP_NIN;i++) a += mlp_w1[k][i]*phi[i]; h[k]=tanh(a); }
+    for(int o=0;o<RFLY_N_THETA;o++){
+        double a = mlp_b2[o];
+        for(int i=0;i<RFLY_MLP_NIN;i++) a += mlp_wlin[o][i]*phi[i];
+        for(int k=0;k<mlp_nhid;k++)   a += mlp_w2[o][k]*h[k];
+        th[o] = isfinite(a) ? a : RT_IDENTITY[o];
+    }
+    rfly_clamp_theta(th);
+}
 
 /* D-047 ①d: a SECOND constant theta, selected on the DIRECTLY OBSERVED engine count.
  * A single constant must serve both regimes at once, and D-047's structure says those regimes
@@ -160,7 +364,15 @@ static double rfly_eval_candidate(const Sim* s, const double th[RFLY_N_THETA], d
     c2.guidance_mode = GM_RFLY;
     RunResult R; memset(&R,0,sizeof(R));
     sim_run(&c2, &R, t_horizon);
-    return rfly_cost(&c2, &R);
+    double c = rfly_cost(&c2, &R);
+    /* E2 tie-break (default 0.0 => the line below never runs => byte-identical). Box-normalised
+     * distance from identity, on the CLAMPED candidate the rollout actually flew. */
+    if(g_rfly_anchor_w > 0.0){
+        double p = 0.0;
+        for(int i=0;i<RFLY_N_THETA;i++){ double d=(c2.rfly.th[i]-g_rfly_anchor[i])/(RT_HI[i]-RT_LO[i]); p += d*d; }
+        c += g_rfly_anchor_w * p;
+    }
+    return c;
 }
 
 /* R2b (D-042): CEM budget scale. 1.0 => the D-040 POP/ITERS exactly (byte-clean). <1 shrinks the
@@ -190,7 +402,14 @@ void rfly_replan(Sim* s, int big){
     double sd_scale = big ? 1.0 : 0.35;
     double t_horizon = s->st.t + 160.0;              /* the reactive descent is ~117-140 s */
     if(t_horizon < 210.0) t_horizon = 210.0;
-    rfly_rng = 0xD1B54A32D192ED03ULL ^ ((unsigned long long)s->seed<<32) ^ (unsigned long long)s->st.step;
+    /* E2: with --rfly-det-stream every replan draws the SAME relative candidate offsets (a constant
+     * stream), so the pick is a deterministic function of (current mean, state) and two runs in the
+     * same state choose the same theta. A tick-seeded stream was tried first and is wrong here: after
+     * an event replan every later replan sits on a fault-time-dependent tick, so post-fault labels
+     * would still differ across runs. Off => the original (seed, step) stream exactly. */
+    rfly_rng = g_rfly_det_stream
+             ? 0xD1B54A32D192ED03ULL
+             : (0xD1B54A32D192ED03ULL ^ ((unsigned long long)s->seed<<32) ^ (unsigned long long)s->st.step);
 
     double mean[RFLY_N_THETA], sd[RFLY_N_THETA];
     for(int i=0;i<RFLY_N_THETA;i++){ mean[i]=rf->th[i]; sd[i]=RT_STD0[i]*sd_scale; }
@@ -210,6 +429,18 @@ void rfly_replan(Sim* s, int big){
         int p;
         #pragma omp parallel for schedule(dynamic)
         for(p=0;p<POP;p++) cost[p]=rfly_eval_candidate(s, &cand[p*RFLY_N_THETA], t_horizon);
+        /* E7: the search's judgment, logged. One row per candidate: t, seed, run, big, phi[12],
+         * theta[10] (clamped, as flown), cost. Default NULL => skipped => byte-identical. */
+        if(g_rfly_cand_log){
+            for(int q=0;q<POP;q++){
+                double row[27]; int k=0;
+                row[k++]=s->st.t; row[k++]=(double)s->seed; row[k++]=(double)s->tap.run; row[k++]=(double)big;
+                for(int i=0;i<RFLY_MLP_NIN;i++) row[k++]=rf->phi[i];
+                for(int i=0;i<RFLY_N_THETA;i++) row[k++]=rclampd(cand[q*RFLY_N_THETA+i], RT_LO[i], RT_HI[i]);
+                row[k++]=cost[q];
+                fwrite(row, sizeof(double), 27, g_rfly_cand_log);
+            }
+        }
         for(int q=0;q<POP;q++) idx[q]=q;
         for(int a=0;a<ELITE;a++){ int m=a; for(int b=a+1;b<POP;b++) if(cost[idx[b]]<cost[idx[m]]) m=b; int t=idx[a];idx[a]=idx[m];idx[m]=t; }
         if(cost[idx[0]]<gbest){ gbest=cost[idx[0]]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cand[idx[0]*RFLY_N_THETA+i]; }
@@ -229,10 +460,11 @@ void rfly_replan(Sim* s, int big){
 /* init: warm start = IDENTITY = the shipped D-030 reactive stack. */
 void rfly_init(Sim* s){
     _Static_assert(RFLY_N_THETA==10, "GuidanceCmd.rt[10] must match RFLY_N_THETA");
-    for(int i=0;i<RFLY_N_THETA;i++) s->rfly.th[i]=RT_IDENTITY[i];
+    for(int i=0;i<RFLY_N_THETA;i++) s->rfly.th[i]= g_rfly_anchor_set ? g_rfly_anchor[i] : RT_IDENTITY[i];   /* E3: anchored warm start; unset => identity exactly */
     s->rfly.next_replan_t=0.0;
     s->rfly.noreplan=0;
     s->rfly.last_n_eng=0;   /* D-052: 0 = not yet observed; arms on the first gtick without firing */
+    s->rfly.t_n_eng_change=-1e9; s->rfly.mlp_last_n_eng=0;   /* E5: the MLP policy's own memory */
 }
 
 /* ============================ ASYNC live replans (N3; see header) ============================ */
