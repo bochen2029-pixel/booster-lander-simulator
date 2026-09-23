@@ -89,6 +89,7 @@ def main():
     ap.add_argument("--w_pair", type=float, default=1.0)
     ap.add_argument("--w_mse", type=float, default=0.1)
     ap.add_argument("--val_frac", type=float, default=0.15)
+    ap.add_argument("--batch", type=int, default=32, help="groups per gradient step (256 gave 17 steps/epoch on 3 seeds — far too few)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eval", default=None, metavar="CRITIC.w",
                     help="score an existing exported critic on this data's held-out runs (no training); "
@@ -189,7 +190,8 @@ def main():
         return metrics(pred[sel], y[sel], land[sel], gid[sel])
 
     best, best_state, t0 = -1.0, None, time.time()
-    BATCH = 256
+    BATCH = args.batch
+    print(f"steps/epoch {len(tr_groups)//BATCH}  total steps {args.epochs*(len(tr_groups)//BATCH)}", flush=True)
     for ep in range(args.epochs):
         rng.shuffle(tr_groups); tot = 0.0; nb = 0
         for i in range(0, len(tr_groups), BATCH):
