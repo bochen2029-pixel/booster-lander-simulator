@@ -9,7 +9,7 @@
 #
 # The three seeds fly in parallel, one process each, OMP_NUM_THREADS=1 (rollouts are independent
 # and write their own slots, so the thread count never changes a byte). Receipts: OUTDIR/ARM_s<seed>.
-# {txt,err}; OUTDIR/ARM_summary.txt. Farm-script law: ARM-FLY-DONE is written only when all three
+# {txt,err,csv} (the csv is --out: one row per draw, for paired reads); OUTDIR/ARM_summary.txt. Farm-script law: ARM-FLY-DONE is written only when all three
 # seeds carry a LANDED line in their own stdout; a seed that already has one is never re-flown.
 set -u
 EXE=$1; OUT=$2; ARM=$3; shift 3
@@ -23,7 +23,7 @@ for s in 42 7 99; do
     if [ -f "$res" ] && grep -q "LANDED:" "$res"; then exit 0; fi
     t0=$(date +%s)
     OMP_NUM_THREADS=1 "$EXE" --headless --scenario entry --seed "$s" --runs 60 --rfly --rfly-blind \
-        --rfly-event-replan "$@" --engine-out random > "$res" 2> "$err"
+        --rfly-event-replan "$@" --engine-out random --out "$OUT/${ARM}_s$s.csv" > "$res" 2> "$err"
     echo "$(( $(date +%s) - t0 ))" > "$OUT/${ARM}_s$s.secs"
   ) &
 done

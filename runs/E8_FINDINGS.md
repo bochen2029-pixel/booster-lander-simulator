@@ -108,7 +108,7 @@ little* — which is essentially what the 1/32 search already is. Measured direc
 
 ## 2026-09-24 — the matched-budget control, pre-registered before its first number (cloud session)
 
-*Written at 15:05 UTC on 2026-09-24, while `--rfly-rollouts 3` is in flight on 42/7/99 and before
+*Written at 15:03 UTC on 2026-09-24, while `--rfly-rollouts 3` is in flight on 42/7/99 and before
 any of its seeds has finished. Linux build of `681acb9` (gcc -O2 -ffp-contract=off), gated:
 TERMINAL ×200 byte-identical to `runs/n0main_terminal.txt`; the 1/32 teacher on s42 ×60 lands
 60/60 here, matching E6's receipt for that seed.*
@@ -136,3 +136,33 @@ picked slot 1 in 26 confirms; with the elite kept, 2/2 landed.
 - **R3 < 150** — proposals matter at this budget; De − R3 is the measurement, and plain D vs De
   separates the critic from the missing floor.
 - R2, R5, R9 map the rest of the curve; no read is attached to them in advance.
+
+### The critic arms, pre-registered 15:10 UTC — before the critic exists and before R3 has landed
+
+The Windows farm and `critic_v0c.w` never reached git, so the critic is rebuilt here from the v0c
+recipe: the same six farm seeds (7700/7701/7708/7709/7716/7717 ×60, 1/32 teacher + the 41-step
+designed set, `runs/e8_cand_farm.sh`), `e8_train_critic.py --epochs 15 --hidden 256 --batch 32
+--pair_weight 4.0 --seed 0` (v0b's 4,005 steps = 267 steps/epoch × 15). Call it **c0**: v0c-class,
+not v0c — same rows if the plant is bit-identical across platforms (TERMINAL and the s42 teacher
+say it is so far), a different torch build. Each arm flown ONCE on 42/7/99 ×60, blind + event
+replan, the critic's CEM at 1/32, per-draw csv receipts for paired reads:
+
+| arm | flags | plant rollouts per replan | its control |
+|---|---|---|---|
+| **B** | critic alone | 0 | — (v0c flew 80/180) |
+| **D** | `--rfly-critic-confirm 2 --rfly-critic-confirm-every` | 3 slots, ~2 distinct, no elite floor | R3 |
+| **De** | D + `--rfly-critic-confirm-elite` | 3: the carried elite + the critic's top 2 distinct | **R3** |
+| **De1** | `--rfly-critic-confirm 1 --rfly-critic-confirm-every --rfly-critic-confirm-elite` | 2: the elite + the critic's top 1 | **R2** |
+
+**Reads:**
+- **B** is the reproduction check: **60–100/180** ⇒ c0 stands in for v0c; outside that, the other
+  arms are c0's numbers, not a verdict on v0c.
+- **The critic's worth as a proposer is De − R3 and De1 − R2**, on the same 180 faults, read with
+  the per-draw flips: **≥ +5 draws, flips ≥ 2:1 in the critic's favour** ⇒ its proposals beat random
+  ones at that budget; **within ±4** ⇒ no measurable proposer value; **≤ −5** ⇒ it steers the
+  population somewhere worse than chance does.
+- **De − D ≥ 5** ⇒ the missing elite floor was costing plain arm D, and any Windows arm-D number is
+  a floor-less number and must be read that way.
+- Stated before the number: **De ≈ R3 ± 4, and D < De.** Offline, v0c ranked below keep-the-elite
+  (top-1 0.148 vs 0.354), so its preference among seven sampler draws should carry little the
+  plant's own pick of three does not already get.
