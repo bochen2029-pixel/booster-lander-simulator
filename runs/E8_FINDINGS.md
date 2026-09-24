@@ -137,7 +137,7 @@ picked slot 1 in 26 confirms; with the elite kept, 2/2 landed.
   separates the critic from the missing floor.
 - R2, R5, R9 map the rest of the curve; no read is attached to them in advance.
 
-### The critic arms, pre-registered 15:10 UTC — before the critic exists and before R3 has landed
+### The critic arms, pre-registered 15:08 UTC — before the critic exists and before R3 has landed
 
 The Windows farm and `critic_v0c.w` never reached git, so the critic is rebuilt here from the v0c
 recipe: the same six farm seeds (7700/7701/7708/7709/7716/7717 ×60, 1/32 teacher + the 41-step
@@ -166,3 +166,16 @@ replan, the critic's CEM at 1/32, per-draw csv receipts for paired reads:
 - Stated before the number: **De ≈ R3 ± 4, and D < De.** Offline, v0c ranked below keep-the-elite
   (top-1 0.148 vs 0.354), so its preference among seven sampler draws should carry little the
   plant's own pick of three does not already get.
+
+### R3 LANDED (15:11 UTC): **142/180 = 78.9 %**, 1 PERFECT — the read is the "R3 < 150" branch
+
+| `--rfly-rollouts 3` | s42 | s7 | s99 | total | PERFECT | crashes (off-pad / too-hard / fuel-out / other) | LOC |
+|---|---|---|---|---|---|---|---|
+| elite + 2 sampler draws, one generation | 51 | 43 | 48 | **142/180** | 1 | 19 / 10 / 2 / 7 | 6 |
+
+~11.4 s/flight on one core. **Three rollouts with nothing choosing them already beat every
+network-driven arm on record** (v0c B 80, C 77; E4/E5 129; the constant 121) — and sit **37 draws
+under** the 16-rollout, two-generation search (E6: 179). So the budget between 3 and 16 rollouts is
+worth most of the battery, and a proposer has real room to show itself: **De − R3 is a live
+measurement**, not a ceiling artefact. The PERFECT count (1 vs E6's 24) says precision is bought by
+search width, the same finding D-054 made at the top of the budget curve.
