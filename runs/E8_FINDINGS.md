@@ -495,3 +495,15 @@ rather than B; and a critic whose training cost weights the miss, to stop it tra
   than random ones (DeE's median miss 4.16 m = rich_event's 4.24 m), and without the event search it
   lands the widest of any arm (De 6.43 m). A critic that is to replace the precision job must be
   trained on a cost that rewards the miss, not only the landing.
+
+### R9 (20:34 UTC): 176/180, 10 PERFECT — the random curve, complete
+
+| rollouts / replan | 1 | 2 | 3 | 5 | 9 | 16 (two generations) |
+|---|---|---|---|---|---|---|
+| random proposals | 28 | 111 | 142 | 161 | **176** (58/58/60) | 179 (E6) |
+| ~rollouts / flight | 14 | 28 | 42 | 71 | 128 | 227 |
+
+- **R9 vs R5: +15, flips 17:2, p = 7e-4.** R9 vs rich_event: +1, flips 4:3, p = 1 — **rich_event gets R9's
+  landings at about half its rollouts (68 vs 128)** by spending them at the events.
+- R9 vs De: +6, flips 10:4, p = 0.18, at three times De's rollouts; R9's miss is half De's (3.6 vs
+  7.2 m on common landings; R9 median 2.8 m, PERFECT 10).
