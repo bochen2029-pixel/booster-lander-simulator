@@ -1,3 +1,4 @@
-s42 R3b DIFFERS from R3
-s7 R3b DIFFERS from R3
-s99 R3b DIFFERS from R3
+R3b (R3 re-flown with --out csv receipts) vs R3, per seed:
+  stdout: identical except the one line --out adds ('  wrote <path>.csv')
+  stderr: byte-identical (every replan's pick and all ten gains; 850/855/838 replans for s42/s7/s99)
+The first check in this file compared raw stdout and printed DIFFERS for the extra line; superseded.
