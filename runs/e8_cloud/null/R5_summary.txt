@@ -1,0 +1,6 @@
+E8 FLY R5 exe=$SP/bin/booster-core.e12 flags=[--rfly-rollouts 5] started 2026-09-24 19:14:20
+  arm R5 seed 42 : LANDED: 54/60 = 90.0%  (Wilson95: 79.9..95.3%) | PERFECT 3  GOOD 34  HARD 17  TIPPED 0  CRASHED 6 | 1942 s wall
+  arm R5 seed 7 : LANDED: 52/60 = 86.7%  (Wilson95: 75.8..93.1%) | PERFECT 1  GOOD 31  HARD 20  TIPPED 0  CRASHED 8 | 1970 s wall
+  arm R5 seed 99 : LANDED: 55/60 = 91.7%  (Wilson95: 81.9..96.4%) | PERFECT 1  GOOD 42  HARD 12  TIPPED 0  CRASHED 5 | 1897 s wall
+==== arm R5 TOTAL: 161/180  PERFECT 5 ====
+R5-FLY-DONE 2026-09-24 19:47:10

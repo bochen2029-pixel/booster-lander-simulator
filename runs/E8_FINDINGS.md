@@ -427,3 +427,20 @@ for De (42).**
   proposals are doing real work.
 - Stated before the number: **168–175** — after the cutoff event there is no fault left to react
   to, so what the periodic replans correct is turbulence and nav drift over the last ~100 s.
+
+### R5 (19:47 UTC): 161/180 — two critic-chosen candidates are worth five random ones
+
+| rollouts / replan | random (R) | c0 proposes (De1, De) |
+|---|---|---|
+| 2 | 111 | **159** |
+| 3 | 142 | **170** |
+| 5 | **161** (s42 54, s7 52, s99 55; PERFECT 5) | — |
+
+- **R5 vs R3: +19, flips 26:7, p = 0.0013** — the random curve is still climbing steeply at five.
+- **De1 (2 rollouts) vs R5 (5 rollouts): −2, flips 16:18, p = 0.86** — indistinguishable. **A critic
+  pick is worth about 2.5 random rollouts at this end of the curve.**
+- **De (3) vs R5 (5): +9, flips 18:9, p = 0.12** — ahead, not yet separable.
+- **The precision cost is systematic:** on common landings the critic arms land wider than the
+  random ones at every pairing (De1 8.9 vs R5 5.1 m; De 7.5 vs 5.0 m). c0 was trained to rank a
+  cost that folds landing, touchdown speed and miss together, and in flight it buys the landing
+  and gives back the miss.
