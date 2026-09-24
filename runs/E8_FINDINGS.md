@@ -471,3 +471,27 @@ rollouts (De1 = R5) and gives the best landed rate per rollout on record at the 
 engine-count changes, it adds nothing (DeE = rich_event). The next rungs, in order of what they
 could change: `critic_v1` (all 24 farm seeds) flown as De; phase-1.5 rounds flown and scored as De
 rather than B; and a critic whose training cost weights the miss, to stop it trading precision.
+
+### rich_periodic (20:03 UTC): 167/180 with 18 PERFECT — the decomposition closes: events buy landings, periodic width buys precision
+
+| arm | R3 at | 16-rollout search at | ~rollouts/flight | landed | PERFECT | median miss | median td_v |
+|---|---|---|---|---|---|---|---|
+| R3 | everywhere | — | 42 | 142 | 1 | 5.50 m | 3.64 m/s |
+| event_only | (hold the plan at t0 + periodic) | events | 44 | 164 | 1 | 6.99 m | 3.72 m/s |
+| rich_event | t0, periodic | events | 68 | 175 | 3 | 4.24 m | 3.25 m/s |
+| rich_t0event | periodic | t0, events | 82 | 174 | 3 | 4.48 m | 3.22 m/s |
+| **rich_periodic** | t0, events | periodic | ~188 | **167** | **18** | **2.04 m** | **2.80 m/s** |
+| R5 | everywhere | — | 71 | 161 | 5 | 4.05 m | 3.13 m/s |
+| De (c0) | — | — | 42 | 170 | 1 | 6.43 m | 3.45 m/s |
+| DeE (c0) | — | events | 68 | 174 | 4 | 4.16 m | 3.20 m/s |
+| the full search (E6) | — | everywhere | 227 | 179 | 24 | — | — |
+
+- **rich_periodic vs R3: +25, flips 27:2, p = 1.6e-6; vs rich_event: −8, flips 4:12, p = 0.077** — with
+  18 PERFECT against rich_event's 3 and half its miss (2.0 vs 4.2 m median).
+- **The search does two separable jobs.** At the two engine-count changes its width buys
+  **survival** (R3 → rich_event: +33, 33:0). At the ~11 periodic replans it buys **precision**
+  (PERFECT 3 → 18, miss 4.2 → 2.0 m) and some survival. Both together are the full search: 179 and 24.
+- **c0 does the survival job, not the precision job.** Its periodic proposals are no more precise
+  than random ones (DeE's median miss 4.16 m = rich_event's 4.24 m), and without the event search it
+  lands the widest of any arm (De 6.43 m). A critic that is to replace the precision job must be
+  trained on a cost that rewards the miss, not only the landing.

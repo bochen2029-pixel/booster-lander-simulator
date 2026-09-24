@@ -1,0 +1,6 @@
+E8 FLY rich_periodic exe=$SP/bin/booster-core.e12 flags=[--rfly-budget 0.03125 --rfly-rollouts 3 --rfly-rollouts-at t0,event] started 2026-09-24 19:14:20
+  arm rich_periodic seed 42 : LANDED: 58/60 = 96.7%  (Wilson95: 88.6..99.1%) | PERFECT 8  GOOD 38  HARD 12  TIPPED 0  CRASHED 2 | 2861 s wall
+  arm rich_periodic seed 7 : LANDED: 53/60 = 88.3%  (Wilson95: 77.8..94.2%) | PERFECT 7  GOOD 38  HARD 8  TIPPED 0  CRASHED 7 | 2916 s wall
+  arm rich_periodic seed 99 : LANDED: 56/60 = 93.3%  (Wilson95: 84.1..97.4%) | PERFECT 3  GOOD 47  HARD 6  TIPPED 0  CRASHED 4 | 2834 s wall
+==== arm rich_periodic TOTAL: 167/180  PERFECT 18 ====
+rich_periodic-FLY-DONE 2026-09-24 20:02:56
