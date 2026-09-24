@@ -387,3 +387,24 @@ rich_event's. **DeE − rich_event is the critic's worth at t0 + periodic with t
 measurable once the events are searched (vs R3: +32, flips 36:4, p = 2e-7). So far the whole
 33-draw gap between R3 and the full search is bought at the **two event replans**; rich_periodic
 (R3 at t0 + events, the search at the ~11 periodic replans) is flying and closes the decomposition.
+
+### DeE (19:34 UTC): 174/180 — once the events are searched, the critic adds nothing
+
+| arm | t0 + periodic replans | the two event replans | s42 | s7 | s99 | total | PERFECT | lateral (common landings) |
+|---|---|---|---|---|---|---|---|---|
+| rich_event | elite + 2 random | 16-rollout search | 60 | 58 | 57 | 175/180 | 3 | 5.0 m |
+| **DeE** | elite + the critic's top 2 | 16-rollout search | 59 | 57 | 58 | **174/180** | 4 | 5.5 m |
+| De | elite + the critic's top 2 | elite + the critic's top 2 | 60 | 56 | 54 | 170/180 | 1 | 7.4 m (vs DeE 5.4) |
+
+**DeE vs rich_event: −1, flips 5:6, p = 1** — the pre-registered **within ±3** branch: once the two
+event replans get the search, **the critic's +28 (De vs R3) is absorbed; the no-network rich_event
+is the design at this budget.** Lateral 5.5 vs 5.0 m, no better, as stated in advance; the level
+(174) sat two draws under my stated 176–179. DeE vs De: +4, flips 8:4, p = 0.39, with lateral
+7.4 → 5.4 m — searching the events buys precision more clearly than it buys landings.
+
+**So the critic's value is a statement about scarcity:** at three rollouts everywhere it is worth 28
+draws; when the event replans can afford the search, it is worth nothing measurable. Where that
+leaves it depends on one question the decomposition has not asked yet — **what do the ~11
+periodic replans need at all once the events are searched?** If "keep the plan between events"
+lands where rich_event does, the equal-cost comparison for De (42 rollouts per flight) is a
+no-network arm at ~45.
