@@ -105,3 +105,34 @@ little* — which is essentially what the 1/32 search already is. Measured direc
 - **< 100** → the one-shot cost critic cannot capture the rollout → terminal-state head (§3).
 - **New:** if **arm C ≥ arm B + a few draws**, confirm-at-events is doing the work the diagnostic
   predicts, and the deployable object is critic-proposes / plant-confirms, not the critic alone.
+
+## 2026-09-24 — the matched-budget control, pre-registered before its first number (cloud session)
+
+*Written at 15:05 UTC on 2026-09-24, while `--rfly-rollouts 3` is in flight on 42/7/99 and before
+any of its seeds has finished. Linux build of `681acb9` (gcc -O2 -ffp-contract=off), gated:
+TERMINAL ×200 byte-identical to `runs/n0main_terminal.txt`; the 1/32 teacher on s42 ×60 lands
+60/60 here, matching E6's receipt for that seed.*
+
+**What arm D's pre-registration left out.** "≈179 ⇒ the critic earned a ~5× compute cut; ≈80 ⇒ its
+proposals are worthless" has no row for *what three rollouts buy with a proposer that knows
+nothing*. Every budget point on record is ≥16 rollouts per replan (the `--rfly-budget` floors POP 8
+× ITERS 2). `--rfly-rollouts R` flies exactly R per replan: the carried elite plus R−1 sampler
+draws, one generation, the plant keeps the best.
+
+**And the floor arm D assumes is not in its code.** Its confirm set is {critic's global best, the
+last iteration's top 2}; the carried elite is in it only when the critic ranks it first, and slot 1
+duplicates slot 0 whenever the last iteration's best is the global best. `--rfly-critic-confirm-elite`
+keeps the incoming solution in slot 0 unconditionally and fills 1..K with the critic's best
+*distinct* candidates. Smoke (random critic, s42 ×2): plain confirm-every crashed 2/2 and never
+picked slot 1 in 26 confirms; with the elite kept, 2/2 landed.
+
+**Reads, fixed now:**
+- **R3 ≥ 175/180** — three rollouts with random proposals already fly within ~4 draws of the
+  16-rollout search. Arm D's "≈179" branch then cannot distinguish a useful critic from a useless
+  one, the "~5× compute cut" needs no network, and the critic-as-proposer question moves to R = 2
+  (the elite + one proposal), where the control has room below it.
+- **150 ≤ R3 < 175** — the room exists. The critic's value as a proposer is **De − R3** on the same
+  180 faults (De = confirm-every + confirm-elite, K = 2, three rollouts); ≤ +2 draws is nothing.
+- **R3 < 150** — proposals matter at this budget; De − R3 is the measurement, and plain D vs De
+  separates the critic from the missing floor.
+- R2, R5, R9 map the rest of the curve; no read is attached to them in advance.
