@@ -197,3 +197,14 @@ has a large target, and De1 − R2 is measured on the steepest part of the curve
 **Determinism receipt (R3b = R3 re-flown with `--out`):** stdout identical but for the `wrote <csv>`
 line `--out` adds; **stderr — every replan's pick and all ten gains, ~2,540 lines — byte-identical**
 on all three seeds.
+
+### Gate: De with a critic that knows nothing IS R3, to the replan (15:35 UTC)
+
+A constant critic (all weights zero, so every candidate scores the same) under De's flags
+(`--rfly-critic-confirm 2 --rfly-critic-confirm-every --rfly-critic-confirm-elite`): ties go to the
+lowest index, slot 0 of iteration 0 is the elite (skipped as a duplicate), so the proposals are
+draws 1 and 2 of iteration 0 — the same normals, from the same per-replan seed, that R3 draws. On
+s42 ×10: **per-draw csv byte-identical to R3's first ten rows, and the committed gains identical at
+all 143 replans.** So De and R3 are one code path that differs only in the ranking the critic
+supplies: **De − R3 is the critic's information and nothing else** — not a budget difference, not
+a sampler difference, not the confirm mechanics.
