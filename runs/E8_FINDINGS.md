@@ -209,7 +209,7 @@ all 143 replans.** So De and R3 are one code path that differs only in the ranki
 supplies: **De − R3 is the critic's information and nothing else** — not a budget difference, not
 a sampler difference, not the confirm mechanics.
 
-### Where does the width pay? Three decomposition arms, pre-registered 15:50 UTC, before any flies
+### Where does the width pay? Three decomposition arms, pre-registered 15:37 UTC, before any flies
 
 `--rfly-rollouts 3 --rfly-rollouts-at LIST` puts R3 at the listed replan kinds and the 1/32 search
 (16 rollouts, two generations) at the rest. The corners are measured: R3 everywhere 142, 16
