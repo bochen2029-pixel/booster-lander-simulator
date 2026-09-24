@@ -345,7 +345,7 @@ the confirm must carry the carried elite, and it must run at every replan, not o
   rollouts suffice — but arm C gave them none: B (critic alone) is 82. The damage was at the
   periodic replans, as E8 read, but the fix is three rollouts there, not a better critic.
 - My stated expectation (160–175) held, at its top edge.
-- **Correction (19:20 UTC), and it applies to the pre-registration's flight sketch above:** a flight has
+- **Correction (19:13 UTC), and it applies to the pre-registration's flight sketch above:** a flight has
   **two** event replans, not one. `--rfly-event-replan` fires on ANY change in the sensed engine
   count, so both the fault (t ∈ [4, 18] s) and the entry-burn cutoff (~t = 31 s) are events. Measured
   from the stderr of all 180 draws of R3, rich_event and De: 1 t0 + ~11.2 periodic + 2.0 events, the
@@ -357,7 +357,7 @@ the confirm must carry the carried elite, and it must run at every replan, not o
 16-rollout search at the event — the critic's +28 over random where it is worth something, the
 search's width where it pays. rich_t0event and rich_periodic are flying.
 
-### DeE, pre-registered 19:23 UTC before it flies: the critic where rollouts are scarce, the search where width pays
+### DeE, pre-registered 19:14 UTC (commit a6e7df2), before it flies: the critic where rollouts are scarce, the search where width pays
 
 `--rfly-critic-event-search` (gated: off byte-identical on the De path; on, the two event replans
 per flight run the plant's 1/32 search and every other replan stays critic-proposed): **DeE = De's
