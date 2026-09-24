@@ -255,3 +255,37 @@ critic's pick of 1 draw out of 7 lands **+2.3 points** more often than a random 
 0.907), its top 2 **+1.5** (0.934 vs 0.919). Small per replan — but R2 → R3 was only +1.2 points
 per replan offline and **+31 draws in flight**; the flights decide. Notably, the critic's single
 pick (0.931) out-lands two random draws (0.919) per replan.
+
+## RESULT (18:44 UTC): **De = 170/180 — the critic IS a proposer.** Plain arm D = 137/180.
+
+| arm (c0, blind, event replan, 42/7/99 ×60) | s42 | s7 | s99 | total | PERFECT | crashes: off-pad / too-hard / other | LOC |
+|---|---|---|---|---|---|---|---|
+| **De**: carried elite + the critic's top 2 distinct, plant confirms every replan (3 rollouts) | 60 | 56 | 54 | **170/180** | 1 | 7 / 3 / 0 | 0 |
+| **D**: the 09-23 design, {critic best, last iter top 2} (3 slots) | 40 | 49 | 48 | **137/180** | 0 | 24 / 12 / 7 | 3 |
+| R3: elite + 2 random draws (3 rollouts) — the matched control | 51 | 43 | 48 | 142/180 | 1 | 19 / 10 / 7 | 6 |
+| the 16-rollout search (E6) | 60 | 59 | 60 | 179/180 | 24 | — | — |
+
+**Paired, same 180 faults (`runs/e8_paired.py`):**
+- **De vs R3: +28 draws — 36 flips to De, 8 to R3, sign test p = 2.5e-5.** Pre-registered read
+  (≥ +5 and flips ≥ 2:1) **met, decisively: the critic's ranking picks better candidates than chance.**
+- **De vs D: +33 draws — 38 to 5, p = 2.5e-7.** Pre-registered read (De − D ≥ 5) **met: the missing
+  elite floor cost plain arm D a fifth of the battery.** Any arm-D number flown on the Windows box
+  is a floor-less number.
+- **D vs R3: −5, p = 0.63** — the 09-23 arm D is indistinguishable from random proposals. Had it
+  been read alone against its own pre-registration (≈179 useful / ≈80 worthless), 137 would have
+  sat between the branches and said nothing; against the matched control it says the design, not
+  the critic, was the limit.
+
+**My stated expectation was wrong.** I wrote "De ≈ R3 ± 4" because c0 ranks below keep-the-elite
+on top-1 (0.148 vs ~0.35–0.49). Top-1 was the wrong lens: a proposer does not need to name the
+single best candidate, only to put a lander among the two the plant checks, and at that it is far
+better than chance. The offline proxy said the same thing in miniature (+1.5 points per replan),
+and it compounded over ~14 replans into 28 draws, as R2 → R3 had (+1.2 points → +31 draws).
+
+**What De is:** 170/180 at **~42 plant rollouts per flight against the search's ~224 (5.3×
+fewer), within 9 draws of it.** It buys survival, not precision: PERFECT 1 (the search: 24) and a
+mean lateral miss on the draws both land of 7.6 m (R3 6.3 m). The residual is off-pad 7 /
+too-hard 3, with zero LOC. The 09-15 roadmap's deployment bar was "within two draws of the cold
+search"; De is not there (−9), and the v1 critic, phase-1.5 correction rounds, and K or budget
+changes are the levers that remain. **Arms B (c0 alone — the v0c reproduction check) and De1
+(elite + the critic's top 1, vs R2) are flying.**

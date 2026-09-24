@@ -1,0 +1,6 @@
+E8 FLY D exe=$SP/bin/booster-core.e11 flags=[--rfly-budget 0.03125 --rfly-critic $SP/chain/critic_c0.w --rfly-critic-confirm 2 --rfly-critic-confirm-every] started 2026-09-24 18:33:57
+  arm D seed 42 : LANDED: 40/60 = 66.7%  (Wilson95: 54.1..77.3%) | PERFECT 0  GOOD 14  HARD 26  TIPPED 0  CRASHED 20 | 617 s wall
+  arm D seed 7 : LANDED: 49/60 = 81.7%  (Wilson95: 70.1..89.4%) | PERFECT 0  GOOD 23  HARD 26  TIPPED 0  CRASHED 11 | 644 s wall
+  arm D seed 99 : LANDED: 48/60 = 80.0%  (Wilson95: 68.2..88.2%) | PERFECT 0  GOOD 24  HARD 24  TIPPED 0  CRASHED 12 | 611 s wall
+==== arm D TOTAL: 137/180  PERFECT 0 ====
+D-FLY-DONE 2026-09-24 18:44:41
