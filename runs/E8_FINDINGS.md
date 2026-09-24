@@ -408,3 +408,22 @@ leaves it depends on one question the decomposition has not asked yet — **what
 periodic replans need at all once the events are searched?** If "keep the plan between events"
 lands where rich_event does, the equal-cost comparison for De (42 rollouts per flight) is a
 no-network arm at ~45.
+
+### event_only, pre-registered 19:36 UTC before it flies: do the periodic replans need anything?
+
+`--rfly-budget 0.03125 --rfly-rollouts 1 --rfly-rollouts-at t0,periodic`: at t0 and every periodic
+replan the plant rolls out only the carried elite and keeps it (the plan never moves off identity
+until the first event); at the two event replans, the 16-rollout search. ~44 rollouts per flight,
+of which only the ~32 at the events can change anything — **the no-network, equal-cost comparison
+for De (42).**
+
+**Reads:**
+- **event_only ≥ 172** (within ~3 of rich_event) ⇒ the periodic replans are unnecessary once the
+  events are searched: plant judgment is needed at the two engine-count changes and nowhere else, a
+  ~7× cut in useful rollouts (32 vs 227), and **De's 170 is matched without a network at equal
+  cost** — the critic's proposer value then exists only in a design that does not search its events.
+- **event_only ≤ 165** ⇒ the periodic replans carry ≥ 10 draws even with the events searched; three
+  random rollouts there (rich_event) or the critic's two (DeE) are buying them, and De's periodic
+  proposals are doing real work.
+- Stated before the number: **168–175** — after the cutoff event there is no fault left to react
+  to, so what the periodic replans correct is turbulence and nav drift over the last ~100 s.
