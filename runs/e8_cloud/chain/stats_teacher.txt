@@ -1,0 +1,7 @@
+files 6  replan groups 5048  (t=0 solves 360)
+  elite + 0 draws (1 rollouts): P(pick lands) random 0.885
+  elite + 1 draws (2 rollouts): P(pick lands) random 0.898
+  elite + 2 draws (3 rollouts): P(pick lands) random 0.908
+  elite + 4 draws (5 rollouts): P(pick lands) random 0.922
+  elite + 7 draws (8 rollouts): P(pick lands) random 0.937
+  teacher (both iterations, 16 rollouts): P(pick lands) 0.960   P(pick == carried elite) 0.493

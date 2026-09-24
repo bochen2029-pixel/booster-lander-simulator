@@ -233,3 +233,25 @@ fault, one event replan, and ~11 periodic replans after it.
 - Stated before the numbers: **the event carries most of it** (D-052: the event replan alone was
   worth +19 draws of 180 at full budget; the stderr of s42 run 0 shows the 16-rollout event solve
   committing a plan of cost 1303 where R3 settles for 4564) — **rich_event ≈ 160–175.**
+
+### The farm and c0 (18:34 UTC): the cloud reproduces v0c to the third decimal
+
+**Farm** (`runs/e8_cand_farm.sh`, 6 seeds in parallel, 217 min on 4 cores): the teacher landed
+57–60/60 per seed (353/360); **288,420 rows, 10,108 groups, 360 runs** (`runs/e8_cloud/farm/`,
+sha256 of every `.cand` recorded). Per replan (`stats_teacher.txt`, 5,048 replans): the carried
+elite's rollout lands 0.885, elite + 2 draws 0.908, the teacher's pick 0.960 and equals the elite
+0.493 of the time.
+
+**c0** (`e8_train_critic.py --epochs 15 --hidden 256 --batch 32 --pair_weight 4.0 --seed 0`):
+**267 steps/epoch × 15 = 4,005 steps — v0b/v0c's exact count** — and the best checkpoint (epoch 10)
+scores **VAL top-1 0.148, regret median 1.42, P(pick lands | best lands) 0.736: v0c's three
+figures exactly**; the last epoch's regret p90 is 17.66 (v0c: 17.6). Same rows, same split, same
+seed, same schedule, a different torch build on a different OS — and the same critic to three
+decimals. **c0 stands in for v0c**; arm B is the check that it also flies the same (80/180).
+Dead inputs: 9 of 39 observation channels are constant in this corpus (15, 18, 23–29).
+
+**Offline, as a proposer** (`stats_critic.txt`, the trainer's 54 held-out runs, 777 replans): the
+critic's pick of 1 draw out of 7 lands **+2.3 points** more often than a random draw (0.931 vs
+0.907), its top 2 **+1.5** (0.934 vs 0.919). Small per replan — but R2 → R3 was only +1.2 points
+per replan offline and **+31 draws in flight**; the flights decide. Notably, the critic's single
+pick (0.931) out-lands two random draws (0.919) per replan.

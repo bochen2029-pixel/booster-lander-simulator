@@ -1,0 +1,8 @@
+critic $SP/chain/critic_c0.w: scoring 777 replans of 54 held-out runs
+files 6  replan groups 777  (t=0 solves 54)
+  elite + 0 draws (1 rollouts): P(pick lands) random 0.892
+  elite + 1 draws (2 rollouts): P(pick lands) random 0.907   critic-proposed 0.931   (critic - random +2.3 pts)
+  elite + 2 draws (3 rollouts): P(pick lands) random 0.919   critic-proposed 0.934   (critic - random +1.5 pts)
+  elite + 4 draws (5 rollouts): P(pick lands) random 0.936   critic-proposed 0.947   (critic - random +1.1 pts)
+  elite + 7 draws (8 rollouts): P(pick lands) random 0.951
+  teacher (both iterations, 16 rollouts): P(pick lands) 0.969   P(pick == carried elite) 0.493
