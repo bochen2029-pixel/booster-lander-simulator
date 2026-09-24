@@ -165,6 +165,8 @@ extern double g_rfly_budget, g_rfly_pop_scale, g_rfly_iters_scale;   /* defined 
 int g_rfly_critic_on = 0;
 int g_rfly_critic_confirm = 0;   /* E8 phase 2: --rfly-critic-confirm K (see header) */
 int g_rfly_critic_confirm_every = 0;   /* E8: confirm at every replan, not only events; default off */
+int g_rfly_critic_confirm_elite = 0;   /* E8: the confirm set always carries the incoming elite (see header) */
+int g_rfly_rollouts = 0;               /* E8: --rfly-rollouts R, the critic-free matched-budget control (see header) */
 static int    cr_nh = 0;
 static double cr_mu[RFLY_CRITIC_NIN], cr_sd[RFLY_CRITIC_NIN];
 static double cr_w1[RFLY_CRITIC_MAXH][RFLY_CRITIC_NIN], cr_b1[RFLY_CRITIC_MAXH];
@@ -227,12 +229,18 @@ void rfly_replan_critic(Sim* s, int big){
     int*    idx =(int*)malloc((size_t)POP*sizeof(int));
     int ELITE=POP/8; if(ELITE<2)ELITE=2;
     double gbest=1e300; double gtheta[RFLY_N_THETA]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=mean[i];
+    /* --rfly-critic-confirm-elite: keep every scored candidate so the confirm set can take the
+     * critic's best DISTINCT proposals from all iterations, not only the last one. */
+    double* allc = g_rfly_critic_confirm_elite ? (double*)malloc((size_t)POP*ITERS*RFLY_N_THETA*sizeof(double)) : NULL;
+    double* allk = g_rfly_critic_confirm_elite ? (double*)malloc((size_t)POP*ITERS*sizeof(double)) : NULL;
     for(int it=0; it<ITERS; it++){
         for(int p=0;p<POP;p++)
             for(int i=0;i<RFLY_N_THETA;i++)
                 cand[p*RFLY_N_THETA+i]=rclampd(mean[i]+sd[i]*rf_nrand(), RT_LO[i], RT_HI[i]);
         for(int i=0;i<RFLY_N_THETA;i++) cand[i]=gtheta[i];
         for(int p=0;p<POP;p++) cost[p]=rfly_critic_eval(rf->obs39, mean, &cand[p*RFLY_N_THETA]);   /* E8: full obs + this iteration's mean */
+        if(allc){ memcpy(&allc[(size_t)it*POP*RFLY_N_THETA], cand, (size_t)POP*RFLY_N_THETA*sizeof(double));
+                  memcpy(&allk[(size_t)it*POP], cost, (size_t)POP*sizeof(double)); }
         /* E8 phase 1.5 — EXPERT ITERATION FOR THE CRITIC. With --rfly-cand-log also armed, every
          * candidate the critic's search proposes is ALSO rolled out on the plant and logged with the
          * plant's cost as the label (designed=2). The search keeps using the critic's scores — no
@@ -266,20 +274,41 @@ void rfly_replan_critic(Sim* s, int big){
      * plant the judge everywhere: K+1 rollouts per replan against the cold search's 16. */
     if(g_rfly_critic_confirm > 0 && (rf->replan_is_event || g_rfly_critic_confirm_every)){
         int K = g_rfly_critic_confirm; if(K > ELITE) K = ELITE;
-        const int NC = K + 1;
+        int NC = K + 1;
         double* cc=(double*)malloc((size_t)NC*RFLY_N_THETA*sizeof(double));
         double* pc=(double*)malloc((size_t)NC*sizeof(double));
-        for(int i=0;i<RFLY_N_THETA;i++) cc[i]=gtheta[i];
-        for(int k=0;k<K;k++) for(int i=0;i<RFLY_N_THETA;i++) cc[(k+1)*RFLY_N_THETA+i]=cand[idx[k]*RFLY_N_THETA+i];
+        if(allc){
+            /* --rfly-critic-confirm-elite: slot 0 = the INCOMING solution (rf->th is untouched until
+             * the commit below), slots 1..K = the critic's best-scored candidates that differ from
+             * every slot already taken. Ties go to the lower index, so the pick is deterministic. */
+            for(int i=0;i<RFLY_N_THETA;i++) cc[i]=rf->th[i];
+            NC = 1;
+            char* used=(char*)calloc((size_t)POP*ITERS, 1);
+            while(NC < K + 1){
+                int m=-1;
+                for(int a=0;a<POP*ITERS;a++) if(!used[a] && (m<0 || allk[a]<allk[m])) m=a;
+                if(m<0) break;
+                used[m]=1;
+                int dup=0;
+                for(int q2=0;q2<NC && !dup;q2++) dup = !memcmp(&allc[(size_t)m*RFLY_N_THETA], &cc[q2*RFLY_N_THETA], RFLY_N_THETA*sizeof(double));
+                if(!dup){ memcpy(&cc[NC*RFLY_N_THETA], &allc[(size_t)m*RFLY_N_THETA], RFLY_N_THETA*sizeof(double)); NC++; }
+            }
+            free(used);
+        } else {
+            for(int i=0;i<RFLY_N_THETA;i++) cc[i]=gtheta[i];
+            for(int k=0;k<K;k++) for(int i=0;i<RFLY_N_THETA;i++) cc[(k+1)*RFLY_N_THETA+i]=cand[idx[k]*RFLY_N_THETA+i];
+        }
         double t_horizon = s->st.t + 160.0; if(t_horizon < 210.0) t_horizon = 210.0;
         int q;
         #pragma omp parallel for schedule(dynamic)
         for(q=0;q<NC;q++) pc[q]=rfly_eval_candidate_ex(s, &cc[q*RFLY_N_THETA], t_horizon, NULL);
         int best=0; for(int q2=1;q2<NC;q2++) if(pc[q2]<pc[best]) best=q2;
         for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=cc[best*RFLY_N_THETA+i];
-        fprintf(stderr, "  [rfly_confirm t=%.1f] plant picked %d of %d (0 = critic's best): plant cost %.1f\n", s->st.t, best, NC, pc[best]);
+        if(allc) fprintf(stderr, "  [rfly_confirm t=%.1f] plant picked %d of %d (0 = carried elite): plant cost %.1f\n", s->st.t, best, NC, pc[best]);
+        else     fprintf(stderr, "  [rfly_confirm t=%.1f] plant picked %d of %d (0 = critic's best): plant cost %.1f\n", s->st.t, best, NC, pc[best]);
         free(cc); free(pc);
     }
+    free(allc); free(allk);
     for(int i=0;i<RFLY_N_THETA;i++) rf->th[i]=gtheta[i];
     fprintf(stderr, "  [rfly_critic t=%.1f big=%d] predicted log-cost %.3f | EKR=%.2f EKV=%.2f EBANK=%.2f ADEC=%.2f TLD=%.2f KDIV=%.2f KVN=%.2f IGN=%.2f TGL=%.2f KV=%.2f\n",
             s->st.t, big, gbest, gtheta[0], gtheta[1], gtheta[2], gtheta[3], gtheta[4], gtheta[5], gtheta[6], gtheta[7], gtheta[8], gtheta[9]);
@@ -479,6 +508,13 @@ void rfly_replan(Sim* s, int big){
                 g_rfly_budget, g_rfly_pop_scale, g_rfly_iters_scale, POPb, ITERSb, POPb*ITERSb, POPs, ITERSs, POPs*ITERSs);
         g_rfly_scale_logged = 1;
     }
+    /* E8 control: --rfly-rollouts R — exactly R plant rollouts per replan, one generation (slot 0 =
+     * the carried elite, 1..R-1 = sampler draws). Overrides the budget floors; 0 => never runs. */
+    if(g_rfly_rollouts > 0){
+        POP = g_rfly_rollouts; ITERS = 1;
+        static int logged = 0;
+        if(!logged){ fprintf(stderr, "  [rfly_rollouts] R=%d per replan: the carried elite + %d sampler draws, one generation, the plant keeps the best\n", POP, POP-1); logged = 1; }
+    }
     double sd_scale = big ? 1.0 : 0.35;
     double t_horizon = s->st.t + 160.0;              /* the reactive descent is ~117-140 s */
     if(t_horizon < 210.0) t_horizon = 210.0;
@@ -496,7 +532,7 @@ void rfly_replan(Sim* s, int big){
     double* cand=(double*)malloc((size_t)POP*RFLY_N_THETA*sizeof(double));
     double* cost=(double*)malloc((size_t)POP*sizeof(double));
     int*    idx =(int*)malloc((size_t)POP*sizeof(int));
-    int ELITE=POP/8; if(ELITE<2)ELITE=2;
+    int ELITE=POP/8; if(ELITE<2)ELITE=2; if(ELITE>POP)ELITE=POP;   /* the last clause only bites at --rfly-rollouts 1 */
     double gbest=1e300; double gtheta[RFLY_N_THETA]; for(int i=0;i<RFLY_N_THETA;i++) gtheta[i]=mean[i];
 
     for(int it=0; it<ITERS; it++){

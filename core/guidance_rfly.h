@@ -128,6 +128,23 @@ extern int g_rfly_critic_confirm;
 /* E8: --rfly-critic-confirm-every — apply the confirm at EVERY replan (the critic proposes its
  * top K, the plant judges K+1 rollouts, everywhere), not only at events. Default 0 => byte-identical. */
 extern int g_rfly_critic_confirm_every;
+/* E8 (2026-09-24): --rfly-critic-confirm-elite — the confirm set carries the INCOMING solution (the
+ * carried elite, rf->th on entry) unconditionally, plus the critic's top K DISTINCT candidates over
+ * every iteration it scored. The plain confirm set is {critic's global best, the LAST iteration's
+ * top K}: it keeps the carried elite only when the critic happens to rank it best, so "a useless
+ * critic falls back to the elite" does not hold for it, and it rolls the global best out twice
+ * whenever that is also the last iteration's best (cand[0] is the elite slot). K+1 rollouts, the
+ * same count as --rfly-rollouts K+1. Needs --rfly-critic-confirm K. Default 0 => byte-identical. */
+extern int g_rfly_critic_confirm_elite;
+
+/* E8 (2026-09-24): --rfly-rollouts R — the MATCHED-BUDGET control for every propose/confirm arm.
+ * The plant search evaluates exactly R candidates per replan in ONE generation: slot 0 = the carried
+ * elite, slots 1..R-1 = draws from the replan's own sampler (same stream, same sd). The plant keeps
+ * the best. It is what a proposer that knows nothing buys at R rollouts, so a critic that proposes
+ * K and confirms K+1 must beat --rfly-rollouts K+1 on the same faults before it has earned anything.
+ * The --rfly-budget floors (POP >= 8, ITERS >= 2) are what kept every earlier sweep at >= 16 rollouts.
+ * Plant path only (refused with --rfly-critic). Default 0 => byte-identical. */
+extern int g_rfly_rollouts;
 
 /* E8: --rfly-cand-design — beside the CEM's own population, evaluate a DESIGNED set at every
  * replan and log it: the replan's start mean, plus one-coordinate steps of +-0.5 and +-1.5 sd on
