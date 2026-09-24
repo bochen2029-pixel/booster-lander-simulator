@@ -1,0 +1,6 @@
+E8 FLY T16 exe=$SP/bin/booster-core.e12 flags=[--rfly-budget 0.03125] started 2026-09-24 20:02:56
+  arm T16 seed 42 : LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%) | PERFECT 9  GOOD 45  HARD 6  TIPPED 0  CRASHED 0 | 2742 s wall
+  arm T16 seed 7 : LANDED: 59/60 = 98.3%  (Wilson95: 91.1..99.7%) | PERFECT 5  GOOD 46  HARD 8  TIPPED 0  CRASHED 1 | 2824 s wall
+  arm T16 seed 99 : LANDED: 60/60 = 100.0%  (Wilson95: 94.0..100.0%) | PERFECT 10  GOOD 39  HARD 11  TIPPED 0  CRASHED 0 | 2704 s wall
+==== arm T16 TOTAL: 179/180  PERFECT 24 ====
+T16-FLY-DONE 2026-09-24 20:50:00

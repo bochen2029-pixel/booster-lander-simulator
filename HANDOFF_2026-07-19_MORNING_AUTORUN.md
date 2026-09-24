@@ -6,6 +6,23 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-24 ~20:55 UTC [cloud, Linux container] — E8 CONTINUED FROM `53a341d` WITHOUT THE WINDOWS BOX.**
+  Branch `claude/charming-bohr-i4naru` = `e-ladder` merged + this session; main untouched. The Windows
+  farm/critics/chain outputs (`D:\bl_e1_data\e8`) never reached git, so the v0c pipeline was re-run
+  here: `runs/e8_cand_farm.sh` (6 seeds, 217 min on 4 cores) → `critic_c0.w` (committed) = v0c to three
+  decimals. New flags (all default off, byte-identical off, gated two-sided): `--rfly-critic-confirm-elite`,
+  `--rfly-rollouts R` (+ `--rfly-rollouts-at t0,periodic,event`), `--rfly-critic-event-search`.
+  **Results (42/7/99 ×60):** B 82 · D (09-23 design) 137 · **De 170** · De1 159 · DeE 174 · R2 111 · R3 142 ·
+  R5 161 · R9 176 · event_only 164 · rich_event 175 · rich_t0event 174 · rich_periodic 167 (18 PERFECT) ·
+  **T16 179 (60/59/60, 24 PERFECT = E6 exactly)**. Read: the critic is a proposer (≈2.5 random rollouts per
+  pick), not a replacement; arm D's confirm set lacked the elite floor (+33 when fixed); the search's
+  width buys survival at the two engine-count changes and precision at the periodic replans; c0 does
+  only the first. Receipts `runs/e8_cloud/`; every pre-registration committed before its number.
+  **Traps paid for:** `pkill -f` on a pattern in your own command line kills your own shell (use PIDs);
+  a running bash script must be replaced by rename, never edited in place; `--rfly-event-replan` fires
+  on the entry-burn cutoff too (two events per flight, not one — the first rollout accounting was
+  wrong and was corrected in place); write timestamps from `date -u`, never from an estimate.
+  **Next:** `critic_v1` as De/DeE on the Windows box; push its chain + arm-D + D-061/D-062 results.
 - **2026-09-12 ~23:35 [opus5] — D-057 FLYING, D-058 MEASURED, D-059 ON THE WIRE, D-060 CHECKED.**
   Under standing autonomy after the 19:30 hand-off. **D-057** budget sweep (`--rfly-pop-scale` /
   `--rfly-iters-scale`, byte-clean at 1.0, gates two-sided) launched 19:34 on `build2`, nine arms with

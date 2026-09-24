@@ -507,3 +507,39 @@ rather than B; and a critic whose training cost weights the miss, to stop it tra
   landings at about half its rollouts (68 vs 128)** by spending them at the events.
 - R9 vs De: +6, flips 10:4, p = 0.18, at three times De's rollouts; R9's miss is half De's (3.6 vs
   7.2 m on common landings; R9 median 2.8 m, PERFECT 10).
+
+### T16 (20:50 UTC): the full search reproduces E6 across platforms — 60/59/60 = 179/180, 24 PERFECT
+
+The 1/32 search (two generations of 8 = E6's cold arm), flown here with per-draw csv receipts:
+**60 / 59 / 60, PERFECT 24 — E6's Windows receipt exactly**, seed for seed. Its s42 flight (one
+OpenMP thread) is byte-identical, stdout and every replan on stderr, to the 14:40 precheck (four
+threads). Paired: T16 vs rich_event +4 (flips 4:0, p = 0.13; lateral 5.0 → 2.5 m), vs R9 +3 (3:0),
+vs De +9 (10:1, p = 0.012). **Every number in this file sits on the same instrument as the Windows
+ledger.**
+
+## What the 2026-09-24 session established (the one-screen version)
+
+1. **The critic cannot fly alone, and that is now measured on two platforms** (c0 = v0c: B 82 vs 80).
+2. **As a proposer to a plant that checks every replan, it is real:** De 170 vs random 142 at three
+   rollouts (+28, p = 2.5e-5), De1 159 vs 111 at two (+48, p = 4.5e-9); **one critic pick ≈ 2.5
+   random rollouts** (De1 = R5), and **De is the best arm per rollout at ~42 per flight** (+6 over the
+   best no-network allocation at that cost, event_only, p = 0.31).
+3. **The 09-23 arm D was limited by its design, not its critic** — its confirm set drops the carried
+   elite; keeping it is worth +33 (p = 2.5e-7). Any arm-D number flown on the Windows box is
+   floor-less.
+4. **The search does two separable jobs:** width at the two engine-count changes (the fault, the
+   entry-burn cutoff) buys **survival** (R3 → rich_event +33, flips 33:0); width at the ~11 periodic
+   replans buys **precision** (PERFECT 3 → 18, median miss 4.2 → 2.0 m). The t0 solve's width buys
+   nothing once the events are searched.
+5. **c0 does the survival job and not the precision job.** With the events searched it adds nothing
+   (DeE 174 = rich_event 175), and its arms land the widest of any.
+6. **No-network allocations are strong:** rich_event lands 175/180 at ~68 rollouts per flight (3.3×
+   fewer than the full search, 4 draws behind, flips 4:0); R9 needs 128 for the same.
+7. **The instrument is sound:** Linux reproduces TERMINAL ×200 and E6's full battery to the draw;
+   re-flights reproduce to the replan; `De(constant critic) ≡ R3` proves the matched control exact.
+
+**Next, in order of what each could change:** (a) fly `critic_v1` (24 seeds, on the Windows box) as
+**De and DeE** — v1 was only ever scheduled as B/C, the arms this session shows cannot win;
+(b) phase-1.5 rounds scored as De; (c) a critic trained on a miss-weighted cost, the only way a
+network takes over the precision job; (d) if a deployable number is wanted without a network,
+rich_event on a fresh sealed band, flown once (not 9300–9309, which D-061 was flying on Windows).
