@@ -208,3 +208,28 @@ s42 ×10: **per-draw csv byte-identical to R3's first ten rows, and the committe
 all 143 replans.** So De and R3 are one code path that differs only in the ranking the critic
 supplies: **De − R3 is the critic's information and nothing else** — not a budget difference, not
 a sampler difference, not the confirm mechanics.
+
+### Where does the width pay? Three decomposition arms, pre-registered 15:50 UTC, before any flies
+
+`--rfly-rollouts 3 --rfly-rollouts-at LIST` puts R3 at the listed replan kinds and the 1/32 search
+(16 rollouts, two generations) at the rest. The corners are measured: R3 everywhere 142, 16
+everywhere 179 (E6). Per flight there is one t0 solve, one or two periodic replans before the
+fault, one event replan, and ~11 periodic replans after it.
+
+| arm | R3 at | the 16-rollout search at | ~rollouts / flight |
+|---|---|---|---|
+| **rich_event** | t0, periodic | event | ~57 |
+| **rich_t0event** | periodic | t0, event | ~70 |
+| **rich_periodic** | t0, event | periodic | ~200 |
+
+**Reads, fixed now:**
+- **rich_event ≥ 175** ⇒ the search's width is needed only where the fault is handled; t0 and the
+  periodic replans can be nearly free. That is the shape §2's propose-rank-confirm assumed, a ~4×
+  compute cut with no network — and it would say v0c's arm C failed because its critic-only
+  periodic replans were worse than *three random rollouts*, not because periodic replans need width.
+- **rich_event ≤ 150** (within ~8 of R3) ⇒ width at the event alone buys little; the damage is done
+  at t0 and/or the periodic replans, as E8 read v0c's arm C. rich_t0event vs rich_periodic then says
+  which of the two.
+- Stated before the numbers: **the event carries most of it** (D-052: the event replan alone was
+  worth +19 draws of 180 at full budget; the stderr of s42 run 0 shows the 16-rollout event solve
+  committing a plan of cost 1303 where R3 settles for 4564) — **rich_event ≈ 160–175.**
