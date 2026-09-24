@@ -179,3 +179,21 @@ under** the 16-rollout, two-generation search (E6: 179). So the budget between 3
 worth most of the battery, and a proposer has real room to show itself: **De − R3 is a live
 measurement**, not a ceiling artefact. The PERFECT count (1 vs E6's 24) says precision is bought by
 search width, the same finding D-054 made at the top of the budget curve.
+
+### R2 LANDED (15:22 UTC): **111/180**, and R3 re-flown with per-draw csv reproduces to the replan
+
+| control | s42 | s7 | s99 | total | PERFECT | plant rollouts / flight |
+|---|---|---|---|---|---|---|
+| R1 = identity (the elite alone never moves off the warm start) | — | — | — | 28/180 (D-047) | — | 14 |
+| **R2** elite + 1 draw | 35 | 38 | 38 | **111/180** | 1 | ~28 |
+| **R3** elite + 2 draws | 51 | 43 | 48 | **142/180** | 1 | ~42 |
+| 1/32 search, two generations of 8 (E6) | 60 | 59 | 60 | 179/180 | 24 | ~224 |
+
+Paired R2 → R3 on the same draws: **40 flips up, 9 down, +31, sign test p = 9e-6**; on the 102 draws
+both land, mean lateral 9.7 → 6.5 m. The budget curve is steep at the bottom — every plant-judged
+candidate is worth ~30 draws here — so a critic that chooses *which* two candidates the plant sees
+has a large target, and De1 − R2 is measured on the steepest part of the curve.
+
+**Determinism receipt (R3b = R3 re-flown with `--out`):** stdout identical but for the `wrote <csv>`
+line `--out` adds; **stderr — every replan's pick and all ten gains, ~2,540 lines — byte-identical**
+on all three seeds.
