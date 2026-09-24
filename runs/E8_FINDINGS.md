@@ -289,3 +289,35 @@ too-hard 3, with zero LOC. The 09-15 roadmap's deployment bar was "within two dr
 search"; De is not there (−9), and the v1 critic, phase-1.5 correction rounds, and K or budget
 changes are the levers that remain. **Arms B (c0 alone — the v0c reproduction check) and De1
 (elite + the critic's top 1, vs R2) are flying.**
+
+### B and De1 (18:49 UTC): the reproduction holds, and one critic pick beats two random ones
+
+| arm | s42 | s7 | s99 | total | PERFECT | plant rollouts / replan |
+|---|---|---|---|---|---|---|
+| **B**: c0 alone, no rollouts | 26 | 26 | 30 | **82/180** | 0 | 0 |
+| *v0c alone on Windows (09-23)* | *24* | *26* | *30* | *80/180* | *0* | *0* |
+| **De1**: carried elite + the critic's top 1 | 54 | 52 | 53 | **159/180** | 1 | 2 |
+| R2: carried elite + 1 random draw | 35 | 38 | 38 | 111/180 | 1 | 2 |
+
+- **B = 82/180** is inside the pre-registered 60–100 band and matches v0c seed for seed on s7 and
+  s99 (26, 30), two draws apart on s42 (the C forward pass runs glibc `tanh`, so near-tie rankings
+  can flip). **c0 stands in for v0c; the 09-23 critic-alone verdict (< 100 ⇒ the one-shot critic
+  cannot replace the rollouts) is confirmed on a second platform.**
+- **De1 vs R2: +48 draws, flips 59:11, p = 4.5e-9.** One critic-chosen candidate against one random
+  one, same code path, same faults.
+- **De1 vs R3: +17, flips 33:16, p = 0.021** — two rollouts with the critic choosing beat three
+  rollouts with nobody choosing. **De vs De1: +11, flips 14:3, p = 0.013.**
+
+**The two curves, landed of 180 by plant rollouts per replan:**
+
+| rollouts / replan | 1 | 2 | 3 | 16 (two generations) |
+|---|---|---|---|---|
+| random proposals (`--rfly-rollouts R`) | 28 (identity) | 111 | 142 | 179 (E6) |
+| **c0 proposals (De1, De)** | — | **159** | **170** | — |
+| c0 alone (B), 0 rollouts | 82 | | | |
+
+**The read, in one line: the critic cannot replace the plant (82), but it is a strong proposer to
+it — the plant keeps the last word at every replan, the critic decides which two candidates the
+plant spends its rollouts on, and that lands 170/180 at a fifth of the search's rollouts.** This
+is the ROADMAP_NN-FLIGHT §2 shape (propose, rank, confirm) with two corrections the flights forced:
+the confirm must carry the carried elite, and it must run at every replan, not only at events.

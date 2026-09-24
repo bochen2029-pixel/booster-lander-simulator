@@ -1,0 +1,6 @@
+E8 FLY B exe=$SP/bin/booster-core.e11 flags=[--rfly-budget 0.03125 --rfly-critic $SP/chain/critic_c0.w] started 2026-09-24 18:44:41
+  arm B seed 42 : LANDED: 26/60 = 43.3%  (Wilson95: 31.6..55.9%) | PERFECT 0  GOOD 5  HARD 21  TIPPED 0  CRASHED 34 | 29 s wall
+  arm B seed 7 : LANDED: 26/60 = 43.3%  (Wilson95: 31.6..55.9%) | PERFECT 0  GOOD 8  HARD 18  TIPPED 0  CRASHED 34 | 29 s wall
+  arm B seed 99 : LANDED: 30/60 = 50.0%  (Wilson95: 37.7..62.3%) | PERFECT 0  GOOD 14  HARD 16  TIPPED 0  CRASHED 30 | 27 s wall
+==== arm B TOTAL: 82/180  PERFECT 0 ====
+B-FLY-DONE 2026-09-24 18:45:11

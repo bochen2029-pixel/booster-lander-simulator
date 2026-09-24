@@ -1,0 +1,6 @@
+E8 FLY De1 exe=$SP/bin/booster-core.e11 flags=[--rfly-budget 0.03125 --rfly-critic $SP/chain/critic_c0.w --rfly-critic-confirm 1 --rfly-critic-confirm-every --rfly-critic-confirm-elite] started 2026-09-24 18:44:41
+  arm De1 seed 42 : LANDED: 54/60 = 90.0%  (Wilson95: 79.9..95.3%) | PERFECT 1  GOOD 21  HARD 32  TIPPED 0  CRASHED 6 | 298 s wall
+  arm De1 seed 7 : LANDED: 52/60 = 86.7%  (Wilson95: 75.8..93.1%) | PERFECT 0  GOOD 21  HARD 31  TIPPED 0  CRASHED 8 | 301 s wall
+  arm De1 seed 99 : LANDED: 53/60 = 88.3%  (Wilson95: 77.8..94.2%) | PERFECT 0  GOOD 37  HARD 16  TIPPED 0  CRASHED 7 | 294 s wall
+==== arm De1 TOTAL: 159/180  PERFECT 1 ====
+De1-FLY-DONE 2026-09-24 18:49:42
