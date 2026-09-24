@@ -574,6 +574,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-every")) g_rfly_critic_confirm_every=1;   /* E8: confirm at every replan */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-elite")) g_rfly_critic_confirm_elite=1;   /* E8: the confirm set always carries the incoming elite */
+        else if(!strcmp(argv[i],"--rfly-critic-event-search")) g_rfly_critic_event_search=1;   /* E8: the plant search at events, the critic elsewhere */
         else if(!strcmp(argv[i],"--rfly-rollouts-at")&&i+1<argc){ if(!parse_rfly_rollouts_at(argv[++i])){ fprintf(stderr,"error: --rfly-rollouts-at takes a comma list of t0,periodic,event (or all)\n"); return 2; } }   /* E8: where the R override applies */
         else if(!strcmp(argv[i],"--rfly-rollouts")&&i+1<argc){ g_rfly_rollouts=atoi(argv[++i]); if(g_rfly_rollouts<1){ fprintf(stderr,"error: --rfly-rollouts needs R >= 1\n"); return 2; } }   /* E8: critic-free matched-budget control */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
@@ -595,6 +596,7 @@ static int cmd_run(int argc, char** argv){
     /* E8 (2026-09-24): the two confirm/control flags must never be silent no-ops (strict argv, D-046 add.2). */
     if(g_rfly_rollouts_at_set && !g_rfly_rollouts){ fprintf(stderr,"error: --rfly-rollouts-at needs --rfly-rollouts R\n"); return 2; }
     if(g_rfly_rollouts && g_rfly_critic_on){ fprintf(stderr,"error: --rfly-rollouts is the plant-path control; it does not combine with --rfly-critic\n"); return 2; }
+    if(g_rfly_critic_event_search && !g_rfly_critic_on){ fprintf(stderr,"error: --rfly-critic-event-search needs --rfly-critic FILE\n"); return 2; }
     if(g_rfly_critic_confirm_elite && !g_rfly_critic_confirm){ fprintf(stderr,"error: --rfly-critic-confirm-elite needs --rfly-critic-confirm K\n"); return 2; }
     /* N1 S0 teacher tap: open the (o,a*) binary log ONCE (fail loudly — the tap is a data artifact,
      * it must not silently vanish). Rows are written only on GM_MPPI gticks (policy_tap.h). Absent
@@ -691,6 +693,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-every")) g_rfly_critic_confirm_every=1;   /* E8: confirm at every replan */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-elite")) g_rfly_critic_confirm_elite=1;   /* E8: the confirm set always carries the incoming elite */
+        else if(!strcmp(argv[i],"--rfly-critic-event-search")) g_rfly_critic_event_search=1;   /* E8: the plant search at events, the critic elsewhere */
         else if(!strcmp(argv[i],"--rfly-rollouts-at")&&i+1<argc){ if(!parse_rfly_rollouts_at(argv[++i])){ fprintf(stderr,"error: --rfly-rollouts-at takes a comma list of t0,periodic,event (or all)\n"); return 2; } }   /* E8: where the R override applies */
         else if(!strcmp(argv[i],"--rfly-rollouts")&&i+1<argc){ g_rfly_rollouts=atoi(argv[++i]); if(g_rfly_rollouts<1){ fprintf(stderr,"error: --rfly-rollouts needs R >= 1\n"); return 2; } }   /* E8: critic-free matched-budget control */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
@@ -722,6 +725,7 @@ static int cmd_headless(int argc, char** argv){
     /* E8 (2026-09-24): the two confirm/control flags must never be silent no-ops (strict argv, D-046 add.2). */
     if(g_rfly_rollouts_at_set && !g_rfly_rollouts){ fprintf(stderr,"error: --rfly-rollouts-at needs --rfly-rollouts R\n"); return 2; }
     if(g_rfly_rollouts && g_rfly_critic_on){ fprintf(stderr,"error: --rfly-rollouts is the plant-path control; it does not combine with --rfly-critic\n"); return 2; }
+    if(g_rfly_critic_event_search && !g_rfly_critic_on){ fprintf(stderr,"error: --rfly-critic-event-search needs --rfly-critic FILE\n"); return 2; }
     if(g_rfly_critic_confirm_elite && !g_rfly_critic_confirm){ fprintf(stderr,"error: --rfly-critic-confirm-elite needs --rfly-critic-confirm K\n"); return 2; }
     /* --out: open the report up front and FAIL LOUDLY if it can't be created -- otherwise we
      * run every sim for nothing and still print a false "wrote" (directive 5: headless is THE

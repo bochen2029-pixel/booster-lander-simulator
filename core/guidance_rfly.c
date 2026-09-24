@@ -166,6 +166,7 @@ int g_rfly_critic_on = 0;
 int g_rfly_critic_confirm = 0;   /* E8 phase 2: --rfly-critic-confirm K (see header) */
 int g_rfly_critic_confirm_every = 0;   /* E8: confirm at every replan, not only events; default off */
 int g_rfly_critic_confirm_elite = 0;   /* E8: the confirm set always carries the incoming elite (see header) */
+int g_rfly_critic_event_search = 0;    /* E8: the plant search at event replans, the critic elsewhere (see header) */
 int g_rfly_rollouts = 0;               /* E8: --rfly-rollouts R, the critic-free matched-budget control (see header) */
 int g_rfly_rollouts_at = RFLY_AT_T0|RFLY_AT_PERIODIC|RFLY_AT_EVENT;   /* E8: --rfly-rollouts-at, where the override applies (see header) */
 static int    cr_nh = 0;

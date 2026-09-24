@@ -356,3 +356,22 @@ the confirm must carry the carried elite, and it must run at every replan, not o
 **Next, the arm this points at:** the critic proposing at t0 + periodic (De's 3 rollouts) and the
 16-rollout search at the event — the critic's +28 over random where it is worth something, the
 search's width where it pays. rich_t0event and rich_periodic are flying.
+
+### DeE, pre-registered 19:23 UTC before it flies: the critic where rollouts are scarce, the search where width pays
+
+`--rfly-critic-event-search` (gated: off byte-identical on the De path; on, the two event replans
+per flight run the plant's 1/32 search and every other replan stays critic-proposed): **DeE = De's
+flags + `--rfly-critic-event-search`.** Its cost is rich_event's exactly — 3 rollouts at t0 and the
+~11 periodic replans, 16 at the two events, ~68 per flight — and its events run the same code as
+rich_event's. **DeE − rich_event is the critic's worth at t0 + periodic with the events searched.**
+
+**Reads:**
+- **≥ +3 draws, flips ≥ 2:1** ⇒ the critic adds on top of the event search; DeE is the best arm per
+  rollout on record.
+- **within ±3** ⇒ once the events are searched, the critic's +28 (De vs R3) is absorbed; the
+  no-network rich_event is the design at this budget, and the critic's case rests on precision
+  (PERFECT, lateral) or on smaller budgets.
+- **≤ −3** ⇒ the critic's proposals hurt outside the events.
+- Stated before the number: rich_event is 4 draws under the 179 ceiling, so there is little room;
+  **DeE ≈ 176–179, within ±3 of rich_event on landed**, and — since De landed wider than R3 (7.6 vs
+  6.3 m on common landings) — **no better on lateral.**

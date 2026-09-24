@@ -136,6 +136,12 @@ extern int g_rfly_critic_confirm_every;
  * whenever that is also the last iteration's best (cand[0] is the elite slot). K+1 rollouts, the
  * same count as --rfly-rollouts K+1. Needs --rfly-critic-confirm K. Default 0 => byte-identical. */
 extern int g_rfly_critic_confirm_elite;
+/* E8 (2026-09-24): --rfly-critic-event-search — at EVENT replans the critic steps aside and the
+ * plant's own --rfly-budget search runs (the 16-rollout CEM at 1/32); t0 and periodic replans stay
+ * critic-proposed. rich_event (no network) showed the width pays at the event; De showed the critic
+ * is worth +28 draws where rollouts are scarce. This puts each where it paid. Needs --rfly-critic.
+ * Default 0 => byte-identical. */
+extern int g_rfly_critic_event_search;
 
 /* E8 (2026-09-24): --rfly-rollouts R — the MATCHED-BUDGET control for every propose/confirm arm.
  * The plant search evaluates exactly R candidates per replan in ONE generation: slot 0 = the carried

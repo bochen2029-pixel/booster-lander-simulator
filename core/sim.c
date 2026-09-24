@@ -711,7 +711,8 @@ int sim_step(Sim* s){
              * n_eng change); the clock alone never fires early. Read here so the short-circuit
              * D-052 depends on is untouched. */
             s->rfly.replan_is_event = (st->t < s->rfly.next_replan_t) ? 1 : 0;
-            if(g_rfly_critic_on) rfly_replan_critic(s, big); else rfly_replan(s, big);
+            /* E8: --rfly-critic-event-search hands EVENT replans back to the plant search (default off). */
+            if(g_rfly_critic_on && !(s->rfly.replan_is_event && g_rfly_critic_event_search)) rfly_replan_critic(s, big); else rfly_replan(s, big);
             s->rfly.next_replan_t = st->t + RFLY_REPLAN_DT;
         }
         memcpy(s->gcmd.rt, s->rfly.th, sizeof(s->gcmd.rt));
