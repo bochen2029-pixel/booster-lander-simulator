@@ -167,6 +167,7 @@ int g_rfly_critic_confirm = 0;   /* E8 phase 2: --rfly-critic-confirm K (see hea
 int g_rfly_critic_confirm_every = 0;   /* E8: confirm at every replan, not only events; default off */
 int g_rfly_critic_confirm_elite = 0;   /* E8: the confirm set always carries the incoming elite (see header) */
 int g_rfly_rollouts = 0;               /* E8: --rfly-rollouts R, the critic-free matched-budget control (see header) */
+int g_rfly_rollouts_at = RFLY_AT_T0|RFLY_AT_PERIODIC|RFLY_AT_EVENT;   /* E8: --rfly-rollouts-at, where the override applies (see header) */
 static int    cr_nh = 0;
 static double cr_mu[RFLY_CRITIC_NIN], cr_sd[RFLY_CRITIC_NIN];
 static double cr_w1[RFLY_CRITIC_MAXH][RFLY_CRITIC_NIN], cr_b1[RFLY_CRITIC_MAXH];
@@ -510,10 +511,18 @@ void rfly_replan(Sim* s, int big){
     }
     /* E8 control: --rfly-rollouts R — exactly R plant rollouts per replan, one generation (slot 0 =
      * the carried elite, 1..R-1 = sampler draws). Overrides the budget floors; 0 => never runs. */
-    if(g_rfly_rollouts > 0){
+    const int rkind = big ? RFLY_AT_T0 : (rf->replan_is_event ? RFLY_AT_EVENT : RFLY_AT_PERIODIC);
+    if(g_rfly_rollouts > 0 && (g_rfly_rollouts_at & rkind)){
         POP = g_rfly_rollouts; ITERS = 1;
         static int logged = 0;
-        if(!logged){ fprintf(stderr, "  [rfly_rollouts] R=%d per replan: the carried elite + %d sampler draws, one generation, the plant keeps the best\n", POP, POP-1); logged = 1; }
+        if(!logged){
+            char at[64] = "";
+            if(g_rfly_rollouts_at != (RFLY_AT_T0|RFLY_AT_PERIODIC|RFLY_AT_EVENT))
+                snprintf(at, sizeof at, " (at%s%s%s only; the rest keep the budget search)", (g_rfly_rollouts_at&RFLY_AT_T0)?" t0":"",
+                         (g_rfly_rollouts_at&RFLY_AT_PERIODIC)?" periodic":"", (g_rfly_rollouts_at&RFLY_AT_EVENT)?" event":"");
+            fprintf(stderr, "  [rfly_rollouts] R=%d per replan%s: the carried elite + %d sampler draws, one generation, the plant keeps the best\n", POP, at, POP-1);
+            logged = 1;
+        }
     }
     double sd_scale = big ? 1.0 : 0.35;
     double t_horizon = s->st.t + 160.0;              /* the reactive descent is ~117-140 s */

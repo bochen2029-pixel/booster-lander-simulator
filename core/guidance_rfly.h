@@ -145,6 +145,15 @@ extern int g_rfly_critic_confirm_elite;
  * The --rfly-budget floors (POP >= 8, ITERS >= 2) are what kept every earlier sweep at >= 16 rollouts.
  * Plant path only (refused with --rfly-critic). Default 0 => byte-identical. */
 extern int g_rfly_rollouts;
+/* E8: --rfly-rollouts-at LIST — WHERE the R-rollout override applies: a comma list of t0 (the first,
+ * big solve), periodic (the 10 s clock), event (a change in the sensed engine count), or all
+ * (default). The replans left out keep the --rfly-budget search. Decomposes where search width pays:
+ * E8 read v0c's confirm-at-events failure as damage done across the PERIODIC replans. Bitmask
+ * 1 t0 | 2 periodic | 4 event; 7 (all) => byte-identical. */
+#define RFLY_AT_T0       1
+#define RFLY_AT_PERIODIC 2
+#define RFLY_AT_EVENT    4
+extern int g_rfly_rollouts_at;
 
 /* E8: --rfly-cand-design — beside the CEM's own population, evaluate a DESIGNED set at every
  * replan and log it: the replan's start mean, plus one-coordinate steps of +-0.5 and +-1.5 sd on

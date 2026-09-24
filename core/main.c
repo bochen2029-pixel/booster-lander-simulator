@@ -61,6 +61,23 @@ static int parse_rfly_fixed_eo(const char* csv){
         g_rfly_fixed_eo[n++]=v; p=end; while(*p==','||*p==' ') p++; }
     return (n==10 && *p=='\0');
 }
+/* E8: --rfly-rollouts-at, a comma list of t0 / periodic / event, or all (guidance_rfly.h bitmask). */
+static int g_rfly_rollouts_at_set = 0;
+static int parse_rfly_rollouts_at(const char* s){
+    int m = 0; const char* p = s;
+    while(*p){
+        const char* e = p; while(*e && *e!=',') e++;
+        size_t n = (size_t)(e - p);
+        if(n==2 && !strncmp(p,"t0",2)) m |= RFLY_AT_T0;
+        else if(n==8 && !strncmp(p,"periodic",8)) m |= RFLY_AT_PERIODIC;
+        else if(n==5 && !strncmp(p,"event",5)) m |= RFLY_AT_EVENT;
+        else if(n==3 && !strncmp(p,"all",3)) m |= RFLY_AT_T0|RFLY_AT_PERIODIC|RFLY_AT_EVENT;
+        else return 0;
+        p = *e ? e + 1 : e;
+    }
+    if(!m) return 0;
+    g_rfly_rollouts_at = m; g_rfly_rollouts_at_set = 1; return 1;
+}
 extern int    g_rfly_fixed_ph_on;   /* D-047 ①e: --rfly-fixed-phase, 30 values = 3 bands x 10; defined in guidance_rfly.c */
 extern double g_rfly_fixed_ph[3][10];
 /* D-047 ①e: 30 comma-separated values -- entry-burn band, then aero band, then landing-burn band. */
@@ -557,6 +574,7 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-every")) g_rfly_critic_confirm_every=1;   /* E8: confirm at every replan */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-elite")) g_rfly_critic_confirm_elite=1;   /* E8: the confirm set always carries the incoming elite */
+        else if(!strcmp(argv[i],"--rfly-rollouts-at")&&i+1<argc){ if(!parse_rfly_rollouts_at(argv[++i])){ fprintf(stderr,"error: --rfly-rollouts-at takes a comma list of t0,periodic,event (or all)\n"); return 2; } }   /* E8: where the R override applies */
         else if(!strcmp(argv[i],"--rfly-rollouts")&&i+1<argc){ g_rfly_rollouts=atoi(argv[++i]); if(g_rfly_rollouts<1){ fprintf(stderr,"error: --rfly-rollouts needs R >= 1\n"); return 2; } }   /* E8: critic-free matched-budget control */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
@@ -575,6 +593,7 @@ static int cmd_run(int argc, char** argv){
         "(configure with -DBL_CUDA=ON and a CUDA toolkit). Use --mppi for the CPU path.\n"); return 4; }
 #endif
     /* E8 (2026-09-24): the two confirm/control flags must never be silent no-ops (strict argv, D-046 add.2). */
+    if(g_rfly_rollouts_at_set && !g_rfly_rollouts){ fprintf(stderr,"error: --rfly-rollouts-at needs --rfly-rollouts R\n"); return 2; }
     if(g_rfly_rollouts && g_rfly_critic_on){ fprintf(stderr,"error: --rfly-rollouts is the plant-path control; it does not combine with --rfly-critic\n"); return 2; }
     if(g_rfly_critic_confirm_elite && !g_rfly_critic_confirm){ fprintf(stderr,"error: --rfly-critic-confirm-elite needs --rfly-critic-confirm K\n"); return 2; }
     /* N1 S0 teacher tap: open the (o,a*) binary log ONCE (fail loudly — the tap is a data artifact,
@@ -672,6 +691,7 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-every")) g_rfly_critic_confirm_every=1;   /* E8: confirm at every replan */
         else if(!strcmp(argv[i],"--rfly-critic-confirm-elite")) g_rfly_critic_confirm_elite=1;   /* E8: the confirm set always carries the incoming elite */
+        else if(!strcmp(argv[i],"--rfly-rollouts-at")&&i+1<argc){ if(!parse_rfly_rollouts_at(argv[++i])){ fprintf(stderr,"error: --rfly-rollouts-at takes a comma list of t0,periodic,event (or all)\n"); return 2; } }   /* E8: where the R override applies */
         else if(!strcmp(argv[i],"--rfly-rollouts")&&i+1<argc){ g_rfly_rollouts=atoi(argv[++i]); if(g_rfly_rollouts<1){ fprintf(stderr,"error: --rfly-rollouts needs R >= 1\n"); return 2; } }   /* E8: critic-free matched-budget control */
         else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
@@ -700,6 +720,7 @@ static int cmd_headless(int argc, char** argv){
         "(configure with -DBL_CUDA=ON and a CUDA toolkit). Use --mppi for the CPU path.\n"); return 4; }
 #endif
     /* E8 (2026-09-24): the two confirm/control flags must never be silent no-ops (strict argv, D-046 add.2). */
+    if(g_rfly_rollouts_at_set && !g_rfly_rollouts){ fprintf(stderr,"error: --rfly-rollouts-at needs --rfly-rollouts R\n"); return 2; }
     if(g_rfly_rollouts && g_rfly_critic_on){ fprintf(stderr,"error: --rfly-rollouts is the plant-path control; it does not combine with --rfly-critic\n"); return 2; }
     if(g_rfly_critic_confirm_elite && !g_rfly_critic_confirm){ fprintf(stderr,"error: --rfly-critic-confirm-elite needs --rfly-critic-confirm K\n"); return 2; }
     /* --out: open the report up front and FAIL LOUDLY if it can't be created -- otherwise we
