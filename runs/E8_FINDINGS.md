@@ -444,3 +444,30 @@ for De (42).**
   random ones at every pairing (De1 8.9 vs R5 5.1 m; De 7.5 vs 5.0 m). c0 was trained to rank a
   cost that folds landing, touchdown speed and miss together, and in flight it buys the landing
   and gives back the miss.
+
+### event_only (19:50 UTC): 164/180 — the periodic replans DO carry value, and De is the best arm at its cost, narrowly
+
+| arm | t0 + periodic | events | ~rollouts / flight | total | PERFECT | lateral |
+|---|---|---|---|---|---|---|
+| R3 | elite + 2 random | elite + 2 random | 42 | 142 | 1 | 6.5 m |
+| **event_only** | keep the plan | 16-rollout search | 44 (32 useful) | **164** (57/55/52) | 1 | 7.7 m |
+| **De** | elite + c0's top 2 | elite + c0's top 2 | 42 | **170** | 1 | 7.2 m |
+| rich_event | elite + 2 random | 16-rollout search | 68 | 175 | 3 | 4.9 m |
+| DeE | elite + c0's top 2 | 16-rollout search | 68 | 174 | 4 | 5.5 m |
+
+- **Pre-registered read: event_only ≤ 165 — met (164).** **rich_event − event_only = +11, flips 12:1,
+  p = 0.003**: three random rollouts at the ~11 periodic replans buy eleven draws and 2.8 m of
+  lateral even with the events searched. My stated 168–175 was wrong — after the last event there
+  is no fault left, but turbulence and nav drift over ~100 s still need a plant-checked correction.
+- **At equal cost (~42–44 rollouts per flight): De 170 vs event_only 164, +6, flips 15:9, p = 0.31.**
+  The critic arm is the best thing found at that budget, but a no-network allocation (search the
+  events, hold the plan otherwise) comes within six draws of it.
+- vs DeE: +10 for DeE (p = 0.03) at 68 rollouts.
+
+**Where this leaves the critic (the question the operator asked — can a network fly this?):** it
+cannot fly alone (82). As a proposer to a plant that checks every replan it is worth ~2.5 random
+rollouts (De1 = R5) and gives the best landed rate per rollout on record at the low end (De 170 at
+42), at a systematic cost in miss distance. Once the budget can afford the search at the two
+engine-count changes, it adds nothing (DeE = rich_event). The next rungs, in order of what they
+could change: `critic_v1` (all 24 farm seeds) flown as De; phase-1.5 rounds flown and scored as De
+rather than B; and a critic whose training cost weights the miss, to stop it trading precision.
