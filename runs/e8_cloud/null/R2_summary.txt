@@ -1,0 +1,6 @@
+E8 FLY R2 exe=$SP/bin/booster-core.e11 flags=[--rfly-rollouts 2] started 2026-09-24 15:11:33
+  arm R2 seed 42 : LANDED: 35/60 = 58.3%  (Wilson95: 45.7..69.9%) | PERFECT 1  GOOD 9  HARD 25  TIPPED 0  CRASHED 25 | 624 s wall
+  arm R2 seed 7 : LANDED: 38/60 = 63.3%  (Wilson95: 50.7..74.4%) | PERFECT 0  GOOD 12  HARD 26  TIPPED 0  CRASHED 22 | 635 s wall
+  arm R2 seed 99 : LANDED: 38/60 = 63.3%  (Wilson95: 50.7..74.4%) | PERFECT 0  GOOD 13  HARD 25  TIPPED 0  CRASHED 22 | 621 s wall
+==== arm R2 TOTAL: 111/180  PERFECT 1 ====
+R2-FLY-DONE 2026-09-24 15:22:08

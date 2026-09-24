@@ -1,0 +1,3 @@
+s42 R3b DIFFERS from R3
+s7 R3b DIFFERS from R3
+s99 R3b DIFFERS from R3
