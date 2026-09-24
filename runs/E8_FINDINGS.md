@@ -375,3 +375,15 @@ rich_event's. **DeE − rich_event is the critic's worth at t0 + periodic with t
 - Stated before the number: rich_event is 4 draws under the 179 ceiling, so there is little room;
   **DeE ≈ 176–179, within ±3 of rich_event on landed**, and — since De landed wider than R3 (7.6 vs
   6.3 m on common landings) — **no better on lateral.**
+
+### rich_t0event (19:14 UTC): 174/180 — full width at the t0 solve adds nothing
+
+| arm | R3 at | 16-rollout search at | s42 | s7 | s99 | total | PERFECT |
+|---|---|---|---|---|---|---|---|
+| rich_event | t0, periodic | events | 60 | 58 | 57 | 175/180 | 3 |
+| **rich_t0event** | periodic | t0, events | 58 | 56 | 60 | **174/180** | 3 |
+
+**rich_t0event vs rich_event: −1, flips 4:5, p = 1** — the mission plan's width is worth nothing
+measurable once the events are searched (vs R3: +32, flips 36:4, p = 2e-7). So far the whole
+33-draw gap between R3 and the full search is bought at the **two event replans**; rich_periodic
+(R3 at t0 + events, the search at the ~11 periodic replans) is flying and closes the decomposition.
