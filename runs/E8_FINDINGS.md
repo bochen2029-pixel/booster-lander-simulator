@@ -326,17 +326,18 @@ the confirm must carry the carried elite, and it must run at every replan, not o
 
 | arm | s42 | s7 | s99 | total | PERFECT | ~plant rollouts / flight | crashes |
 |---|---|---|---|---|---|---|---|
-| **rich_event**: R3 at t0 + periodic, the 16-rollout search at the event | 60 | 58 | 57 | **175/180** | 3 | ~56 (13.2 × 3 + 16) | off-pad 3, too-hard 2 |
-| R3 everywhere | 51 | 43 | 48 | 142/180 | 1 | ~42 | 38 |
-| De (c0 proposes, 3 rollouts everywhere) | 60 | 56 | 54 | 170/180 | 1 | ~42 | 10 |
-| the 16-rollout search everywhere (E6) | 60 | 59 | 60 | 179/180 | 24 | ~224 | 1 |
+| **rich_event**: R3 at t0 + periodic, the 16-rollout search at the events | 60 | 58 | 57 | **175/180** | 3 | ~68 (12.2 × 3 + 2 × 16) | off-pad 3, too-hard 2 |
+| R3 everywhere | 51 | 43 | 48 | 142/180 | 1 | ~42 (14.1 × 3) | 38 |
+| De (c0 proposes, 3 rollouts everywhere) | 60 | 56 | 54 | 170/180 | 1 | ~42 (14.2 × 3) | 10 |
+| the 16-rollout search everywhere (E6) | 60 | 59 | 60 | 179/180 | 24 | ~227 (14.2 × 16) | 1 |
 
-- **rich_event vs R3: +33 draws, flips 33:0, p = 2.3e-10.** Sixteen rollouts at the ONE event replan
+- **rich_event vs R3: +33 draws, flips 33:0, p = 2.3e-10.** Sixteen rollouts at the TWO event replans
   per flight rescue 33 draws and never lose one. Lateral on common landings 6.5 → 4.9 m.
-- **rich_event vs De: +5, flips 10:5, p = 0.30** — not separable at n = 180, at ~30 % more rollouts.
+- **rich_event vs De: +5, flips 10:5, p = 0.30** — not separable at n = 180, at ~60 % more rollouts
+  (68 vs 42 per flight).
 - **Pre-registered read (≥ 175): met, at the threshold.** The search's width is needed where the
   fault is handled; the t0 solve and the periodic replans can run on three random rollouts. **That
-  is a ~4× compute cut (56 vs 224 rollouts per flight) within 4 draws of the full search, with no
+  is a ~3.3× compute cut (68 vs 227 rollouts per flight) within 4 draws of the full search, with no
   network at all** — the shape §2 assumed (cheap periodic, expensive event), inverted in one place:
   the event gets the *search*, not a critic's top two.
 - **It re-reads v0c's arm C (77/180).** Arm C confirmed at events and ran the critic ALONE at t0 and
@@ -344,6 +345,13 @@ the confirm must carry the carried elite, and it must run at every replan, not o
   rollouts suffice — but arm C gave them none: B (critic alone) is 82. The damage was at the
   periodic replans, as E8 read, but the fix is three rollouts there, not a better critic.
 - My stated expectation (160–175) held, at its top edge.
+- **Correction (19:20 UTC), and it applies to the pre-registration's flight sketch above:** a flight has
+  **two** event replans, not one. `--rfly-event-replan` fires on ANY change in the sensed engine
+  count, so both the fault (t ∈ [4, 18] s) and the entry-burn cutoff (~t = 31 s) are events. Measured
+  from the stderr of all 180 draws of R3, rich_event and De: 1 t0 + ~11.2 periodic + 2.0 events, the
+  classifier checked against a flag-on run where the plant-searched replans are the events. The
+  landed counts and every read are unchanged; the rollout accounting (first pushed as ~56 per flight,
+  "~4×") is corrected above to ~68 and ~3.3×.
 
 **Next, the arm this points at:** the critic proposing at t0 + periodic (De's 3 rollouts) and the
 16-rollout search at the event — the critic's +28 over random where it is worth something, the
