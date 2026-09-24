@@ -321,3 +321,30 @@ it — the plant keeps the last word at every replan, the critic decides which t
 plant spends its rollouts on, and that lands 170/180 at a fifth of the search's rollouts.** This
 is the ROADMAP_NN-FLIGHT §2 shape (propose, rank, confirm) with two corrections the flights forced:
 the confirm must carry the carried elite, and it must run at every replan, not only at events.
+
+### rich_event (19:10 UTC): **175/180 with no network** — the width pays at the event
+
+| arm | s42 | s7 | s99 | total | PERFECT | ~plant rollouts / flight | crashes |
+|---|---|---|---|---|---|---|---|
+| **rich_event**: R3 at t0 + periodic, the 16-rollout search at the event | 60 | 58 | 57 | **175/180** | 3 | ~56 (13.2 × 3 + 16) | off-pad 3, too-hard 2 |
+| R3 everywhere | 51 | 43 | 48 | 142/180 | 1 | ~42 | 38 |
+| De (c0 proposes, 3 rollouts everywhere) | 60 | 56 | 54 | 170/180 | 1 | ~42 | 10 |
+| the 16-rollout search everywhere (E6) | 60 | 59 | 60 | 179/180 | 24 | ~224 | 1 |
+
+- **rich_event vs R3: +33 draws, flips 33:0, p = 2.3e-10.** Sixteen rollouts at the ONE event replan
+  per flight rescue 33 draws and never lose one. Lateral on common landings 6.5 → 4.9 m.
+- **rich_event vs De: +5, flips 10:5, p = 0.30** — not separable at n = 180, at ~30 % more rollouts.
+- **Pre-registered read (≥ 175): met, at the threshold.** The search's width is needed where the
+  fault is handled; the t0 solve and the periodic replans can run on three random rollouts. **That
+  is a ~4× compute cut (56 vs 224 rollouts per flight) within 4 draws of the full search, with no
+  network at all** — the shape §2 assumed (cheap periodic, expensive event), inverted in one place:
+  the event gets the *search*, not a critic's top two.
+- **It re-reads v0c's arm C (77/180).** Arm C confirmed at events and ran the critic ALONE at t0 and
+  periodic. rich_event says periodic replans need only a little plant judgment — three random
+  rollouts suffice — but arm C gave them none: B (critic alone) is 82. The damage was at the
+  periodic replans, as E8 read, but the fix is three rollouts there, not a better critic.
+- My stated expectation (160–175) held, at its top edge.
+
+**Next, the arm this points at:** the critic proposing at t0 + periodic (De's 3 rollouts) and the
+16-rollout search at the event — the critic's +28 over random where it is worth something, the
+search's width where it pays. rich_t0event and rich_periodic are flying.
