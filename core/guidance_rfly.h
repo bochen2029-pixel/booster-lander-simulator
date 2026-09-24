@@ -23,6 +23,7 @@
 #define BL_GUIDANCE_RFLY_H
 
 struct Sim;
+#include "state.h"   /* E5: the MLP gain policy reads the nav State (an anonymous typedef, so no forward declaration) */
 
 #define RFLY_N_THETA 10
 enum {
@@ -51,6 +52,18 @@ typedef struct {
                              * mid-entry-burn. That is the suspected mechanism behind the blind
                              * arm's LOC 13, and n_eng is §4.3-legal sensed state, so reacting to
                              * it is not privilege. */
+    /* E5 (2026-09-15): the runtime-loaded MLP gain policy's own memory — when the sensed engine
+     * count last changed (feature 8, time since the fault). Separate from last_n_eng, which
+     * rfly_event_due owns. t_n_eng_change < -1e8 means "never". */
+    double t_n_eng_change;
+    int    mlp_last_n_eng;
+    double phi[12];          /* E7: the twelve legal features at the current replan (rfly_features) */
+    int    replan_is_event;  /* E8 phase 2: set by sim.c — 1 when this replan fired on the sensed
+                              *     engine-count change rather than the 10 s clock (a replan that
+                              *     arrives BEFORE next_replan_t can only be an event). */
+    double obs39[39];        /* E8: the FULL legal observation at the current replan (policy_build_obs,
+                              *     exactly what the tap and every net consume). Filled in sim.c only
+                              *     when the candidate log or the critic is armed. */
 } RflyState;
 
 #define RFLY_REPLAN_DT 10.0
@@ -75,5 +88,58 @@ void rfly_async_poll(struct Sim* s);
  * --rfly-event-replan is armed, so a stale plan is re-solved the moment the fault fires
  * rather than up to RFLY_REPLAN_DT later. Always updates last_n_eng, even when disarmed. */
 int rfly_event_due(struct Sim* s, int n_eng_now);
+
+/* E5 (2026-09-15): --rfly-mlp FILE — a small MLP gain policy over twelve legal features, loaded at
+ * run time so the outcome optimiser (runs/e5_es_mlp.py) can evaluate candidates without an export
+ * ceremony. theta = clamp(b2 + Wlin.phi + W2.tanh(W1.phi + b1)). Default off => byte-identical.
+ * File: "nin nhid" then Wlin[10][nin], b2[10], W1[nhid][nin], b1[nhid], W2[10][nhid]. */
+#define RFLY_MLP_NIN   12
+#define RFLY_MLP_MAXH  32
+extern int g_rfly_mlp_on;
+extern int g_rfly_mlp_warm;   /* E6: the MLP as the search's warm start (search still on); default off => byte-identical */
+int  rfly_load_mlp(const char* path);
+void rfly_clamp_theta(double th[RFLY_N_THETA]);   /* defined in guidance_rfly.c; sim.c declares it locally too */
+void rfly_features(struct Sim* s, const State* nav, double phi[RFLY_MLP_NIN]);   /* the twelve legal features (updates the engine-change memory) */
+void rfly_mlp_theta(struct Sim* s, const State* nav, double th[RFLY_N_THETA]);
+/* E7 (2026-09-15): --rfly-cand-log FILE — every candidate the CEM evaluates is written as one row of
+ * 27 f64: t, seed, run, big, phi[12], theta[10], cost. The search's JUDGMENT, not its pick. */
+#include <stdio.h>
+extern FILE* g_rfly_cand_log;
+/* E7: --rfly-critic FILE — the search's sampler unchanged, the plant rollouts replaced by a critic
+ * Q(phi[12], theta[10]) -> log cost trained on the candidate log (runs/e7_train_critic.py). Sixty
+ * forward passes per replan instead of sixty rollouts. Default off => byte-identical. */
+/* E8 (2026-09-23): the critic rebuilt on the FULL observation. Input = obs39[39] + the CEM mean at
+ * that iteration[10] + the candidate[10] = 59 channels; the file declares nin (<= MAXIN) so the
+ * trainer may drop dead channels. Trained to RANK within a replan group, not to regress cost.
+ * The E7 22-input critics are dead data; this loader refuses them. */
+#define RFLY_OBS_N        39
+#define RFLY_CRITIC_NIN   (RFLY_OBS_N + 2*RFLY_N_THETA)   /* 59 */
+#define RFLY_CRITIC_MAXIN 64
+#define RFLY_CRITIC_MAXH  256
+extern int g_rfly_critic_on;
+int  rfly_load_critic(const char* path);
+void rfly_replan_critic(struct Sim* s, int big);
+
+/* E8 phase 2 — PROPOSE, RANK, CONFIRM (ROADMAP_NN-FLIGHT §2). --rfly-critic-confirm K: at EVENT
+ * replans only, the critic's top K candidates plus its global best are rolled out on the plant and
+ * the plant's choice is committed — the plant keeps the last word exactly where the flight is
+ * decided, for K+1 rollouts. Periodic replans stay critic-only. Default 0 => byte-identical. */
+extern int g_rfly_critic_confirm;
+/* E8: --rfly-critic-confirm-every — apply the confirm at EVERY replan (the critic proposes its
+ * top K, the plant judges K+1 rollouts, everywhere), not only at events. Default 0 => byte-identical. */
+extern int g_rfly_critic_confirm_every;
+
+/* E8: --rfly-cand-design — beside the CEM's own population, evaluate a DESIGNED set at every
+ * replan and log it: the replan's start mean, plus one-coordinate steps of +-0.5 and +-1.5 sd on
+ * each of the ten gains (41 rollouts). Logged ONLY: they consume no RNG draws and never enter
+ * elite selection, so the flight is byte-identical to the same run without the flag. */
+extern int g_rfly_cand_design;
+
+/* E8 candidate-log ROW (f64, little-endian), 71 columns. The E7 27-column format is retired.
+ *   0 t   1 seed   2 run   3 big   4 iter   5 designed(0/1)
+ *   6..44   obs39            45..54  mean_theta (the CEM mean this candidate was drawn around)
+ *   55..64  cand_theta (clamped, as flown)
+ *   65 cost   66 landed(0/1)   67 td_v   68 td_lat   69 td_tilt   70 fuel_margin */
+#define RFLY_CAND_ROW 71
 
 #endif

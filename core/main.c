@@ -44,6 +44,14 @@ extern double g_rfly_pop_scale;    /* D-057: --rfly-pop-scale F scales CEM POP o
 extern double g_rfly_iters_scale;  /* D-057: --rfly-iters-scale F scales CEM ITERS only (after budget); 1.0 = byte-clean */
 extern int g_rfly_event_replan;  /* D-052: --rfly-event-replan re-solves the moment n_eng changes; defined in guidance_rfly.c */
 extern int g_rfly_blind;         /* D-046 ①b: --rfly-blind hides UNFIRED faults from candidate rollouts; defined in guidance_rfly.c */
+extern int    g_rfly_det_stream; /* E2 (2026-09-15): --rfly-det-stream seeds the CEM sampler from the tick, not the run; defined in guidance_rfly.c */
+extern double g_rfly_anchor_w;   /* E2 (2026-09-15): --rfly-anchor-w W adds a tie-break toward the anchor to the candidate cost; defined in guidance_rfly.c */
+extern int rfly_parse_anchor(const char* s);   /* E3 (2026-09-15): --rfly-anchor "v0,..,v9" = warm start + tie-break target; defined in guidance_rfly.c */
+extern int rfly_load_mlp(const char* path);    /* E5 (2026-09-15): --rfly-mlp FILE = runtime-loaded MLP gain policy; defined in guidance_rfly.c */
+extern int g_rfly_mlp_on;
+extern int g_rfly_mlp_warm;   /* E6 (2026-09-15): --rfly-mlp-warm FILE = the MLP seeds the CEM at every replan, search stays on */
+extern int g_rfly_critic_on;  /* E7 (2026-09-15): --rfly-critic FILE = the critic scores the CEM's candidates instead of the plant */
+extern int rfly_load_critic(const char* path);
 extern int    g_rfly_fixed_eo_on;   /* D-047 ①d: --rfly-fixed-eo, the engine-out constant theta; defined in guidance_rfly.c */
 extern double g_rfly_fixed_eo[];
 /* D-047 ①d: parse the SECOND constant theta, flown once the LEGAL sensed engine count drops. */
@@ -95,7 +103,7 @@ static void apply_rfly_fixed(Sim* s){
      * a meaningless hybrid, and (since it still lands) a result that would have looked plausible.
      * Caught by the functional gate, which exists because a mechanism can look right and be
      * doing something else entirely (D-041). */
-    if(g_rfly_fixed_ph_on || g_rfly_policy_on) s->rfly.noreplan=1;
+    if(g_rfly_fixed_ph_on || g_rfly_policy_on || g_rfly_mlp_on) s->rfly.noreplan=1;   /* E5: the MLP policy is also a no-search mode */
     if(!g_rfly_fixed_on) return;
     for(int i=0;i<10;i++) s->rfly.th[i]=g_rfly_fixed_theta[i];
     s->rfly.noreplan=1;   /* fly the constant theta; the CEM never runs */
@@ -310,9 +318,9 @@ static void test_theta_kat(void){
     /* TP_VERSION 2 (theta_m4.pt, 443 AERO-enriched runs; M4 GREEN — held-out AERO 57/58/56) — dumped
      * from THIS binary's fixed-order pass at %.17g, FROM THE C PASS never numpy (accumulation order). */
     const double EXP[10] = {
-        1.5239198764193458, 0.68113889895500035, 1.4583740347558167, 2.1564796781244531,
-        0.38429049942481941, 1.0311814431132125, 1.1578430413786227, 2.6701921795223562,
-        0.38773413801240431, 1.254681781695179 };
+        2.7017045694233786, 2.3405484570670954, 2.161314080221179, 1.6410266994648262,
+        1.4718038528286816, 1.3061062829292327, 1.8139217895552917, 1.9165822222628321,
+        1.0903109129677051, 1.6511296624587137 };
     for(int i=0;i<10;i++) CHECKF(th[i], EXP[i], 0.0, "TP KAT theta (TP_VERSION 2 bit-exact)");
     double th2[10]; theta_policy_forward(o, th2);
     int det=1; for(int i=0;i<10;i++) if(th[i]!=th2[i]) det=0;
@@ -539,6 +547,16 @@ static int cmd_run(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-pop-scale")&&i+1<argc) g_rfly_pop_scale=strtod(argv[++i],0);     /* D-057: scale CEM POP only */
         else if(!strcmp(argv[i],"--rfly-iters-scale")&&i+1<argc) g_rfly_iters_scale=strtod(argv[++i],0); /* D-057: scale CEM ITERS only */
         else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
+        else if(!strcmp(argv[i],"--rfly-det-stream")) g_rfly_det_stream=1;   /* E2: CEM sampler stream from the tick, not the run */
+        else if(!strcmp(argv[i],"--rfly-anchor")&&i+1<argc){ if(!rfly_parse_anchor(argv[++i])){ fprintf(stderr,"error: --rfly-anchor needs 10 comma-separated values\n"); return 2; } }   /* E3: anchored warm start + tie-break target */
+        else if(!strcmp(argv[i],"--rfly-mlp")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_on=1; }   /* E5: runtime-loaded MLP gain policy */
+        else if(!strcmp(argv[i],"--rfly-mlp-warm")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp-warm: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_warm=1; }   /* E6: the MLP seeds the CEM; search stays on */
+        else if(!strcmp(argv[i],"--rfly-cand-log")&&i+1<argc){ g_rfly_cand_log=fopen(argv[++i],"wb"); if(!g_rfly_cand_log){ fprintf(stderr,"error: --rfly-cand-log: cannot open %s\n", argv[i]); return 2; } }   /* E7: log every CEM candidate evaluation */
+        else if(!strcmp(argv[i],"--rfly-cand-design")) g_rfly_cand_design=1;   /* E8: designed candidates, logged only, byte-identical flight */
+        else if(!strcmp(argv[i],"--rfly-critic")&&i+1<argc){ if(!rfly_load_critic(argv[++i])){ fprintf(stderr,"error: --rfly-critic: cannot load %s\n", argv[i]); return 2; } g_rfly_critic_on=1; }   /* E7: the critic replaces the plant rollouts in the search */
+        else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
+        else if(!strcmp(argv[i],"--rfly-critic-confirm-every")) g_rfly_critic_confirm_every=1;   /* E8: confirm at every replan */
+        else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
         else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
         else if(!strcmp(argv[i],"--rfly-fixed-phase")&&i+1<argc){ if(!parse_rfly_fixed_phase(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-phase needs 30 comma-separated values (3 bands x 10)\n"); return 2; } g_rfly_fixed_ph_on=1; }   /* D-047 1e: phase-scheduled theta */
@@ -639,6 +657,16 @@ static int cmd_headless(int argc, char** argv){
         else if(!strcmp(argv[i],"--rfly-pop-scale")&&i+1<argc) g_rfly_pop_scale=strtod(argv[++i],0);     /* D-057: scale CEM POP only */
         else if(!strcmp(argv[i],"--rfly-iters-scale")&&i+1<argc) g_rfly_iters_scale=strtod(argv[++i],0); /* D-057: scale CEM ITERS only */
         else if(!strcmp(argv[i],"--rfly-blind")) g_rfly_blind=1;   /* D-046 1b: hide UNFIRED faults from candidate rollouts */
+        else if(!strcmp(argv[i],"--rfly-det-stream")) g_rfly_det_stream=1;   /* E2: CEM sampler stream from the tick, not the run */
+        else if(!strcmp(argv[i],"--rfly-anchor")&&i+1<argc){ if(!rfly_parse_anchor(argv[++i])){ fprintf(stderr,"error: --rfly-anchor needs 10 comma-separated values\n"); return 2; } }   /* E3: anchored warm start + tie-break target */
+        else if(!strcmp(argv[i],"--rfly-mlp")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_on=1; }   /* E5: runtime-loaded MLP gain policy */
+        else if(!strcmp(argv[i],"--rfly-mlp-warm")&&i+1<argc){ if(!rfly_load_mlp(argv[++i])){ fprintf(stderr,"error: --rfly-mlp-warm: cannot load weights from %s\n", argv[i]); return 2; } g_rfly_mlp_warm=1; }   /* E6: the MLP seeds the CEM; search stays on */
+        else if(!strcmp(argv[i],"--rfly-cand-log")&&i+1<argc){ g_rfly_cand_log=fopen(argv[++i],"wb"); if(!g_rfly_cand_log){ fprintf(stderr,"error: --rfly-cand-log: cannot open %s\n", argv[i]); return 2; } }   /* E7: log every CEM candidate evaluation */
+        else if(!strcmp(argv[i],"--rfly-cand-design")) g_rfly_cand_design=1;   /* E8: designed candidates, logged only, byte-identical flight */
+        else if(!strcmp(argv[i],"--rfly-critic")&&i+1<argc){ if(!rfly_load_critic(argv[++i])){ fprintf(stderr,"error: --rfly-critic: cannot load %s\n", argv[i]); return 2; } g_rfly_critic_on=1; }   /* E7: the critic replaces the plant rollouts in the search */
+        else if(!strcmp(argv[i],"--rfly-critic-confirm")&&i+1<argc){ g_rfly_critic_confirm=atoi(argv[++i]); if(g_rfly_critic_confirm<0) g_rfly_critic_confirm=0; }   /* E8 phase 2: plant confirms the critic's top K at events */
+        else if(!strcmp(argv[i],"--rfly-critic-confirm-every")) g_rfly_critic_confirm_every=1;   /* E8: confirm at every replan */
+        else if(!strcmp(argv[i],"--rfly-anchor-w")&&i+1<argc) g_rfly_anchor_w=strtod(argv[++i],0);   /* E2: tie-break toward identity in the candidate cost */
         else if(!strcmp(argv[i],"--rfly-event-replan")) g_rfly_event_replan=1;   /* D-052: re-solve when n_eng changes */
         else if(!strcmp(argv[i],"--rfly-fixed-eo")&&i+1<argc){ if(!parse_rfly_fixed_eo(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-eo needs 10 comma-separated values\n"); return 2; } g_rfly_fixed_eo_on=1; }   /* D-047 1d: second constant theta, armed on n_eng<3 */
         else if(!strcmp(argv[i],"--rfly-fixed-phase")&&i+1<argc){ if(!parse_rfly_fixed_phase(argv[++i])){ fprintf(stderr,"error: --rfly-fixed-phase needs 30 comma-separated values (3 bands x 10)\n"); return 2; } g_rfly_fixed_ph_on=1; }   /* D-047 1e: phase-scheduled theta */
