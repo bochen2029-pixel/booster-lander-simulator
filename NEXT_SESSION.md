@@ -19,7 +19,7 @@ Model: Opus 4.8 (Fable weekly is maxed — stay on Opus).
 1. Read ROADMAP.md — the perpetual map + RESUME PROTOCOL. Your next step = the first ⬜ box.
 2. Read HANDOFF_2026-07-19_MORNING_AUTORUN.md §0 LIVE LOG (top, newest-first) — minute-by-minute state.
 3. Read MEMORY.md (project memory index) + CLAUDE_v2.md §0–§2 (canon) + DECISIONS.md tail (D-024…D-028).
-4. Windows/pwsh discipline: C:\Users\user\.claude\WINDOWS_SHELL_GUIDE.md (detached=Start-Process
+4. Windows/pwsh discipline: C:\Users\user\.claude\CLAUDE.md (the WINDOWS_SHELL_GUIDE.md path is gone) (detached=Start-Process
    NOT Start-Job; watch an artifact/marker NEVER a PID; pwsh not powershell; check $LASTEXITCODE;
    never build over a live farm = LNK1104).
 5. VERIFY DISK BEATS MEMORY:

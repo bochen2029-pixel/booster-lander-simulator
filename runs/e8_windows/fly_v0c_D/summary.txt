@@ -1,0 +1,2 @@
+E8 FLY v0c_D  critic=D:/bl_e1_data/e8_prelim2/critic_v0c.w  started 2026-09-23 10:49:44
+  arm D seed 42 FAILED — no LANDED line

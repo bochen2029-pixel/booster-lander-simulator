@@ -4046,3 +4046,57 @@ not part of the measurement.*
 **FluidX3D on this box:** builds from the operator's drop with MSBuild (v142 toolset present),
 `BENCHMARK` must be commented out or it `#undef`s every extension, `getenv` needs
 `_CRT_SECURE_NO_WARNINGS`; ~5 GLUPS on the 4070 Ti SUPER at FP16S; 62.6 M cells in 4 GB.
+
+## D-061 — THE COLD 1/32 SEARCH ON A SEALED POOL, FLOWN ONCE: 586/600 = 97.7% (2026-09-23)
+
+*Recorded 2026-09-24 during the Windows/cloud sync. Receipts: `runs/d061/blind+event+1of32_93xx.{txt,err}`
+(per seed), `runs/d061_sealed_verify.txt` (summary), `runs/d061_sealed_cheap.ps1` (the exact runner).
+Binary: `build4` in the main tree.*
+
+**The arm.** `--rfly --rfly-blind --rfly-event-replan --rfly-budget 0.03125` — the blind search with
+event replan at 1/32 budget: POP 8 × ITERS 2 = **16 plant rollouts per replan**, big and small alike.
+On the development pool this was E6's cold arm, **179/180** (receipts `D:\bl_e1_data\e6\cold_s*.csv`,
+verified row by row on 2026-09-15).
+
+**The flight.** Sealed seeds **9300–9309 × 60**, virgin before this flight (checked against every seed
+ever flown, the method in `SEALED_POOL.md`).
+
+| seed | 9300 | 9301 | 9302 | 9303 | 9304 | 9305 | 9306 | 9307 | 9308 | 9309 | **total** |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| landed | 59 | 59 | 60 | 59 | 59 | 56 | 60 | 59 | 55 | 60 | **586/600 = 97.7%** |
+| PERFECT | 8 | 4 | 3 | 6 | 8 | 6 | 2 | 11 | 8 | 13 | **69** |
+
+**The band 9300–9309 is now spent for this claim.**
+
+**Side by side with D-055, never as a difference.** The two sealed numbers were flown on different
+pools, so subtracting them would break the cross-pool law:
+
+| | arm | sealed pool | landed | PERFECT | plant rollouts per replan |
+|---|---|---|---|---|---|
+| D-055 | blind + event + **1/8** | 9200–9209 | 585/600 = 97.5% | 95 | ~48–240 |
+| **D-061** | blind + event + **1/32** | 9300–9309 | **586/600 = 97.7%** | 69 | **16** |
+
+**The same sealed landing rate at a quarter of the compute.** Read the PERFECT counts the same way:
+side by side, not as a difference. The budget buying precision rather than survival is what D-057's
+sweep and the cloud's width decomposition measured on a single pool (`runs/E8_FINDINGS.md`).
+
+**Pre-registration, stated honestly.** The summary file's header line — *"pre-registered: deployable
+within ~2 sigma of 97.2%"* — was inherited from the D-055 template when the runner was derived from
+it, and it describes D-054, not this arm. **No arm-specific threshold was written before this
+flight.** The number stands as a measurement.
+
+**Flown once.** An earlier launch was killed partway through seed 9300 (38 of 60 flights, clean stop
+at a replan, no LANDED line), so it produced no verdict and nothing was selected on it. The recorded
+run started 2026-09-23 06:22:03 and finished 08:55:07. Its first write overwrote the summary.
+
+## D-062 — `iters_0.2` ON 9300–9302: WRITTEN, NOT FLOWN (2026-09-23)
+
+`runs/d062_sealed_iters02.ps1` flies D-057's `iters_0.2` row — 180/180 on the dev pool with 104
+PERFECT, four times the deployable row's — with blind + event replan on sealed seeds 9300–9302 × 60.
+**Its configuration was fixed before D-061's result existed**; it was written while D-061 was still on
+its first seeds. It was queued to launch once the E8 farm freed the cores, and the session ended
+first. **Never launched.**
+
+It can still be flown later as the pre-registered paired arm on 9300–9302 if Bo wants: those seeds
+are spent for the 1/32 claim, but D-062 is a different arm whose configuration was fixed in advance,
+so flying it compares two arms on identical faults rather than re-selecting on a seen result.

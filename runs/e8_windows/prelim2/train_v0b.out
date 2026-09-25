@@ -1,0 +1,22 @@
+rows 288,420  groups 10,108  runs 360  files 6
+train runs 306  val runs 54  train rows 244,131  val rows 44,289
+dead input channels: 9/39 obs (indices [15, 18, 23, 24, 25, 26, 27, 28, 29])
+train groups 8,554  val groups 1,554  mean group size 28.5
+steps/epoch 267  total steps 4005
+ep   0  loss 3.7337  VAL top1 0.080 (chance 0.035)  regret med 2.43 p90 45.23  P(land|best lands) 0.610  [0.1 min]
+ep   1  loss 3.7085  VAL top1 0.087 (chance 0.035)  regret med 2.63 p90 43.94  P(land|best lands) 0.592  [0.1 min]
+ep   2  loss 3.6699  VAL top1 0.095 (chance 0.035)  regret med 2.03 p90 30.31  P(land|best lands) 0.645  [0.2 min]
+ep   3  loss 3.6265  VAL top1 0.113 (chance 0.035)  regret med 1.87 p90 26.27  P(land|best lands) 0.665  [0.2 min]
+ep   4  loss 3.5904  VAL top1 0.111 (chance 0.035)  regret med 1.82 p90 26.27  P(land|best lands) 0.669  [0.3 min]
+ep   5  loss 3.5589  VAL top1 0.124 (chance 0.035)  regret med 1.76 p90 24.16  P(land|best lands) 0.687  [0.3 min]
+ep   6  loss 3.5312  VAL top1 0.118 (chance 0.035)  regret med 1.72 p90 23.83  P(land|best lands) 0.690  [0.4 min]
+ep   7  loss 3.4984  VAL top1 0.126 (chance 0.035)  regret med 1.75 p90 23.49  P(land|best lands) 0.675  [0.4 min]
+ep   8  loss 3.4701  VAL top1 0.131 (chance 0.035)  regret med 1.63 p90 21.69  P(land|best lands) 0.710  [0.5 min]
+ep   9  loss 3.4415  VAL top1 0.145 (chance 0.035)  regret med 1.57 p90 20.00  P(land|best lands) 0.719  [0.5 min]
+ep  10  loss 3.4187  VAL top1 0.138 (chance 0.035)  regret med 1.57 p90 20.36  P(land|best lands) 0.712  [0.6 min]
+ep  11  loss 3.3971  VAL top1 0.129 (chance 0.035)  regret med 1.56 p90 19.31  P(land|best lands) 0.716  [0.6 min]
+ep  12  loss 3.3836  VAL top1 0.134 (chance 0.035)  regret med 1.49 p90 18.19  P(land|best lands) 0.724  [0.7 min]
+ep  13  loss 3.3756  VAL top1 0.133 (chance 0.035)  regret med 1.50 p90 18.93  P(land|best lands) 0.721  [0.7 min]
+ep  14  loss 3.3717  VAL top1 0.132 (chance 0.035)  regret med 1.49 p90 18.72  P(land|best lands) 0.722  [0.8 min]
+
+EXPORTED D:/bl_e1_data/e8_prelim2/critic_v0b.w  best VAL top1 0.145  regret med 1.57  P(land|best lands) 0.719

@@ -1,0 +1,19 @@
+D-061 SEALED 9300-9309, flown ONCE: the E6 cold 1/32 row (179/180 dev, ~1 s/flight)
+started 2026-09-23 06:22:03
+dev-pool references (42/7/99): identity 28/180 | constant 121/180 | blind+event+1/8 175/180 (97.2%)
+pre-registered: deployable within ~2 sigma of 97.2% => headline CONFIRMED on virgin seeds
+
+===== ARM: blind+event+1of32 =====
+  seed 9300 : 59/60    PERFECT 8  GOOD 47  HARD 4  TIPPED 0  CRASHED 1
+  seed 9301 : 59/60    PERFECT 4  GOOD 42  HARD 13  TIPPED 0  CRASHED 1
+  seed 9302 : 60/60    PERFECT 3  GOOD 48  HARD 9  TIPPED 0  CRASHED 0
+  seed 9303 : 59/60    PERFECT 6  GOOD 47  HARD 6  TIPPED 0  CRASHED 1
+  seed 9304 : 59/60    PERFECT 8  GOOD 47  HARD 4  TIPPED 0  CRASHED 1
+  seed 9305 : 56/60    PERFECT 6  GOOD 39  HARD 11  TIPPED 0  CRASHED 4
+  seed 9306 : 60/60    PERFECT 2  GOOD 46  HARD 12  TIPPED 0  CRASHED 0
+  seed 9307 : 59/60    PERFECT 11  GOOD 44  HARD 4  TIPPED 0  CRASHED 1
+  seed 9308 : 55/60    PERFECT 8  GOOD 42  HARD 5  TIPPED 0  CRASHED 5
+  seed 9309 : 60/60    PERFECT 13  GOOD 36  HARD 11  TIPPED 0  CRASHED 0
+  ---- blind+event+1of32 TOTAL: 586/600 = 97.7% ----
+
+D061-DONE  2026-09-23 08:55:07

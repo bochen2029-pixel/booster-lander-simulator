@@ -1,0 +1,7 @@
+========= HEADLESS MONTE CARLO =========
+scenario=entry seed=9301 runs=60 turb=1
+LANDED: 59/60 = 98.3%  (Wilson95: 91.1..99.7%)
+  PERFECT 4  GOOD 42  HARD 13  TIPPED 0  CRASHED 1
+  faults: FUEL 0  STRUCT 0  THERMAL 0  LOC 1
+  crash causes: off-pad 0  too-hard 0  fuel-out 0  other 1
+  landed means: td_v=2.98 m/s (max 5.42)  lat=2.52 m  tilt=3.68 deg  fuel=2752 kg

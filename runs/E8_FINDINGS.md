@@ -543,3 +543,78 @@ ledger.**
 (b) phase-1.5 rounds scored as De; (c) a critic trained on a miss-weighted cost, the only way a
 network takes over the precision job; (d) if a deployable number is wanted without a network,
 rich_event on a fresh sealed band, flown once (not 9300–9309, which D-061 was flying on Windows).
+
+## 2026-09-23 (Windows box) — critic_v1, and the arms that never finished
+
+*Appended 2026-09-24 by the Windows/cloud sync. These are 09-23 events, recorded after the cloud's
+09-24 sections because the cloud could not see this box. Every number below is from a receipt in
+`runs/e8_windows/` (copied from `D:\bl_e1_data\e8`, each copy sha256-verified against its source).*
+
+### What critic_v1 was trained on
+
+The 10:44 kill (below) cut the farm short, so the training set is not the planned 24 × 60:
+
+| | seeds | rows |
+|---|---|---|
+| complete (60 runs each) | 18 | 863,550 |
+| partial, killed mid-flight | 7706 · 7714 · 7722 | 40,071 · 45,877 · 38,931 |
+| partial, killed within seconds of launch | 7707 · 7715 · 7723 | 171 · 163 · 171 |
+| **total** | **24 files, 1,240 runs, 34,644 replan groups** | **988,934** |
+
+Every `.cand` is row-aligned (no torn tail), so each row in a partial seed is a complete candidate
+evaluation; the partial seeds contribute fewer groups, not bad ones. Split by run, 1,054 train /
+186 val. `e8_train_critic.py --batch 32 --pair_weight 4.0 --epochs 30 --hidden 256`, 27,540 steps.
+
+### critic_v1 offline
+
+| | v0c (6 seeds) | **v1 (24 files)** |
+|---|---|---|
+| top-1 | 0.148 | **0.152** |
+| regret median / p90 | 1.42 / 17.6 | **1.28 / 12.7** |
+| P(pick lands \| best lands) | 0.736 | **0.806** |
+
+### critic_v1 flown: arm A only
+
+- **Arm A, budget 1.0, critic alone: 29 / 23 / 24 = 76/180, 0 PERFECT.**
+- **Arm A is not comparable to arm B.** At budget 1.0 the critic scores 192 to 1,920 candidates per
+  replan, against arm B's 16. That gives its search 12 to 120 times more chances to find the critic's
+  errors. The pre-registered read was on arm B.
+- **Arms B and C: no data.** Both died on their first seed (s42) with 0-byte stdout, B after 9 s and
+  C after 34 s.
+- **v0c arm D: no data.** It was launched at 10:49 on `build_e10` and died on s42 with 0-byte stdout.
+  **No arm-D number exists from this box.**
+
+### Correction: my arm-D floor claim was wrong
+
+In "v0c FLOWN" above I wrote: *"Floor: with a garbage critic the plant picks the carried elite
+(keep-the-elite lands 92%/replan), so arm D should not fall below the constant."* **That is wrong.**
+The confirm set in `rfly_replan_critic` is the critic's own global best plus its top K. The carried
+elite enters only if the critic ranks it there, and with a weak critic nothing guarantees that, so
+arm D has no floor. The cloud measured the gap: arm D = 137/180, and arm De, which keeps the elite
+(`--rfly-critic-confirm-elite`), = 170/180, a gain of 33 (p = 2.5e-7). **Any arm-D number flown on the
+Windows box would have been floor-less.** None completed.
+
+### The deaths: 10:44 and 10:49 to 10:53
+
+Nine runs ended with no LANDED line (stderr kept in `runs/e8_windows/deaths/`):
+
+- six farm seeds, at 10:44:37 to 10:44:55;
+- critic_v1 arms B and C, at 10:52:33 to 10:53:16;
+- v0c arm D, launched at 10:49:44.
+
+What was checked:
+
+- **Windows Application log, 10:30 to 11:00:** no crash or error-report record (IDs 1000, 1001, 1002),
+  and no entry mentioning booster.
+- **System log:** no power, shutdown or service event in the window.
+- **Other sessions:** only this Claude Code session was active in the window, and no session ever
+  issued a named kill of `booster-core`. The session transcript shows a model switch at 10:36 and no
+  activity between 10:36 and 10:45.
+- **Parents survived:** in every case the parent `pwsh` script lived on and logged the failure.
+  `booster-core` left 0-byte stdout (its buffer never flushed) and partial stderr.
+- **The code path works:** v0c's arms B and C flew the same 1/32 critic path to completion on this box
+  1.5 hours earlier, and the cloud flew about 900 flights of it with no failure.
+
+**Cause: unresolved.** The fix is practical either way. Launch long flights so they do not depend on
+the Claude Code session's lifetime, and smoke-test critic_v1 arm B (s42, `--runs 3`) before the next
+full flight.

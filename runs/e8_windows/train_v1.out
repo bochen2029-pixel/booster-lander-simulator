@@ -1,0 +1,37 @@
+rows 988,934  groups 34,644  runs 1,240  files 24
+train runs 1054  val runs 186  train rows 839,366  val rows 149,568
+dead input channels: 9/39 obs (indices [15, 18, 23, 24, 25, 26, 27, 28, 29])
+train groups 29,406  val groups 5,238  mean group size 28.5
+steps/epoch 918  total steps 27540
+ep   0  loss 3.6820  VAL top1 0.104 (chance 0.035)  regret med 2.02 p90 24.70  P(land|best lands) 0.665  [0.3 min]
+ep   1  loss 3.5502  VAL top1 0.124 (chance 0.035)  regret med 1.47 p90 17.05  P(land|best lands) 0.750  [0.7 min]
+ep   2  loss 3.4550  VAL top1 0.138 (chance 0.035)  regret med 1.44 p90 14.61  P(land|best lands) 0.767  [0.9 min]
+ep   3  loss 3.4030  VAL top1 0.137 (chance 0.035)  regret med 1.36 p90 13.76  P(land|best lands) 0.781  [1.1 min]
+ep   4  loss 3.3697  VAL top1 0.140 (chance 0.035)  regret med 1.34 p90 13.35  P(land|best lands) 0.787  [1.3 min]
+ep   5  loss 3.3438  VAL top1 0.140 (chance 0.035)  regret med 1.31 p90 12.63  P(land|best lands) 0.796  [1.5 min]
+ep   6  loss 3.3201  VAL top1 0.148 (chance 0.035)  regret med 1.30 p90 12.78  P(land|best lands) 0.801  [1.9 min]
+ep   7  loss 3.2971  VAL top1 0.144 (chance 0.035)  regret med 1.31 p90 12.62  P(land|best lands) 0.799  [2.1 min]
+ep   8  loss 3.2770  VAL top1 0.151 (chance 0.035)  regret med 1.31 p90 12.69  P(land|best lands) 0.796  [2.3 min]
+ep   9  loss 3.2592  VAL top1 0.148 (chance 0.035)  regret med 1.31 p90 12.72  P(land|best lands) 0.796  [2.6 min]
+ep  10  loss 3.2406  VAL top1 0.152 (chance 0.035)  regret med 1.28 p90 12.39  P(land|best lands) 0.806  [2.8 min]
+ep  11  loss 3.2207  VAL top1 0.146 (chance 0.035)  regret med 1.30 p90 12.37  P(land|best lands) 0.801  [3.0 min]
+ep  12  loss 3.2014  VAL top1 0.146 (chance 0.035)  regret med 1.31 p90 12.79  P(land|best lands) 0.797  [3.2 min]
+ep  13  loss 3.1824  VAL top1 0.147 (chance 0.035)  regret med 1.31 p90 12.65  P(land|best lands) 0.796  [3.4 min]
+ep  14  loss 3.1613  VAL top1 0.147 (chance 0.035)  regret med 1.31 p90 12.76  P(land|best lands) 0.796  [3.6 min]
+ep  15  loss 3.1421  VAL top1 0.145 (chance 0.035)  regret med 1.30 p90 12.78  P(land|best lands) 0.795  [3.8 min]
+ep  16  loss 3.1223  VAL top1 0.144 (chance 0.035)  regret med 1.31 p90 12.81  P(land|best lands) 0.793  [4.0 min]
+ep  17  loss 3.1046  VAL top1 0.144 (chance 0.035)  regret med 1.31 p90 12.75  P(land|best lands) 0.792  [4.1 min]
+ep  18  loss 3.0864  VAL top1 0.145 (chance 0.035)  regret med 1.32 p90 12.84  P(land|best lands) 0.794  [4.2 min]
+ep  19  loss 3.0694  VAL top1 0.147 (chance 0.035)  regret med 1.32 p90 12.78  P(land|best lands) 0.794  [4.3 min]
+ep  20  loss 3.0534  VAL top1 0.143 (chance 0.035)  regret med 1.32 p90 12.77  P(land|best lands) 0.794  [4.4 min]
+ep  21  loss 3.0397  VAL top1 0.148 (chance 0.035)  regret med 1.31 p90 12.76  P(land|best lands) 0.796  [4.5 min]
+ep  22  loss 3.0264  VAL top1 0.146 (chance 0.035)  regret med 1.31 p90 12.78  P(land|best lands) 0.792  [4.6 min]
+ep  23  loss 3.0160  VAL top1 0.148 (chance 0.035)  regret med 1.31 p90 12.72  P(land|best lands) 0.795  [4.7 min]
+ep  24  loss 3.0054  VAL top1 0.147 (chance 0.035)  regret med 1.31 p90 12.72  P(land|best lands) 0.797  [4.8 min]
+ep  25  loss 2.9986  VAL top1 0.148 (chance 0.035)  regret med 1.31 p90 12.83  P(land|best lands) 0.795  [4.9 min]
+ep  26  loss 2.9917  VAL top1 0.147 (chance 0.035)  regret med 1.31 p90 12.89  P(land|best lands) 0.793  [5.0 min]
+ep  27  loss 2.9866  VAL top1 0.147 (chance 0.035)  regret med 1.31 p90 12.69  P(land|best lands) 0.796  [5.0 min]
+ep  28  loss 2.9840  VAL top1 0.147 (chance 0.035)  regret med 1.31 p90 12.78  P(land|best lands) 0.794  [5.1 min]
+ep  29  loss 2.9819  VAL top1 0.148 (chance 0.035)  regret med 1.31 p90 12.70  P(land|best lands) 0.795  [5.2 min]
+
+EXPORTED D:\bl_e1_data\e8\critic_v1.w  best VAL top1 0.152  regret med 1.28  P(land|best lands) 0.806
