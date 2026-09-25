@@ -133,7 +133,7 @@ local working tree — development happens against local ledgers (`RUN_STATE.md`
 public commit history is intentionally coarse while the decision history lives in `DECISIONS.md`.
 And the claims below no longer require trusting the author's machine: **CI re-runs the 10-oracle
 selftest (including the bit-identical determinism `memcmp`) and a 200-run Monte-Carlo gate on a
-clean `windows-latest` runner on every push** (`.github/workflows/ci.yml`).
+clean `windows-2022` runner on every push** (`.github/workflows/ci.yml`).
 
 **Done and verified (milestones M0–M3, M5, M6, and now M4 GREEN; the N-track showcase N3 flown;
 canon is `CLAUDE_v2.md`, adopted D-019):**
