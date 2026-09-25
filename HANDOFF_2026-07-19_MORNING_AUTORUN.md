@@ -6,6 +6,23 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-09-25 ~00:30 UTC [opus5.5, Windows box] — THE SYNC: THE BOX'S 09-23 WORK JOINS THE CLOUD'S ON
+  `e-ladder`, AND BOTH BRANCHES ARE IDENTICAL.** Backups `backup/main-pre-sync-2026-09-25` (`87148a9`) and
+  `backup/e-ladder-pre-sync-2026-09-25` (`53a341d`), local. `e-ladder` fast-forwarded `53a341d` → `5e07f73`
+  (the cloud branch, 36 commits, contains `main`), then `655c74f` added this box's work: D-061/D-062
+  receipts, `runs/e8_windows/` (109 files sha256-verified, a manifest of the 60 `.cand`/`.bin` not
+  copied, and the stderr of the nine runs that died), the D-061 ADR + SCOREBOARD row + STATUS line, the
+  E8 Windows section with **my arm-D floor claim corrected** (the confirm set drops the carried elite;
+  the cloud's D 137 vs De 170), and the shell-guide path repointed at `CLAUDE.md`. `main` got only the
+  CI pin (`61c4633`, a cherry-pick of `5e07f73`: `ci.yml` + one README line). **Pushed:** main
+  `87148a9..61c4633`, e-ladder `53a341d..655c74f`, cloud branch `5e07f73..655c74f`, all fast-forward.
+  **D-061 = 586/600 = 97.7%** sealed (69 PERFECT; the same rate as D-055 at a quarter of the compute,
+  side by side). **critic_v1:** offline P(land given the best lands) 0.806, arm A 76/180; arms B/C and
+  v0c arm D never completed — no arm-D number from this box. **Gates on `build_sync`:** selftest PASS,
+  TERMINAL ×200 byte-identical, **seed 42 ×60 identical to the Linux receipt on every summary line**,
+  critic_v1 arm-B smoke completes. Deaths of 09-23 10:44/10:52: no crash record, no power event, no
+  other session, parents survived — unresolved. **NEXT, on Bo's word:** critic_v1 as B, De1, De and
+  `critic_c0.w` as De on 42/7/99 ×60 with `--out csv`, launched detached; pair with `runs/e8_paired.py`.
 - **2026-09-24 ~20:55 UTC [cloud, Linux container] — E8 CONTINUED FROM `53a341d` WITHOUT THE WINDOWS BOX.**
   Branch `claude/charming-bohr-i4naru` = `e-ladder` merged + this session; main untouched. The Windows
   farm/critics/chain outputs (`D:\bl_e1_data\e8`) never reached git, so the v0c pipeline was re-run
