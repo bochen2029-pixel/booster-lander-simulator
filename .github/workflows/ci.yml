@@ -1,13 +1,16 @@
 name: ci
 # Third-party attestation for the headless proof (see README "Why it is hard to fake"):
-# every push rebuilds the core on a clean windows-latest runner (MSVC 2022) and re-runs
+# every push rebuilds the core on a clean windows-2022 runner (MSVC 2022) and re-runs
 # the 10-oracle selftest (including the bit-identical determinism memcmp) plus a
 # Monte-Carlo gate. The claims in the README do not require trusting the author's machine.
 on: [push, pull_request]
 
 jobs:
   selftest-and-mc:
-    runs-on: windows-latest
+    # Pinned to windows-2022, the same MSVC 2022 toolchain the author's box builds with. By 2026-09
+    # windows-latest no longer shipped Visual Studio 2022, so Configure failed on every push from at
+    # least 2026-09-13 ("Generator Visual Studio 17 2022 could not find any instance").
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
