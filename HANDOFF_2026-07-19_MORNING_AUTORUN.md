@@ -6,6 +6,33 @@
 ## LIVE LOG (running, newest first — update at EVERY state change; raw material for the next
 ## rewrite of this file. Operator standing instruction, 2026-07-19 18:35.)
 ===============================================================================================
+- **2026-10-09 ~17:50Z [opus5.5, operator-directed: "go … publish first"] — v0.4.0 RELEASED.**
+  Packaging only, from `main` (61c4633 + the r15-default commit), in a workspace OUTSIDE the repo,
+  `D:/booster_release/v0.4.0/`: the build dir, logs, stage, SHA256SUMS, and the pre-release backups of
+  `shell/binaries/booster-core-…exe`, `ui/dist` and `booster-shell.exe` in `_prev_pre-v0.4.0/` (those are
+  the v0.3.0 binaries). Recipe = the fe-self-verify memory's repackage recipe, with the core built fresh
+  (VS 2022, Release). **Gates:**
+  - selftest PASS (NP 6 / TP 2, IMU oracle);
+  - TERMINAL s42 ×200 = 194/200, 97.0% (Wilson 93.6–98.6); crashes are 6 off-pad, 0 too-hard, 0 fuel-out;
+  - UI typecheck clean, 200/200 vitest, `pnpm build` OK.
+
+  **Smoke test of the packaged app (window capture via PrintWindow):** it spawned the STAGED core, not
+  the dev fallback path, and streamed Kestrel-9 + the FDAI. **But the default flight, entry s42 r1 at
+  sea, CRASHED fault=FUEL** (td_v 91.03, lat 174.83, t 161.2 s). Headless reproduces it bit for bit, and
+  so does the v0.3.0 core, so it is not a regression: it has been the opening flight since sea became
+  the default (20b0cca, 07-20).
+  - At sea, entry s42 under the reactive law lands 7/17 over runs 0–16 (6 HARD, 1 GOOD).
+  - Without sea it lands 15/17.
+  - `--mppi` does not save r1.
+
+  Shell default → **r15** (GOOD, td_v 3.46, lat 0.84 m). The packaged app landed r15 live on the
+  droneship (touchdown at 145.7 s, the same as headless; the operator watched it). **Second find:** the chip
+  and picker still read "r1" while the core flew r15. `mount.ts` falls back to its own `run = 1` when
+  `get_core_status` does not land at mount (the invoke wrapper turns errors into null), and that was
+  invisible while both defaults were 1. The fallback now mirrors the shell (15); re-smoked: "entry s42
+  r15". The status call's silent failure at mount is the open root cause. NOT acted on, the operator's call:
+  the at-sea reactive rate, and the README's "0 off-pad" TERMINAL line against today's 6/200 off-pad.
+  Cosmetic: the connection chip's "v3 ✓" is a hard-coded label (the HELLO check passes; the wire is v5).
 - **2026-09-12 ~23:35 [opus5] — D-057 FLYING, D-058 MEASURED, D-059 ON THE WIRE, D-060 CHECKED.**
   Under standing autonomy after the 19:30 hand-off. **D-057** budget sweep (`--rfly-pop-scale` /
   `--rfly-iters-scale`, byte-clean at 1.0, gates two-sided) launched 19:34 on `build2`, nine arms with

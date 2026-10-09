@@ -106,7 +106,11 @@ impl Default for Launch {
         Launch {
             scenario: "entry".into(),
             seed: 42,
-            run: 1,
+            // Run 15, not 1: measured 2026-10-09 (v0.4.0), entry s42 at sea under the default
+            // reactive guidance, run 1 runs out of propellant 4 m above the deck (CRASHED FUEL,
+            // td_v 91 m/s, identical on the v0.3.0 core); run 15 lands GOOD 0.84 m from centre.
+            // Runs 0-16 at sea land 7/17, so a fresh install should open on one that does.
+            run: 15,
             gust: String::new(),
             gust_dir: String::new(),
             engine_out: String::new(),

@@ -52,7 +52,10 @@ export async function mountShell(): Promise<ShellHandle> {
   let port = DEFAULT_PORT;
   let scenario = "entry";
   let seed = 42;
-  let run = 1;
+  // Mirror the shell's Launch::default() (supervisor.rs, run 15 since v0.4.0). When the mount-time
+  // status call does not land, this fallback is what the chip and picker show — v0.4.0's smoke test
+  // saw "r1" here while the core flew run 15.
+  let run = 15;
   // Plain browser: `?port=NNNN` overrides the default — 8787 is also wrangler's default, and a
   // stray `workerd` on it answers the handshake with an HTTP 200 (seen 2026-09-12).
   if (!hasControlPlane) {

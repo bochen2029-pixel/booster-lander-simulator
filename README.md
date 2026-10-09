@@ -23,11 +23,12 @@ crashes.
 ## Run it (Windows)
 
 A one-click desktop app — its own window, no terminal, no browser. It spawns and supervises the
-simulation core itself; just launch and press **LAUNCH**.
+simulation core itself, and opens straight onto a live descent to the droneship.
 
-- **[Download the latest Windows release »](https://github.com/bochen2029-pixel/booster-lander-simulator/releases/latest)** — grab the **portable `.zip`** (unzip, double-click `Booster Lander.exe`) or the **`-setup.exe`** installer.
-- Controls: **drag** to orbit the external camera, **wheel** to zoom, **LAUNCH** to fly another
-  seed/scenario/run. The view stays third-person external so you always watch the booster land.
+- **[Download the latest Windows release »](https://github.com/bochen2029-pixel/booster-lander-simulator/releases/latest)** — grab the **portable `.zip`**, unzip it anywhere, and double-click `BoosterLander.exe` (keep `booster-core.exe` beside it).
+- Controls: **drag** to orbit the external camera, **wheel** to zoom; set scenario / seed / run in the
+  top bar and press **RUN** to fly another. **WIND GUST**, **ENGINE OUT** and **THRUST LOSS** inject
+  failures mid-flight. The view stays third-person external so you always watch the booster land.
 - Unsigned build — SmartScreen may warn on first launch (*More info → Run anyway*).
 
 > **Coming soon: an Unreal Engine 5 client.** The telemetry protocol is renderer-agnostic by
